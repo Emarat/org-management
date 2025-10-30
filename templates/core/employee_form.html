@@ -1,0 +1,124 @@
+{% extends 'base.html' %} {% block title %}{{ title }} - Organization
+Management{% endblock %} {% block content %}
+<div class="content-header">
+  <h1><i class="fas fa-user-plus"></i> {{ title }}</h1>
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item">
+        <a href="{% url 'dashboard' %}">Dashboard</a>
+      </li>
+      <li class="breadcrumb-item">
+        <a href="{% url 'employee_list' %}">Employees</a>
+      </li>
+      <li class="breadcrumb-item active">{{ title }}</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row">
+  <div class="col-md-8 offset-md-2">
+    <div class="card">
+      <div class="card-header">Employee Information</div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.name.label }}</label>
+              {{ form.name }} {% if form.name.errors %}
+              <div class="text-danger">{{ form.name.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.employee_id.label }}</label>
+              {{ form.employee_id }} {% if form.employee_id.errors %}
+              <div class="text-danger">{{ form.employee_id.errors }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.position.label }}</label>
+              {{ form.position }} {% if form.position.errors %}
+              <div class="text-danger">{{ form.position.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.department.label }}</label>
+              {{ form.department }} {% if form.department.errors %}
+              <div class="text-danger">{{ form.department.errors }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.email.label }}</label>
+              {{ form.email }} {% if form.email.errors %}
+              <div class="text-danger">{{ form.email.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.phone.label }}</label>
+              {{ form.phone }} {% if form.phone.errors %}
+              <div class="text-danger">{{ form.phone.errors }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">{{ form.address.label }}</label>
+            {{ form.address }} {% if form.address.errors %}
+            <div class="text-danger">{{ form.address.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">{{ form.salary.label }}</label>
+              {{ form.salary }} {% if form.salary.errors %}
+              <div class="text-danger">{{ form.salary.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-4 mb-3">
+              <label class="form-label">{{ form.join_date.label }}</label>
+              {{ form.join_date }} {% if form.join_date.errors %}
+              <div class="text-danger">{{ form.join_date.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div class="col-md-4 mb-3">
+              <label class="form-label">{{ form.status.label }}</label>
+              {{ form.status }} {% if form.status.errors %}
+              <div class="text-danger">{{ form.status.errors }}</div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">{{ form.notes.label }}</label>
+            {{ form.notes }} {% if form.notes.errors %}
+            <div class="text-danger">{{ form.notes.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'employee_list' %}" class="btn btn-secondary">
+              <i class="fas fa-times"></i> Cancel
+            </a>
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-save"></i> Save Employee
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
