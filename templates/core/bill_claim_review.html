@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div
+          class="card-header {% if action == 'approve' %}bg-success{% else %}bg-danger{% endif %} text-white"
+        >
+          <h3 class="card-title">{{ title }}</h3>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6">
+              <table class="table">
+                <tr>
+                  <th>Claim ID:</th>
+                  <td>{{ bill_claim.id }}</td>
+                </tr>
+                <tr>
+                  <th>Employee:</th>
+                  <td>
+                    {{ bill_claim.submitter.get_full_name }} ({{
+                    bill_claim.submitter.username }})
+                  </td>
+                </tr>
+                <tr>
+                  <th>Amount:</th>
+                  <td>
+                    <strong>${{ bill_claim.amount|floatformat:2 }}</strong>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Bill Date:</th>
+                  <td>{{ bill_claim.bill_date }}</td>
+                </tr>
+                <tr>
+                  <th>Submitted On:</th>
+                  <td>{{ bill_claim.created_at|date:"M d, Y H:i" }}</td>
+                </tr>
+                <tr>
+                  <th>Status:</th>
+                  <td>
+                    <span class="badge bg-warning"
+                      >{{ bill_claim.get_status_display }}</span
+                    >
+                  </td>
+                </tr>
+              </table>
+            </div>
+            <div class="col-md-6">
+              <h5>Description:</h5>
+              <p class="border p-3">{{ bill_claim.description }}</p>
+
+              {% if bill_claim.attachment %}
+              <h5>Attachment:</h5>
+              <a
+                href="{{ bill_claim.attachment.url }}"
+                target="_blank"
+                class="btn btn-info"
+              >
+                <i class="fas fa-file"></i> View Bill/Receipt
+              </a>
+              {% endif %}
+            </div>
+          </div>
+
+          <hr />
+
+          <div
+            class="alert {% if action == 'approve' %}alert-success{% else %}alert-danger{% endif %}"
+          >
+            {% if action == 'approve' %}
+            <h5><i class="fas fa-check-circle"></i> Approve This Claim?</h5>
+            <p>
+              This will create an expense entry for ${{
+              bill_claim.amount|floatformat:2 }} and mark the claim as approved.
+            </p>
+            {% else %}
+            <h5><i class="fas fa-times-circle"></i> Reject This Claim?</h5>
+            <p>
+              This will mark the claim as rejected. This action cannot be undone
+              easily.
+            </p>
+            {% endif %}
+          </div>
+
+          <form method="post">
+            {% csrf_token %}
+            <div class="d-flex gap-2">
+              <button
+                type="submit"
+                class="btn {% if action == 'approve' %}btn-success{% else %}btn-danger{% endif %}"
+              >
+                {% if action == 'approve' %}
+                <i class="fas fa-check"></i> Confirm Approval {% else %}
+                <i class="fas fa-times"></i> Confirm Rejection {% endif %}
+              </button>
+              <a href="{% url 'list_bill_claims' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to List
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

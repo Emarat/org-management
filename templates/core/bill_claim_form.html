@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">{{ title }}</h3>
+        </div>
+        <div class="card-body">
+          <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="row">
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label"
+                    >Amount <span class="text-danger">*</span></label
+                  >
+                  {{ form.amount }} {% if form.amount.errors %}
+                  <div class="text-danger">{{ form.amount.errors }}</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label class="form-label"
+                    >Bill Date <span class="text-danger">*</span></label
+                  >
+                  {{ form.bill_date }} {% if form.bill_date.errors %}
+                  <div class="text-danger">{{ form.bill_date.errors }}</div>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label"
+                >Description <span class="text-danger">*</span></label
+              >
+              {{ form.description }} {% if form.description.errors %}
+              <div class="text-danger">{{ form.description.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div class="mb-3">
+              <label class="form-label">Upload Bill/Receipt</label>
+              {{ form.attachment }}
+              <small class="form-text text-muted"
+                >Upload scanned copy or photo of the bill/receipt</small
+              >
+              {% if form.attachment.errors %}
+              <div class="text-danger">{{ form.attachment.errors }}</div>
+              {% endif %}
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Submit Claim
+              </button>
+              <a href="{% url 'my_bill_claims' %}" class="btn btn-secondary">
+                <i class="fas fa-times"></i> Cancel
+              </a>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-danger text-white">
+          <h3 class="card-title">
+            <i class="fas fa-receipt"></i> Expense Details
+          </h3>
+          <div class="card-tools">
+            <a href="{% url 'expense_list' %}" class="btn btn-light btn-sm">
+              <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+          </div>
+        </div>
+        <div class="card-body">
+          <!-- Expense Information -->
+          <div class="row">
+            <div class="col-md-6">
+              <h5 class="border-bottom pb-2 mb-3">Expense Information</h5>
+              <table class="table table-borderless">
+                <tr>
+                  <th style="width: 150px">Date:</th>
+                  <td>{{ expense.date|date:"F d, Y" }}</td>
+                </tr>
+                <tr>
+                  <th>Category:</th>
+                  <td>
+                    <span class="badge bg-info">
+                      {{ expense.get_category_display }}
+                    </span>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Amount:</th>
+                  <td>
+                    <strong class="text-danger fs-4">
+                      ${{ expense.amount|floatformat:2 }}
+                    </strong>
+                  </td>
+                </tr>
+                <tr>
+                  <th>Paid To:</th>
+                  <td>{{ expense.paid_to|default:"-" }}</td>
+                </tr>
+                <tr>
+                  <th>Payment Method:</th>
+                  <td>{{ expense.payment_method|default:"-" }}</td>
+                </tr>
+                <tr>
+                  <th>Receipt Number:</th>
+                  <td>{{ expense.receipt_number|default:"-" }}</td>
+                </tr>
+                <tr>
+                  <th>Created:</th>
+                  <td>{{ expense.created_at|date:"M d, Y H:i" }}</td>
+                </tr>
+                {% if expense.updated_at %}
+                <tr>
+                  <th>Last Updated:</th>
+                  <td>{{ expense.updated_at|date:"M d, Y H:i" }}</td>
+                </tr>
+                {% endif %}
+              </table>
+            </div>
+
+            <div class="col-md-6">
+              <h5 class="border-bottom pb-2 mb-3">Description & Notes</h5>
+
+              <div class="mb-3">
+                <strong>Description:</strong>
+                <div class="border rounded p-3 bg-light mt-2">
+                  {{ expense.description|linebreaks }}
+                </div>
+              </div>
+
+              {% if expense.notes %}
+              <div class="mb-3">
+                <strong>Notes:</strong>
+                <div class="border rounded p-3 bg-light mt-2">
+                  {{ expense.notes|linebreaks }}
+                </div>
+              </div>
+              {% endif %}
+              {% if related_claim %}
+              <div class="alert alert-info mt-3">
+                <h6><i class="fas fa-link"></i> Related Bill Claim</h6>
+                <p class="mb-1">
+                  <strong>Claim ID:</strong> #{{ related_claim.id }}<br />
+                  <strong>Submitted by:</strong>
+                  {% if related_claim_submitter %}
+                    {{ related_claim_submitter }}
+                  {% elif related_claim.user %}
+                    {{ related_claim.user.username }}
+                  {% else %}
+                    -
+                  {% endif %}
+                  <br />
+                  <strong>Submission date:</strong>
+                  {% if related_claim.date %}
+                    {{ related_claim.date|date:"M d, Y" }}
+                  {% else %}
+                    -
+                  {% endif %}
+                  <br />
+                  <strong>Status:</strong>
+                  <span
+                    class="badge {% if related_claim.status == 'approved' %}badge-success{% elif related_claim.status == 'rejected' %}badge-danger{% else %}badge-warning{% endif %}"
+                  >
+                    {{ related_claim.get_status_display }}
+                  </span>
+                  <br />
+                  <strong>Approved by:</strong>
+                  {% if related_claim_approver %}
+                    {{ related_claim_approver }}
+                  {% elif related_claim.approved_by %}
+                    {{ related_claim.approved_by.username }}
+                  {% else %}
+                    -
+                  {% endif %}
+                  <br />
+                  <strong>Approval date:</strong>
+                  {% if related_claim_approval_date %}
+                    {{ related_claim_approval_date|date:"M d, Y" }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </p>
+                {% if related_claim.attachment %}
+                <a
+                  href="{{ related_claim.attachment.url }}"
+                  target="_blank"
+                  class="btn btn-sm btn-info mt-2"
+                >
+                  <i class="fas fa-file"></i> View Bill/Receipt
+                </a>
+                {% endif %}
+              </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <hr />
+
+          <!-- Action Buttons -->
+          <div class="d-flex gap-2">
+            {% if request.user.is_superuser or request.user.is_manager %}
+            <a
+              href="{% url 'expense_edit' expense.pk %}"
+              class="btn btn-warning"
+            >
+              <i class="fas fa-edit"></i> Edit
+            </a>
+            <a
+              href="{% url 'expense_delete' expense.pk %}"
+              class="btn btn-danger"
+            >
+              <i class="fas fa-trash"></i> Delete
+            </a>
+            {% endif %}
+            <a href="{% url 'expense_list' %}" class="btn btn-secondary">
+              <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

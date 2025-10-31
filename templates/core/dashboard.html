@@ -1,0 +1,285 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Organization Management{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+  <p class="text-muted">Overview of your organization</p>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row">
+  <div class="col-md-3">
+    <div class="card stat-card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div>
+            <h6 class="text-muted">Active Employees</h6>
+            <h2>{{ total_employees }}</h2>
+          </div>
+          <div class="align-self-center">
+            <i class="fas fa-users fa-3x text-primary"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card stat-card success">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div>
+            <h6 class="text-muted">Active Customers</h6>
+            <h2>{{ total_customers }}</h2>
+          </div>
+          <div class="align-self-center">
+            <i class="fas fa-user-tie fa-3x text-success"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card stat-card warning">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div>
+            <h6 class="text-muted">Inventory Items</h6>
+            <h2>{{ total_inventory_items }}</h2>
+            {% if low_stock_items > 0 %}
+            <small class="text-danger">{{ low_stock_items }} low stock</small>
+            {% endif %}
+          </div>
+          <div class="align-self-center">
+            <i class="fas fa-boxes fa-3x text-warning"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-3">
+    <div class="card stat-card danger">
+      <div class="card-body">
+        <div class="d-flex justify-content-between">
+          <div>
+            <h6 class="text-muted">Pending Payments</h6>
+            <h2>{{ pending_payments }}</h2>
+            <small class="text-muted"
+              >${{ total_pending_amount|floatformat:2 }}</small
+            >
+          </div>
+          <div class="align-self-center">
+            <i class="fas fa-money-bill-wave fa-3x text-danger"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Second Row Stats -->
+<div class="row mt-3">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body text-center">
+        <h6 class="text-muted">Total Inventory Value</h6>
+        <h3 class="text-success">${{ total_inventory_value|floatformat:2 }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body text-center">
+        <h6 class="text-muted">Monthly Expenses</h6>
+        <h3 class="text-primary">${{ monthly_expenses|floatformat:2 }}</h3>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body text-center">
+        <h6 class="text-muted">Overdue Payments</h6>
+        <h3 class="text-danger">{{ overdue_payments }}</h3>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row mt-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <i class="fas fa-receipt"></i> Recent Expenses
+      </div>
+      <div class="card-body">
+        {% if recent_expenses %}
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Category</th>
+                <th>Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for expense in recent_expenses %}
+              <tr>
+                <td>{{ expense.date }}</td>
+                <td>{{ expense.get_category_display }}</td>
+                <td class="text-danger">${{ expense.amount }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <a
+          href="{% url 'expense_list' %}"
+          class="btn btn-sm btn-outline-primary"
+          >View All</a
+        >
+        {% else %}
+        <p class="text-muted">No recent expenses</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">
+        <i class="fas fa-money-bill-wave"></i> Recent Payments
+      </div>
+      <div class="card-body">
+        {% if recent_payments %}
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Customer</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for payment in recent_payments %}
+              <tr>
+                <td>{{ payment.invoice_number }}</td>
+                <td>{{ payment.customer.name }}</td>
+                <td>
+                  {% if payment.status == 'completed' %}
+                  <span class="badge bg-success"
+                    >{{ payment.get_status_display }}</span
+                  >
+                  {% elif payment.status == 'pending' %}
+                  <span class="badge bg-warning"
+                    >{{ payment.get_status_display }}</span
+                  >
+                  {% else %}
+                  <span class="badge bg-danger"
+                    >{{ payment.get_status_display }}</span
+                  >
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <a
+          href="{% url 'payment_list' %}"
+          class="btn btn-sm btn-outline-primary"
+          >View All</a
+        >
+        {% else %}
+        <p class="text-muted">No recent payments</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Low Stock Alerts -->
+{% if low_stock_alerts %}
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card border-warning">
+      <div class="card-header bg-warning text-white">
+        <i class="fas fa-exclamation-triangle"></i> Low Stock Alerts
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Part Code</th>
+                <th>Part Name</th>
+                <th>Current Stock</th>
+                <th>Minimum Stock</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in low_stock_alerts %}
+              <tr>
+                <td>{{ item.part_code }}</td>
+                <td>{{ item.part_name }}</td>
+                <td class="text-danger">
+                  <strong>{{ item.quantity }}</strong>
+                </td>
+                <td>{{ item.minimum_stock }}</td>
+                <td>
+                  <a
+                    href="{% url 'inventory_edit' item.pk %}"
+                    class="btn btn-sm btn-warning"
+                  >
+                    <i class="fas fa-edit"></i> Update Stock
+                  </a>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <a href="{% url 'inventory_list' %}?low_stock=1" class="btn btn-warning"
+          >View All Low Stock Items</a
+        >
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Quick Actions -->
+<div class="row mt-4">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><i class="fas fa-bolt"></i> Quick Actions</div>
+      <div class="card-body">
+        <a href="{% url 'customer_add' %}" class="btn btn-success me-2 mb-2">
+          <i class="fas fa-user-tie"></i> Add Customer
+        </a>
+        <a href="{% url 'inventory_add' %}" class="btn btn-warning me-2 mb-2">
+          <i class="fas fa-box"></i> Add Inventory Item
+        </a>
+        <a href="{% url 'expense_add' %}" class="btn btn-danger me-2 mb-2">
+          <i class="fas fa-receipt"></i> Add Expense
+        </a>
+        <a href="{% url 'payment_add' %}" class="btn btn-info me-2 mb-2">
+          <i class="fas fa-money-bill"></i> Add Payment
+        </a>
+        <a href="{% url 'export_excel' %}" class="btn btn-secondary me-2 mb-2">
+          <i class="fas fa-file-excel"></i> Export to Excel
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

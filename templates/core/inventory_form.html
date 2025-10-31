@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Organization
+Management{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <h1><i class="fas fa-box"></i> {{ title }}</h1>
+</div>
+
+<div class="row">
+  <div class="col-md-8 offset-md-2">
+    <div class="card">
+      <div class="card-header">Inventory Item Information</div>
+      <div class="card-body">
+        <form method="post">
+          {% csrf_token %}
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.part_name.label }}</label>
+              {{ form.part_name }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.part_code.label }}</label>
+              {{ form.part_code }}
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.description.label }}</label>
+            {{ form.description }}
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.category.label }}</label>
+              {{ form.category }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.supplier.label }}</label>
+              {{ form.supplier }}
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">{{ form.quantity.label }}</label>
+              {{ form.quantity }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">{{ form.unit.label }}</label>
+              {{ form.unit }}
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">{{ form.unit_price.label }}</label>
+              {{ form.unit_price }}
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.location.label }}</label>
+              {{ form.location }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.minimum_stock.label }}</label>
+              {{ form.minimum_stock }}
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">{{ form.notes.label }}</label>
+            {{ form.notes }}
+          </div>
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'inventory_list' %}" class="btn btn-secondary"
+              ><i class="fas fa-times"></i> Cancel</a
+            >
+            <button type="submit" class="btn btn-warning">
+              <i class="fas fa-save"></i> Save Item
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

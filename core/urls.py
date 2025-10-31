@@ -1,0 +1,48 @@
+from django.urls import path
+from django.contrib.auth import views as auth_views
+from . import views
+
+urlpatterns = [
+    # Authentication
+    path('login/', auth_views.LoginView.as_view(template_name='core/login.html'), name='login'),
+    path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    
+    # Dashboard
+    path('', views.dashboard, name='dashboard'),
+    
+    # Customer URLs
+    path('customers/', views.customer_list, name='customer_list'),
+    path('customers/add/', views.customer_add, name='customer_add'),
+    path('customers/<int:pk>/edit/', views.customer_edit, name='customer_edit'),
+    path('customers/<int:pk>/delete/', views.customer_delete, name='customer_delete'),
+    
+    # Inventory URLs
+    path('inventory/', views.inventory_list, name='inventory_list'),
+    path('inventory/add/', views.inventory_add, name='inventory_add'),
+    path('inventory/<int:pk>/edit/', views.inventory_edit, name='inventory_edit'),
+    path('inventory/<int:pk>/delete/', views.inventory_delete, name='inventory_delete'),
+    
+    # Expense URLs
+    path('expenses/', views.expense_list, name='expense_list'),
+    path('expenses/add/', views.expense_add, name='expense_add'),
+    path('expenses/<int:pk>/', views.expense_detail, name='expense_detail'),
+    path('expenses/<int:pk>/edit/', views.expense_edit, name='expense_edit'),
+    path('expenses/<int:pk>/delete/', views.expense_delete, name='expense_delete'),
+    
+    # Payment URLs
+    path('payments/', views.payment_list, name='payment_list'),
+    path('payments/add/', views.payment_add, name='payment_add'),
+    path('payments/<int:pk>/edit/', views.payment_edit, name='payment_edit'),
+    path('payments/<int:pk>/delete/', views.payment_delete, name='payment_delete'),
+
+    # Bill Claim URLs
+    path('claims/', views.list_bill_claims, name='list_bill_claims'),
+    path('claims/my/', views.my_bill_claims, name='my_bill_claims'),
+    path('claims/submit/', views.submit_bill_claim, name='submit_bill_claim'),
+    path('claims/<int:pk>/approve/', views.approve_bill_claim, name='approve_bill_claim'),
+    path('claims/<int:pk>/reject/', views.reject_bill_claim, name='reject_bill_claim'),
+    
+    # Reports
+    path('reports/', views.reports, name='reports'),
+    path('reports/export-excel/', views.export_excel, name='export_excel'),
+]

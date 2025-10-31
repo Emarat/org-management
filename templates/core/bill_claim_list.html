@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">{{ title }}</h3>
+                    {% if not is_manager_view %}
+                    <div class="card-tools">
+                        <a href="{% url 'submit_bill_claim' %}" class="btn btn-primary btn-sm">
+                            <i class="fas fa-plus"></i> Submit New Claim
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <!-- Statistics (Manager View Only) -->
+                    {% if is_manager_view %}
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="alert alert-warning">
+                                <strong>Pending:</strong> ${{ total_pending|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-success">
+                                <strong>Approved:</strong> ${{ total_approved|floatformat:2 }}
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="alert alert-danger">
+                                <strong>Rejected:</strong> ${{ total_rejected|floatformat:2 }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Filters -->
+                    <form method="get" class="mb-3">
+                        <div class="row">
+                            {% if is_manager_view %}
+                            <div class="col-md-4">
+                                <input type="text" name="q" class="form-control" placeholder="Search by employee or description..." value="{{ query }}">
+                            </div>
+                            {% endif %}
+                            <div class="col-md-3">
+                                <select name="status" class="form-control">
+                                    <option value="">All Status</option>
+                                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                                    <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                                    <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-primary">Filter</button>
+                                <a href="{% if is_manager_view %}{% url 'list_bill_claims' %}{% else %}{% url 'my_bill_claims' %}{% endif %}" class="btn btn-secondary">Clear</a>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Claims Table -->
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    {% if is_manager_view %}
+                                    <th>Employee</th>
+                                    {% endif %}
+                                    <th>Bill Date</th>
+                                    <th>Amount</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                    <th>Submitted On</th>
+                                    {% if is_manager_view %}
+                                    <th>Reviewed By</th>
+                                    <th>Actions</th>
+                                    {% else %}
+                                    <th>Attachment</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for claim in bill_claims %}
+                                <tr>
+                                    <td>{{ claim.id }}</td>
+                                    {% if is_manager_view %}
+                                    <td>{{ claim.submitter.get_full_name }}</td>
+                                    {% endif %}
+                                    <td>{{ claim.bill_date }}</td>
+                                    <td>${{ claim.amount|floatformat:2 }}</td>
+                                    <td>{{ claim.description|truncatewords:10 }}</td>
+                                    <td>
+                                        {% if claim.status == 'pending' %}
+                                            <span class="badge bg-warning">Pending</span>
+                                        {% elif claim.status == 'approved' %}
+                                            <span class="badge bg-success">Approved</span>
+                                        {% elif claim.status == 'rejected' %}
+                                            <span class="badge bg-danger">Rejected</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ claim.created_at|date:"M d, Y" }}</td>
+                                    {% if is_manager_view %}
+                                    <td>
+                                        {% if claim.approved_by %}
+                                            {{ claim.approved_by.get_full_name }}<br>
+                                            <small>{{ claim.approval_date }}</small>
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if claim.status == 'pending' %}
+                                        <a href="{% url 'approve_bill_claim' claim.id %}" class="btn btn-success btn-sm" title="Approve">
+                                            <i class="fas fa-check"></i>
+                                        </a>
+                                        <a href="{% url 'reject_bill_claim' claim.id %}" class="btn btn-danger btn-sm" title="Reject">
+                                            <i class="fas fa-times"></i>
+                                        </a>
+                                        {% else %}
+                                            <span class="text-muted">Processed</span>
+                                        {% endif %}
+                                        {% if claim.attachment %}
+                                        <a href="{{ claim.attachment.url }}" target="_blank" class="btn btn-info btn-sm" title="View Attachment">
+                                            <i class="fas fa-file"></i>
+                                        </a>
+                                        {% endif %}
+                                    </td>
+                                    {% else %}
+                                    <td>
+                                        {% if claim.attachment %}
+                                        <a href="{{ claim.attachment.url }}" target="_blank" class="btn btn-info btn-sm">
+                                            <i class="fas fa-file"></i> View
+                                        </a>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="{% if is_manager_view %}9{% else %}7{% endif %}" class="text-center">
+                                        No bill claims found.
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }} - Organization Management{% endblock %}
+
+{% block content %}
+<div class="content-header">
+    <h1><i class="fas fa-file-invoice-dollar"></i> {{ title }}</h1>
+</div>
+
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-header">Bill Claim Details</div>
+            <div class="card-body">
+                <h5 class="card-title">Employee: {{ bill_claim.employee.name }}</h5>
+                <p class="card-text"><strong>Amount:</strong> ${{ bill_claim.amount|floatformat:2 }}</p>
+                <p class="card-text"><strong>Description:</strong> {{ bill_claim.description }}</p>
+                <p class="card-text"><strong>Bill Date:</strong> {{ bill_claim.bill_date }}</p>
+                <p class="card-text"><strong>Status:</strong> 
+                    {% if bill_claim.status == 'pending' %}
+                        <span class="badge bg-warning">{{ bill_claim.get_status_display }}</span>
+                    {% elif bill_claim.status == 'approved' %}
+                        <span class="badge bg-success">{{ bill_claim.get_status_display }}</span>
+                    {% else %}
+                        <span class="badge bg-danger">{{ bill_claim.get_status_display }}</span>
+                    {% endif %}
+                </p>
+                {% if bill_claim.attachment %}
+                    <p class="card-text"><strong>Attachment:</strong> <a href="{{ bill_claim.attachment.url }}" target="_blank">View Attachment</a></p>
+                {% endif %}
+
+                {% if bill_claim.status == 'pending' %}
+                <hr>
+                <h6>Manager Actions:</h6>
+                <form method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" name="action" value="approve" class="btn btn-success me-2">
+                        <i class="fas fa-check-circle"></i> Approve
+                    </button>
+                </form>
+                <form method="post" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" name="action" value="reject" class="btn btn-danger">
+                        <i class="fas fa-times-circle"></i> Reject
+                    </button>
+                </form>
+                {% elif bill_claim.status == 'approved' %}
+                    <p class="text-success mt-3">Approved by {{ bill_claim.approved_by.username }} on {{ bill_claim.approval_date }}</p>
+                    {% if bill_claim.expense %}
+                        <p>Linked to Expense: <a href="{% url 'expense_edit' bill_claim.expense.pk %}">#{{ bill_claim.expense.pk }}</a></p>
+                    {% endif %}
+                {% else %}
+                    <p class="text-danger mt-3">Rejected by {{ bill_claim.approved_by.username }} on {{ bill_claim.approval_date }}</p>
+                {% endif %}
+
+                <hr>
+                <a href="{% url 'list_bill_claims' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Back to Claims List</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
