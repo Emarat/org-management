@@ -4,23 +4,20 @@ Django settings for org_management project.
 
 from pathlib import Path
 import os
+import importlib.util
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-your-secret-key-change-this-in-production')
+SECRET_KEY = 'django-insecure-your-secret-key-change-this-in-production'
 
 # SECURITY WARNING: don't run with debug turned on in production!
+# Toggleable via env; defaults to True for local dev
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
 
-_default_hosts = 'localhost,127.0.0.1,testserver,.vercel.app'
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', _default_hosts).split(',') if h.strip()]
-
-# Optional: CSRF trusted origins for deployments (e.g., Vercel)
-_default_csrf = 'http://localhost,https://localhost'
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', _default_csrf).split(',') if o.strip()]
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
 
 
 # Application definition
@@ -38,8 +35,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    # Serve compressed static files directly from Django (useful on serverless like Vercel)
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -47,6 +42,12 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Enable WhiteNoise only when running in production (DEBUG=False) and package is installed
+_HAS_WHITENOISE = importlib.util.find_spec('whitenoise') is not None
+if not DEBUG and _HAS_WHITENOISE:
+    # Insert after SecurityMiddleware
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
 ROOT_URLCONF = 'org_management.urls'
 
@@ -124,8 +125,9 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Use WhiteNoise for efficient static file serving
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Use compressed manifest storage only in production when WhiteNoise is available
+if not DEBUG and _HAS_WHITENOISE:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
