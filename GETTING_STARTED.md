@@ -47,7 +47,29 @@ http://localhost:8000/
 
 ---
 
-## 📚 Documentation Files
+## � Environment Variables (.env)
+
+To avoid CSRF 403 errors and make configuration easy, copy the sample env file and adjust values:
+
+```bash
+cp .env.example .env
+```
+
+Key settings to review:
+
+- `DJANGO_DEBUG` — True for local development
+- `DJANGO_SECRET_KEY` — set to a strong, long random string (required for production)
+- `DJANGO_ALLOWED_HOSTS` — comma-separated hosts (e.g., `localhost,127.0.0.1,0.0.0.0`)
+- `CSRF_TRUSTED_ORIGINS` — comma-separated full origins including scheme and port (e.g., `http://localhost:8000,http://127.0.0.1:8000`)
+
+Notes:
+
+- If you access the site via a LAN IP like `http://192.168.x.y:8000`, add it to both `DJANGO_ALLOWED_HOSTS` and `CSRF_TRUSTED_ORIGINS` (as `http://192.168.x.y:8000`).
+- In development, the app already trusts common local origins by default, but setting `.env` keeps things explicit and avoids surprises.
+
+---
+
+## �📚 Documentation Files
 
 1. **QUICKSTART.md** - Fastest way to get started
 2. **README.md** - Complete installation & troubleshooting guide

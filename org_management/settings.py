@@ -6,18 +6,34 @@ from pathlib import Path
 import os
 import importlib.util
 
+# Load environment variables from .env if available (without hard import for linters)
+try:
+    _dotenv_spec = importlib.util.find_spec('dotenv')
+    if _dotenv_spec and _dotenv_spec.loader:
+        _dotenv = importlib.util.module_from_spec(_dotenv_spec)
+        _dotenv_spec.loader.exec_module(_dotenv)
+        _dotenv.load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / '.env')
+except Exception:
+    # Proceed without .env if python-dotenv isn't installed or file missing
+    pass
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-your-secret-key-change-this-in-production'
+# Prefer SECRET_KEY, fallback to legacy DJANGO_SECRET_KEY for compatibility
+SECRET_KEY = os.getenv('SECRET_KEY') or os.getenv('DJANGO_SECRET_KEY', 'django-insecure-your-secret-key-change-this-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Toggleable via env; defaults to True for local dev
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
+_env_allowed_hosts = os.getenv('ALLOWED_HOSTS', '') or os.getenv('DJANGO_ALLOWED_HOSTS', '')
+if _env_allowed_hosts.strip():
+    ALLOWED_HOSTS = [h.strip() for h in _env_allowed_hosts.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
 
 # Allow binding to 0.0.0.0 during local development (useful when running runserver 0.0.0.0:8000)
 try:
@@ -27,6 +43,28 @@ except NameError:
 
 if _is_debug and '0.0.0.0' not in ALLOWED_HOSTS:
     ALLOWED_HOSTS.append('0.0.0.0')
+
+# CSRF trusted origins
+# In development, trust common local origins to avoid CSRF failures when accessing via IP/host variants.
+# In production, set CSRF_TRUSTED_ORIGINS via env as a comma-separated list of full origins (scheme://host[:port]).
+_env_csrf_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '').strip()
+if _env_csrf_origins:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _env_csrf_origins.split(',') if o.strip()]
+elif DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost',
+        'http://localhost:8000',
+        'http://localhost:8001',
+        'http://localhost:8002',
+        'http://127.0.0.1',
+        'http://127.0.0.1:8000',
+        'http://127.0.0.1:8001',
+        'http://127.0.0.1:8002',
+        'http://0.0.0.0',
+        'http://0.0.0.0:8000',
+        'http://0.0.0.0:8001',
+        'http://0.0.0.0:8002',
+    ]
 
 
 # Application definition
