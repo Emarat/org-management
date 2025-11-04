@@ -19,6 +19,15 @@ DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
 
+# Allow binding to 0.0.0.0 during local development (useful when running runserver 0.0.0.0:8000)
+try:
+    _is_debug = DEBUG  # may be defined below; if not, fallback in except
+except NameError:
+    _is_debug = True
+
+if _is_debug and '0.0.0.0' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('0.0.0.0')
+
 
 # Application definition
 
