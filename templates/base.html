@@ -221,7 +221,7 @@
                   class="nav-link {% if request.resolver_match.url_name == 'submit_bill_claim' %}active{% endif %}"
                   href="{% url 'submit_bill_claim' %}"
                 >
-                  <i class="fas fa-file-upload"></i> Submit Claim
+                  <i class="fas fa-file-upload"></i> Submit Bill
                 </a>
               </li>
               <li class="nav-item">
@@ -229,7 +229,7 @@
                   class="nav-link {% if request.resolver_match.url_name == 'my_bill_claims' %}active{% endif %}"
                   href="{% url 'my_bill_claims' %}"
                 >
-                  <i class="fas fa-list-alt"></i> My Claims
+                  <i class="fas fa-list-alt"></i> My Bills
                 </a>
               </li>
               {% if user.is_manager or user.is_superuser %}
@@ -238,7 +238,7 @@
                   class="nav-link {% if request.resolver_match.url_name == 'list_bill_claims' %}active{% endif %}"
                   href="{% url 'list_bill_claims' %}"
                 >
-                  <i class="fas fa-clipboard-list"></i> Review Claims
+                  <i class="fas fa-clipboard-list"></i> Review Bills
                 </a>
               </li>
               {% endif %}
