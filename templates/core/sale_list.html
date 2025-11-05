@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block title %}Sales - OrgMS{% endblock %}
+{% block content %}
+<div class="content-header d-flex justify-content-between align-items-center">
+  <h1>Sales</h1>
+  {% if user.is_superuser or perms.core.add_sale %}
+    <a href="{% url 'sale_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> New Sale</a>
+  {% endif %}
+</div>
+
+<div class="card">
+  <div class="card-body">
+    <form method="get" class="row g-2 mb-3">
+      <div class="col-md-4">
+        <input type="text" class="form-control" name="q" placeholder="Search by sale no. or customer" value="{{ query }}">
+      </div>
+      <div class="col-md-3">
+        <select name="status" class="form-select">
+          <option value="">All Statuses</option>
+          <option value="draft" {% if status == 'draft' %}selected{% endif %}>Draft</option>
+          <option value="finalized" {% if status == 'finalized' %}selected{% endif %}>Finalized</option>
+          <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button class="btn btn-outline-secondary w-100" type="submit"><i class="fas fa-filter"></i> Filter</button>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Sale #</th>
+            <th>Customer</th>
+            <th>Status</th>
+            <th class="text-end">Total</th>
+            <th class="text-end">Paid</th>
+            <th class="text-end">Balance</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for sale in sales %}
+          <tr>
+            <td>{{ sale.sale_number }}</td>
+            <td>{{ sale.customer.name }}</td>
+            <td>
+              <span class="badge {% if sale.status == 'finalized' %}bg-success{% elif sale.status == 'draft' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                {{ sale.status|title }}
+              </span>
+            </td>
+            <td class="text-end">${{ sale.total_amount }}</td>
+            <td class="text-end">${{ sale.total_paid }}</td>
+            <td class="text-end">${{ sale.balance_due }}</td>
+            <td class="text-end">
+              <a href="{% url 'sale_detail' sale.pk %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i> View</a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="7" class="text-center">No sales found.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

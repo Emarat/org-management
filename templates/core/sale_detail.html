@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}Sale {{ sale.sale_number }} - OrgMS{% endblock %}
+{% block content %}
+<div class="content-header d-flex justify-content-between align-items-center">
+  <h1>Sale {{ sale.sale_number }}</h1>
+  <div>
+    {% if sale.status == 'draft' and (user.is_superuser or perms.core.finalize_sale) %}
+      <a href="{% url 'sale_finalize' sale.pk %}" class="btn btn-success" onclick="return confirm('Finalize this sale? This will decrease inventory.');">
+        <i class="fas fa-check"></i> Finalize
+      </a>
+    {% endif %}
+    <a href="{% url 'sale_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back</a>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Overview</div>
+      <div class="card-body">
+        <p><strong>Customer:</strong> {{ sale.customer.name }}</p>
+        <p><strong>Status:</strong> {{ sale.status|title }}</p>
+        <p><strong>Total:</strong> ${{ sale.total_amount }}</p>
+        <p><strong>Paid:</strong> ${{ sale.total_paid }} &nbsp; <strong>Balance:</strong> ${{ sale.balance_due }}</p>
+        {% if sale.finalized_at %}
+          <p><strong>Finalized:</strong> {{ sale.finalized_at }} by {{ sale.finalized_by }}</p>
+        {% endif %}
+        <p><strong>Notes:</strong> {{ sale.notes|default:'—' }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Items</span>
+        {% if sale.status == 'draft' and (user.is_superuser or perms.core.add_saleitem) %}
+          <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#addItemCollapse">
+            <i class="fas fa-plus"></i> Add Item
+          </button>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Description</th>
+                <th class="text-end">Qty</th>
+                <th class="text-end">Unit Price</th>
+                <th class="text-end">Line Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+              <tr>
+                <td>{{ item.item_type|title }}</td>
+                <td>
+                  {% if item.item_type == 'inventory' and item.inventory_item %}
+                    {{ item.inventory_item.part_name }} ({{ item.inventory_item.part_code }})
+                  {% else %}
+                    {{ item.description }}
+                  {% endif %}
+                </td>
+                <td class="text-end">{{ item.quantity }}</td>
+                <td class="text-end">${{ item.unit_price }}</td>
+                <td class="text-end">${{ item.line_total }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center">No items yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if add_item_form %}
+        <div class="collapse mt-3" id="addItemCollapse">
+          <form method="post" action="{% url 'sale_add_item' sale.pk %}">
+            {% csrf_token %}
+            <div class="row g-2">
+              <div class="col-md-3">{{ add_item_form.item_type.label_tag }} {{ add_item_form.item_type }}</div>
+              <div class="col-md-4">{{ add_item_form.inventory_item.label_tag }} {{ add_item_form.inventory_item }}</div>
+              <div class="col-md-5">{{ add_item_form.description.label_tag }} {{ add_item_form.description }}</div>
+              <div class="col-md-3">{{ add_item_form.quantity.label_tag }} {{ add_item_form.quantity }}</div>
+              <div class="col-md-3">{{ add_item_form.unit_price.label_tag }} {{ add_item_form.unit_price }}</div>
+            </div>
+            <div class="mt-2">
+              <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add</button>
+            </div>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

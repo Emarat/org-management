@@ -224,6 +224,16 @@
                   </a>
                 </li>
               {% endif %}
+              {% if user.is_superuser or perms.core.view_sales_menu %}
+                <li class="nav-item">
+                  <a
+                    class="nav-link {% if 'sale' in request.resolver_match.url_name %}active{% endif %}"
+                    href="{% url 'sale_list' %}"
+                  >
+                    <i class="fas fa-cart-shopping"></i> Sales
+                  </a>
+                </li>
+              {% endif %}
               {% if user.is_superuser or perms.core.submit_bill %}
                 <li class="nav-item">
                   <a

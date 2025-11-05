@@ -8,8 +8,8 @@ from django.db.models import Sum, Count, Q, F
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim
-from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem
+from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
@@ -594,3 +594,104 @@ def export_excel(request):
     wb.save(response)
     
     return response
+
+
+# =========================
+# Sales Views (minimal UI)
+# =========================
+
+from django.contrib.auth.decorators import permission_required
+
+
+@login_required
+@permission_required('core.view_sale', raise_exception=True)
+def sale_list(request):
+    query = request.GET.get('q', '')
+    status = request.GET.get('status', '')
+    sales = Sale.objects.select_related('customer').all().order_by('-created_at')
+    if query:
+        sales = sales.filter(
+            Q(sale_number__icontains=query) |
+            Q(customer__name__icontains=query) |
+            Q(customer__customer_id__icontains=query)
+        )
+    if status:
+        sales = sales.filter(status=status)
+    return render(request, 'core/sale_list.html', {'sales': sales, 'query': query, 'status': status})
+
+
+@login_required
+@permission_required('core.add_sale', raise_exception=True)
+def sale_create(request):
+    if request.method == 'POST':
+        form = SaleForm(request.POST)
+        if form.is_valid():
+            sale = form.save(commit=False)
+            sale.created_by = request.user
+            sale.save()
+            messages.success(request, 'Sale created. You can add items now.')
+            return redirect('sale_detail', pk=sale.pk)
+    else:
+        form = SaleForm()
+    return render(request, 'core/sale_form.html', {'form': form, 'title': 'Create Sale'})
+
+
+@login_required
+@permission_required('core.view_sale', raise_exception=True)
+def sale_detail(request, pk):
+    sale = get_object_or_404(Sale.objects.select_related('customer'), pk=pk)
+    items = sale.items.select_related('inventory_item').all()
+    add_item_form = None
+    if request.user.has_perm('core.add_saleitem') and sale.status == 'draft':
+        add_item_form = SaleItemForm()
+    context = {
+        'sale': sale,
+        'items': items,
+        'add_item_form': add_item_form,
+    }
+    return render(request, 'core/sale_detail.html', context)
+
+
+@login_required
+@permission_required('core.add_saleitem', raise_exception=True)
+def sale_add_item(request, pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    if sale.status != 'draft':
+        messages.warning(request, 'Cannot add items to a finalized sale.')
+        return redirect('sale_detail', pk=sale.pk)
+    if request.method == 'POST':
+        form = SaleItemForm(request.POST)
+        if form.is_valid():
+            item = form.save(commit=False)
+            item.sale = sale
+            # Basic validation: require description for non-inventory items
+            if item.item_type == 'non_inventory' and not item.description:
+                messages.error(request, 'Description is required for non-inventory items.')
+            else:
+                item.save()
+                messages.success(request, 'Item added to sale.')
+                return redirect('sale_detail', pk=sale.pk)
+        else:
+            for field, errs in form.errors.items():
+                for err in errs:
+                    messages.error(request, f"{field}: {err}")
+    return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
+@permission_required('core.finalize_sale', raise_exception=True)
+def sale_finalize(request, pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    if sale.status == 'finalized':
+        messages.info(request, 'Sale already finalized.')
+        return redirect('sale_detail', pk=sale.pk)
+    try:
+        low_stock = sale.finalize(user=request.user)
+        if low_stock:
+            names = ', '.join([f"{i.part_name} ({i.part_code})" for i in low_stock])
+            messages.warning(request, f"Finalized. Low stock: {names}")
+        else:
+            messages.success(request, 'Sale finalized successfully.')
+    except ValueError as e:
+        messages.error(request, str(e))
+    return redirect('sale_detail', pk=sale.pk)
