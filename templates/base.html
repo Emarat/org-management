@@ -184,55 +184,67 @@
                   <i class="fas fa-tachometer-alt"></i> Dashboard
                 </a>
               </li>
-              <li class="nav-item">
-                <a
-                  class="nav-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}"
-                  href="{% url 'customer_list' %}"
-                >
-                  <i class="fas fa-user-tie"></i> Customers
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  class="nav-link {% if 'inventory' in request.resolver_match.url_name %}active{% endif %}"
-                  href="{% url 'inventory_list' %}"
-                >
-                  <i class="fas fa-boxes"></i> Inventory
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  class="nav-link {% if 'expense' in request.resolver_match.url_name %}active{% endif %}"
-                  href="{% url 'expense_list' %}"
-                >
-                  <i class="fas fa-receipt"></i> Expenses
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  class="nav-link {% if 'payment' in request.resolver_match.url_name %}active{% endif %}"
-                  href="{% url 'payment_list' %}"
-                >
-                  <i class="fas fa-money-bill-wave"></i> Payments
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  class="nav-link {% if request.resolver_match.url_name == 'submit_bill_claim' %}active{% endif %}"
-                  href="{% url 'submit_bill_claim' %}"
-                >
-                  <i class="fas fa-file-upload"></i> Submit Bill
-                </a>
-              </li>
-              <li class="nav-item">
-                <a
-                  class="nav-link {% if request.resolver_match.url_name == 'my_bill_claims' %}active{% endif %}"
-                  href="{% url 'my_bill_claims' %}"
-                >
-                  <i class="fas fa-list-alt"></i> My Bills
-                </a>
-              </li>
-              {% if user.is_manager or user.is_superuser %}
+              {% if user.is_superuser or perms.core.view_customers_menu %}
+                <li class="nav-item">
+                  <a
+                    class="nav-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}"
+                    href="{% url 'customer_list' %}"
+                  >
+                    <i class="fas fa-user-tie"></i> Customers
+                  </a>
+                </li>
+              {% endif %}
+              {% if user.is_superuser or perms.core.view_inventory_menu %}
+                <li class="nav-item">
+                  <a
+                    class="nav-link {% if 'inventory' in request.resolver_match.url_name %}active{% endif %}"
+                    href="{% url 'inventory_list' %}"
+                  >
+                    <i class="fas fa-boxes"></i> Inventory
+                  </a>
+                </li>
+              {% endif %}
+              {% if user.is_superuser or perms.core.view_expenses_menu %}
+                <li class="nav-item">
+                  <a
+                    class="nav-link {% if 'expense' in request.resolver_match.url_name %}active{% endif %}"
+                    href="{% url 'expense_list' %}"
+                  >
+                    <i class="fas fa-receipt"></i> Expenses
+                  </a>
+                </li>
+              {% endif %}
+              {% if user.is_superuser or perms.core.view_payments_menu %}
+                <li class="nav-item">
+                  <a
+                    class="nav-link {% if 'payment' in request.resolver_match.url_name %}active{% endif %}"
+                    href="{% url 'payment_list' %}"
+                  >
+                    <i class="fas fa-money-bill-wave"></i> Payments
+                  </a>
+                </li>
+              {% endif %}
+              {% if user.is_superuser or perms.core.submit_bill %}
+                <li class="nav-item">
+                  <a
+                    class="nav-link {% if request.resolver_match.url_name == 'submit_bill_claim' %}active{% endif %}"
+                    href="{% url 'submit_bill_claim' %}"
+                  >
+                    <i class="fas fa-file-upload"></i> Submit Bill
+                  </a>
+                </li>
+              {% endif %}
+              {% if user.is_superuser or perms.core.view_my_bills %}
+                <li class="nav-item">
+                  <a
+                    class="nav-link {% if request.resolver_match.url_name == 'my_bill_claims' %}active{% endif %}"
+                    href="{% url 'my_bill_claims' %}"
+                  >
+                    <i class="fas fa-list-alt"></i> My Bills
+                  </a>
+                </li>
+              {% endif %}
+              {% if user.is_superuser or perms.core.review_bills %}
               <li class="nav-item">
                 <a
                   class="nav-link {% if request.resolver_match.url_name == 'list_bill_claims' %}active{% endif %}"
@@ -242,14 +254,16 @@
                 </a>
               </li>
               {% endif %}
-              <li class="nav-item">
-                <a
-                  class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}"
-                  href="{% url 'reports' %}"
-                >
-                  <i class="fas fa-chart-bar"></i> Reports
-                </a>
-              </li>
+              {% if user.is_superuser or perms.core.view_reports_menu %}
+                <li class="nav-item">
+                  <a
+                    class="nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}"
+                    href="{% url 'reports' %}"
+                  >
+                    <i class="fas fa-chart-bar"></i> Reports
+                  </a>
+                </li>
+              {% endif %}
               <li class="nav-item mt-4">
                 <a class="nav-link" href="{% url 'logout' %}">
                   <i class="fas fa-sign-out-alt"></i> Logout
