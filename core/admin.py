@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Customer, InventoryItem, Expense, Payment, StockHistory, BillClaim
+from .models import Customer, InventoryItem, Expense, Payment, StockHistory, BillClaim, Sale, SaleItem
 
 
 @admin.register(Customer)
@@ -160,6 +160,33 @@ class BillClaimAdmin(admin.ModelAdmin):
         if obj and not request.user.is_superuser and obj.submitter != request.user:
             return False
         return super().has_delete_permission(request, obj)
+
+
+class SaleItemInline(admin.TabularInline):
+    model = SaleItem
+    extra = 1
+    fields = ('item_type', 'inventory_item', 'description', 'quantity', 'unit_price', 'line_total')
+    readonly_fields = ('line_total',)
+
+
+@admin.register(Sale)
+class SaleAdmin(admin.ModelAdmin):
+    list_display = ['sale_number', 'customer', 'status', 'total_amount', 'created_at']
+    list_filter = ['status', 'created_at']
+    search_fields = ['sale_number', 'customer__name', 'customer__customer_id']
+    date_hierarchy = 'created_at'
+    list_per_page = 20
+    inlines = [SaleItemInline]
+    readonly_fields = ['sale_number', 'total_amount', 'created_at', 'updated_at']
+
+    fieldsets = (
+        ('Sale Info', {
+            'fields': ('customer', 'sale_number', 'status', 'expected_installments', 'created_by')
+        }),
+        ('Totals & Notes', {
+            'fields': ('total_amount', 'notes', 'created_at', 'updated_at')
+        }),
+    )
 
 
 # Customize admin site

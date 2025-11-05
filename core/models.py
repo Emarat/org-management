@@ -164,6 +164,88 @@ class Payment(models.Model):
         return self.paid_amount >= self.total_amount
 
 
+class Sale(models.Model):
+    """Sales order/invoice core model (covers inventory and non-inventory sales).
+    Minimal fields for initial review; totals can be recalculated from items.
+    """
+
+    STATUS_CHOICES = [
+        ("draft", "Draft"),
+        ("finalized", "Finalized"),
+        ("cancelled", "Cancelled"),
+    ]
+
+    customer = models.ForeignKey('Customer', on_delete=models.PROTECT, related_name='sales')
+    sale_number = models.CharField(max_length=100, unique=True, editable=False)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
+    expected_installments = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_sales')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Stored total for quick filtering; recomputed via recalc_total() when needed
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Sale'
+        verbose_name_plural = 'Sales'
+
+    def __str__(self):
+        return f"{self.sale_number} - {self.customer.name}"
+
+    def save(self, *args, **kwargs):
+        if not self.sale_number:
+            today = timezone.now()
+            self.sale_number = f"S-{today.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        super().save(*args, **kwargs)
+
+    def recalc_total(self, save=True):
+        total = sum((item.line_total for item in self.items.all()), start=0)
+        # Ensure Decimal type consistency
+        self.total_amount = total
+        if save:
+            super().save(update_fields=["total_amount", "updated_at"])
+
+
+class SaleItem(models.Model):
+    """Line items for a Sale, allowing inventory and non-inventory entries."""
+
+    ITEM_TYPE_CHOICES = [
+        ("inventory", "Inventory Item"),
+        ("non_inventory", "Non-Inventory Item"),
+    ]
+
+    sale = models.ForeignKey('Sale', on_delete=models.CASCADE, related_name='items')
+    item_type = models.CharField(max_length=20, choices=ITEM_TYPE_CHOICES)
+    inventory_item = models.ForeignKey('InventoryItem', on_delete=models.PROTECT, null=True, blank=True, related_name='sale_items')
+    description = models.CharField(max_length=255, blank=True, help_text="Required for non-inventory items")
+    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)], default=1)
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    line_total = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], default=0)
+
+    class Meta:
+        verbose_name = 'Sale Item'
+        verbose_name_plural = 'Sale Items'
+
+    def __str__(self):
+        label = self.inventory_item.part_name if (self.item_type == 'inventory' and self.inventory_item) else self.description
+        return f"{label} x {self.quantity}"
+
+    def save(self, *args, **kwargs):
+        # Auto-calc line total
+        self.line_total = (self.unit_price or 0) * (self.quantity or 0)
+        super().save(*args, **kwargs)
+        # Update parent sale total quickly
+        if self.sale_id:
+            try:
+                self.sale.recalc_total(save=True)
+            except Exception:
+                # Avoid breaking saves due to total recompute; can be recalculated later
+                pass
+
+
 class BillClaim(models.Model):
     """Model for Employee Bill Claims"""
     STATUS_CHOICES = [
