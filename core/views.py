@@ -9,7 +9,7 @@ from django.http import HttpResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
 from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem
-from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm
+from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
@@ -623,17 +623,57 @@ def sale_list(request):
 @login_required
 @permission_required('core.add_sale', raise_exception=True)
 def sale_create(request):
+    """Create a sale and first item on the same page.
+    For inventory item type, unit price is forced from selected inventory item.
+    For machine item type, accept machine_name + description.
+    """
     if request.method == 'POST':
-        form = SaleForm(request.POST)
-        if form.is_valid():
-            sale = form.save(commit=False)
-            sale.created_by = request.user
-            sale.save()
-            messages.success(request, 'Sale created. You can add items now.')
+        sale_form = SaleForm(request.POST)
+        item_form = CombinedSaleItemForm(request.POST)
+        if sale_form.is_valid() and item_form.is_valid():
+            from django.db import transaction
+            with transaction.atomic():
+                sale = sale_form.save(commit=False)
+                sale.created_by = request.user
+                sale.save()
+
+                cd = item_form.cleaned_data
+                if cd['item_type'] == 'inventory':
+                    inv = cd['inventory_item']
+                    unit_price = inv.unit_price
+                    desc = f"{inv.part_name} ({inv.part_code})"
+                    SaleItem.objects.create(
+                        sale=sale,
+                        item_type='inventory',
+                        inventory_item=inv,
+                        description=desc,
+                        quantity=cd['quantity'],
+                        unit_price=unit_price,
+                    )
+                else:
+                    # machine: merge name + description into one description field
+                    machine_label = cd.get('machine_name') or ''
+                    desc = f"{machine_label} - {cd.get('description') or ''}".strip(' -')
+                    SaleItem.objects.create(
+                        sale=sale,
+                        item_type='non_inventory',
+                        inventory_item=None,
+                        description=desc,
+                        quantity=cd['quantity'],
+                        unit_price=cd['unit_price'],
+                    )
+            messages.success(request, 'Sale created with first item. You can add more items if needed.')
             return redirect('sale_detail', pk=sale.pk)
+        else:
+            # Bubble up form errors to messages
+            for f in (sale_form, item_form):
+                for field, errs in f.errors.items():
+                    for err in errs:
+                        messages.error(request, f"{field}: {err}")
     else:
-        form = SaleForm()
-    return render(request, 'core/sale_form.html', {'form': form, 'title': 'Create Sale'})
+        sale_form = SaleForm()
+        item_form = CombinedSaleItemForm()
+    return render(request, 'core/sale_form.html', {'form': sale_form, 'item_form': item_form, 'title': 'Create Sale'})
 
 
 @login_required
@@ -668,6 +708,9 @@ def sale_add_item(request, pk):
             if item.item_type == 'non_inventory' and not item.description:
                 messages.error(request, 'Description is required for non-inventory items.')
             else:
+                # If inventory item selected, force unit price from inventory
+                if item.item_type == 'inventory' and item.inventory_item:
+                    item.unit_price = item.inventory_item.unit_price
                 item.save()
                 messages.success(request, 'Item added to sale.')
                 return redirect('sale_detail', pk=sale.pk)

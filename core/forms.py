@@ -1,5 +1,6 @@
 from django import forms
 from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem
+from django import forms
 
 
 class CustomerForm(forms.ModelForm):
@@ -110,3 +111,42 @@ class SaleItemForm(forms.ModelForm):
             'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
             'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
         }
+
+
+class CombinedSaleItemForm(forms.Form):
+    """Non-model form used on Create Sale page to capture the first line item.
+    Supports two item types:
+      - inventory: choose inventory_item; unit_price auto from inventory
+      - machine: provide machine_name, description, quantity, unit_price
+    """
+    ITEM_TYPE_CHOICES = [
+        ("inventory", "Inventory Item"),
+        ("machine", "Machine"),
+    ]
+
+    item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, widget=forms.Select(attrs={'class': 'form-control'}))
+    inventory_item = forms.ModelChoiceField(
+        queryset=InventoryItem.objects.all(), required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    machine_name = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    description = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    quantity = forms.IntegerField(min_value=1, initial=1, widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1}))
+    unit_price = forms.DecimalField(min_value=0, decimal_places=2, max_digits=12, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}))
+
+    def clean(self):
+        cleaned = super().clean()
+        item_type = cleaned.get('item_type')
+        inv = cleaned.get('inventory_item')
+        machine_name = cleaned.get('machine_name')
+        description = cleaned.get('description')
+        if item_type == 'inventory':
+            if not inv:
+                self.add_error('inventory_item', 'Select an inventory item')
+            # Price will be forced in view from inventory
+        elif item_type == 'machine':
+            if not machine_name:
+                self.add_error('machine_name', 'Machine name is required')
+            if not description:
+                self.add_error('description', 'Description is required')
+        return cleaned
