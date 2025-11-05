@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.core.validators import MinValueValidator
 from django.utils import timezone
 import uuid
@@ -183,6 +183,8 @@ class Sale(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_sales')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    finalized_at = models.DateTimeField(null=True, blank=True)
+    finalized_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='finalized_sales')
 
     # Stored total for quick filtering; recomputed via recalc_total() when needed
     total_amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], default=0)
@@ -216,6 +218,45 @@ class Sale(models.Model):
     @property
     def balance_due(self):
         return (self.total_amount or 0) - (self.total_paid or 0)
+
+    @transaction.atomic
+    def finalize(self, user=None):
+        """Finalize the sale by decrementing inventory for inventory items and logging stock history.
+        Raises ValueError if already finalized or insufficient stock.
+        Returns a list of items that are now low stock.
+        """
+        if self.status == 'finalized':
+            raise ValueError("Sale already finalized")
+
+        low_stock_items = []
+        for item in self.items.select_related('inventory_item'):
+            if item.item_type == 'inventory' and item.inventory_item:
+                inv = item.inventory_item
+                if inv.quantity < item.quantity:
+                    raise ValueError(f"Insufficient stock for {inv.part_name} ({inv.part_code}). Available: {inv.quantity}, required: {item.quantity}")
+                previous = inv.quantity
+                inv.quantity = previous - item.quantity
+                inv.save(update_fields=['quantity', 'updated_at'])
+
+                StockHistory.objects.create(
+                    item=inv,
+                    transaction_type='out',
+                    quantity=item.quantity,
+                    previous_quantity=previous,
+                    new_quantity=inv.quantity,
+                    reason=f"Sale {self.sale_number}",
+                    created_by=(getattr(user, 'username', '') or '')
+                )
+
+                if inv.is_low_stock:
+                    low_stock_items.append(inv)
+
+        self.status = 'finalized'
+        self.finalized_at = timezone.now()
+        if user is not None:
+            self.finalized_by = user
+        self.save(update_fields=['status', 'finalized_at', 'finalized_by', 'updated_at'])
+        return low_stock_items
 
 
 class SaleItem(models.Model):
