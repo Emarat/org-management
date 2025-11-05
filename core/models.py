@@ -208,6 +208,15 @@ class Sale(models.Model):
         if save:
             super().save(update_fields=["total_amount", "updated_at"])
 
+    @property
+    def total_paid(self):
+        agg = self.payments.aggregate(total=models.Sum('amount'))
+        return agg['total'] or 0
+
+    @property
+    def balance_due(self):
+        return (self.total_amount or 0) - (self.total_paid or 0)
+
 
 class SaleItem(models.Model):
     """Line items for a Sale, allowing inventory and non-inventory entries."""
@@ -244,6 +253,41 @@ class SaleItem(models.Model):
             except Exception:
                 # Avoid breaking saves due to total recompute; can be recalculated later
                 pass
+
+
+class SalePayment(models.Model):
+    """Payments made against a Sale. Each generates a receipt number."""
+
+    METHOD_CHOICES = [
+        ('cash', 'Cash'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('card', 'Card'),
+        ('cheque', 'Cheque'),
+        ('other', 'Other'),
+    ]
+
+    sale = models.ForeignKey('Sale', on_delete=models.CASCADE, related_name='payments')
+    receipt_number = models.CharField(max_length=100, unique=True, editable=False)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    payment_date = models.DateField(default=timezone.now)
+    method = models.CharField(max_length=30, choices=METHOD_CHOICES, default='cash')
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-payment_date', '-created_at']
+        verbose_name = 'Sale Payment'
+        verbose_name_plural = 'Sale Payments'
+
+    def __str__(self):
+        return f"{self.receipt_number} - {self.sale.sale_number}"
+
+    def save(self, *args, **kwargs):
+        if not self.receipt_number:
+            today = timezone.now()
+            self.receipt_number = f"RCPT-{today.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        super().save(*args, **kwargs)
 
 
 class BillClaim(models.Model):
