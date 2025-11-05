@@ -176,14 +176,16 @@
               <i class="fas fa-building"></i> OrgMS
             </a>
             <ul class="nav flex-column">
-              <li class="nav-item">
-                <a
-                  class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
-                  href="{% url 'dashboard' %}"
-                >
-                  <i class="fas fa-tachometer-alt"></i> Dashboard
-                </a>
-              </li>
+              {% if user.is_superuser or perms.core.view_dashboard_menu %}
+                <li class="nav-item">
+                  <a
+                    class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                    href="{% url 'dashboard' %}"
+                  >
+                    <i class="fas fa-tachometer-alt"></i> Dashboard
+                  </a>
+                </li>
+              {% endif %}
               {% if user.is_superuser or perms.core.view_customers_menu %}
                 <li class="nav-item">
                   <a

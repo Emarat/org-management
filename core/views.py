@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.views import redirect_to_login
 from functools import wraps
@@ -30,6 +30,7 @@ def manager_required(view_func):
 
 
 @login_required
+@permission_required('core.view_dashboard', raise_exception=True)
 def dashboard(request):
     """Dashboard with key metrics"""
     context = {
