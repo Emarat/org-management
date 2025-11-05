@@ -58,7 +58,7 @@ Acceptance notes
 
 6) Expenses with Running Balance and History
 - Show current balance (income from sales of parts and machines minus expenses).
-- When adding an expense, show the remaining balance after that expense.
+- When adding an expense,  show the remaining balance after that expense.
 - Maintain a history/ledger of balance changes (payments in, expenses out, adjustments).
 
 Acceptance notes
@@ -95,8 +95,8 @@ Acceptance notes
 - UI elements and routes are hidden/blocked based on permissions.
 
 Constraints & Assumptions (to confirm)
-- Currency is single for now (no multi-currency requirements stated).
-- Taxes/discounts not specified; if needed, define tax-rate and discount rules later.
+- Currency is single for now (no multi-currency requirements stated). -- no need
+- Taxes/discounts not specified; if needed, define tax-rate and discount rules later. --no need
 - Payments apply at the invoice level (not per-line allocation) unless specified otherwise.
 - PDF/print outputs may use existing libraries (reportlab) unless a different renderer is required.
 
