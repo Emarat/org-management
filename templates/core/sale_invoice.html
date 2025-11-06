@@ -58,6 +58,18 @@
       <div>
         <div class="label">Customer</div>
         <div class="value">{{ sale.customer.name }}</div>
+        {% if sale.customer.company %}
+          <div class="muted">{{ sale.customer.company }}</div>
+        {% endif %}
+        {% if sale.customer.address or sale.customer.city %}
+          <div class="muted">{{ sale.customer.address }}{% if sale.customer.city %}, {{ sale.customer.city }}{% endif %}</div>
+        {% endif %}
+        {% if sale.customer.phone %}
+          <div class="muted">Phone: {{ sale.customer.phone }}</div>
+        {% endif %}
+        {% if sale.customer.email %}
+          <div class="muted">Email: {{ sale.customer.email }}</div>
+        {% endif %}
       </div>
       <div>
         <div class="label">Status</div>
