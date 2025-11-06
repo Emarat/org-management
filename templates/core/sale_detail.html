@@ -141,11 +141,13 @@
                 <td class="text-end">${{ item.unit_price }}</td>
                 <td class="text-end">${{ item.line_total }}</td>
                 <td class="text-end">
-                  {% if sale.status == 'draft' and (user.is_superuser or perms.core.delete_saleitem) %}
-                    <form method="post" action="{% url 'sale_delete_item' sale.pk item.pk %}" style="display:inline;" onsubmit="return confirm('Remove this item?');">
-                      {% csrf_token %}
-                      <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
-                    </form>
+                  {% if sale.status == 'draft' %}
+                    {% if user.is_superuser or perms.core.delete_saleitem %}
+                      <form method="post" action="{% url 'sale_delete_item' sale.pk item.pk %}" style="display:inline;" onsubmit="return confirm('Remove this item?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                      </form>
+                    {% endif %}
                   {% endif %}
                 </td>
               </tr>
