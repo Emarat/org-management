@@ -32,10 +32,12 @@
     <div class="card mt-3">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>Payments</span>
-        {% if sale.status != 'cancelled' and (user.is_superuser or perms.core.add_salepayment) %}
-          <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#addPaymentCollapse">
-            <i class="fas fa-plus"></i> Add Payment
-          </button>
+        {% if sale.status != 'cancelled' %}
+          {% if user.is_superuser or perms.core.add_salepayment %}
+            <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#addPaymentCollapse">
+              <i class="fas fa-plus"></i> Add Payment
+            </button>
+          {% endif %}
         {% endif %}
       </div>
       <div class="card-body">
