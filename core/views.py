@@ -295,6 +295,7 @@ def expense_detail(request, pk):
 
 # Payment Views
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def payment_list(request):
     query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
@@ -327,6 +328,7 @@ def payment_list(request):
 
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def payment_add(request):
     if request.method == 'POST':
         form = PaymentForm(request.POST)
@@ -340,6 +342,7 @@ def payment_add(request):
 
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def payment_edit(request, pk):
     payment = get_object_or_404(Payment, pk=pk)
     if request.method == 'POST':
@@ -354,6 +357,7 @@ def payment_edit(request, pk):
 
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def payment_delete(request, pk):
     payment = get_object_or_404(Payment, pk=pk)
     if request.method == 'POST':

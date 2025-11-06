@@ -214,7 +214,7 @@
                   </a>
                 </li>
               {% endif %}
-              {% if user.is_superuser or perms.core.view_payments_menu %}
+              {% if user.is_superuser %}
                 <li class="nav-item">
                   <a
                     class="nav-link {% if 'payment' in request.resolver_match.url_name %}active{% endif %}"
