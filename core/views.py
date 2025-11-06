@@ -784,6 +784,45 @@ def sale_finalize(request, pk):
 
 
 @login_required
+@permission_required('core.delete_saleitem', raise_exception=True)
+def sale_delete_item(request, pk, item_pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    if sale.status != 'draft':
+        messages.warning(request, 'Cannot delete items from a finalized sale.')
+        return redirect('sale_detail', pk=sale.pk)
+    item = get_object_or_404(SaleItem, pk=item_pk, sale=sale)
+    if request.method == 'POST':
+        item.delete()
+        try:
+            sale.recalc_total(save=True)
+        except Exception:
+            pass
+        messages.success(request, 'Item removed from sale.')
+    return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
+@permission_required('core.view_salepayment', raise_exception=True)
+def sale_payments_export(request, pk):
+    import csv
+    from django.utils.encoding import smart_str
+    sale = get_object_or_404(Sale, pk=pk)
+    payments = sale.payments.all().order_by('-payment_date', '-created_at')
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{sale.sale_number}_payments.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Receipt', 'Date', 'Method', 'Amount'])
+    for p in payments:
+        writer.writerow([
+            smart_str(p.receipt_number),
+            p.payment_date,
+            smart_str(p.get_method_display()),
+            f"{p.amount}",
+        ])
+    return response
+
+
+@login_required
 @permission_required('core.add_salepayment', raise_exception=True)
 def sale_add_payment(request, pk):
     sale = get_object_or_404(Sale, pk=pk)

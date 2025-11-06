@@ -44,6 +44,11 @@
             </button>
           {% endif %}
         {% endif %}
+        {% if user.is_superuser or perms.core.view_salepayment %}
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'sale_payments_export' sale.pk %}">
+            <i class="fas fa-file-csv"></i> Export CSV
+          </a>
+        {% endif %}
       </div>
       <div class="card-body">
         <div class="table-responsive">
@@ -118,6 +123,7 @@
                 <th class="text-end">Qty</th>
                 <th class="text-end">Unit Price</th>
                 <th class="text-end">Line Total</th>
+                <th class="text-end"></th>
               </tr>
             </thead>
             <tbody>
@@ -134,9 +140,17 @@
                 <td class="text-end">{{ item.quantity }}</td>
                 <td class="text-end">${{ item.unit_price }}</td>
                 <td class="text-end">${{ item.line_total }}</td>
+                <td class="text-end">
+                  {% if sale.status == 'draft' and (user.is_superuser or perms.core.delete_saleitem) %}
+                    <form method="post" action="{% url 'sale_delete_item' sale.pk item.pk %}" style="display:inline;" onsubmit="return confirm('Remove this item?');">
+                      {% csrf_token %}
+                      <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                    </form>
+                  {% endif %}
+                </td>
               </tr>
               {% empty %}
-              <tr><td colspan="5" class="text-center">No items yet.</td></tr>
+              <tr><td colspan="6" class="text-center">No items yet.</td></tr>
               {% endfor %}
             </tbody>
           </table>
