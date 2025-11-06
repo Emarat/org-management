@@ -49,7 +49,9 @@ urlpatterns = [
     # Sales URLs
     path('sales/', views.sale_list, name='sale_list'),
     path('sales/new/', views.sale_create, name='sale_create'),
+    path('sales/new/quote/', views.sale_quote_create, name='sale_quote_create'),
     path('sales/<int:pk>/', views.sale_detail, name='sale_detail'),
+    path('sales/<int:pk>/convert/', views.sale_convert_to_invoice, name='sale_convert_to_invoice'),
     path('sales/<int:pk>/invoice/', views.sale_invoice, name='sale_invoice'),
     path('sales/<int:pk>/add-item/', views.sale_add_item, name='sale_add_item'),
     path('sales/<int:pk>/items/<int:item_pk>/delete/', views.sale_delete_item, name='sale_delete_item'),
