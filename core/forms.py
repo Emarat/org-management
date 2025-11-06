@@ -1,5 +1,5 @@
 from django import forms
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment
 from django import forms
 
 
@@ -149,3 +149,14 @@ class CombinedSaleItemForm(forms.Form):
             if not description:
                 self.add_error('description', 'Description is required')
         return cleaned
+
+
+class SalePaymentForm(forms.ModelForm):
+    class Meta:
+        model = SalePayment
+        fields = ['amount', 'payment_date', 'method']
+        widgets = {
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
+            'payment_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'method': forms.Select(attrs={'class': 'form-control'}),
+        }

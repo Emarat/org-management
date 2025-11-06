@@ -8,8 +8,8 @@ from django.db.models import Sum, Count, Q, F
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem
-from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment
+from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
@@ -681,13 +681,19 @@ def sale_create(request):
 def sale_detail(request, pk):
     sale = get_object_or_404(Sale.objects.select_related('customer'), pk=pk)
     items = sale.items.select_related('inventory_item').all()
+    payments = sale.payments.all()
     add_item_form = None
+    add_payment_form = None
     if request.user.has_perm('core.add_saleitem') and sale.status == 'draft':
         add_item_form = SaleItemForm()
+    if request.user.has_perm('core.add_salepayment') and sale.status != 'cancelled':
+        add_payment_form = SalePaymentForm()
     context = {
         'sale': sale,
         'items': items,
+        'payments': payments,
         'add_item_form': add_item_form,
+        'add_payment_form': add_payment_form,
     }
     return render(request, 'core/sale_detail.html', context)
 
@@ -738,3 +744,44 @@ def sale_finalize(request, pk):
     except ValueError as e:
         messages.error(request, str(e))
     return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
+@permission_required('core.add_salepayment', raise_exception=True)
+def sale_add_payment(request, pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    if sale.status == 'cancelled':
+        messages.warning(request, 'Cannot record payments for a cancelled sale.')
+        return redirect('sale_detail', pk=sale.pk)
+
+    if request.method == 'POST':
+        form = SalePaymentForm(request.POST)
+        if form.is_valid():
+            payment = form.save(commit=False)
+            payment.sale = sale
+            # Prevent overpayment beyond balance due
+            if payment.amount <= 0:
+                messages.error(request, 'Amount must be greater than zero.')
+            elif payment.amount > sale.balance_due:
+                messages.error(request, 'Payment exceeds remaining balance.')
+            else:
+                payment.save()
+                messages.success(request, f'Payment recorded. Receipt: {payment.receipt_number}')
+                return redirect('sale_detail', pk=sale.pk)
+        else:
+            for field, errs in form.errors.items():
+                for err in errs:
+                    messages.error(request, f"{field}: {err}")
+    return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
+@permission_required('core.view_salepayment', raise_exception=True)
+def sale_payment_receipt(request, sale_pk, payment_pk):
+    sale = get_object_or_404(Sale, pk=sale_pk)
+    payment = get_object_or_404(SalePayment, pk=payment_pk, sale=sale)
+    context = {
+        'sale': sale,
+        'payment': payment,
+    }
+    return render(request, 'core/sale_payment_receipt.html', context)
