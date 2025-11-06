@@ -109,6 +109,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.branding',
             ],
         },
     },
@@ -189,3 +190,11 @@ LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
+
+# Branding (used in printable documents)
+BRAND_NAME = os.getenv('BRAND_NAME', 'OrgMS')
+# Path under static/ e.g., 'logo.png' (optional)
+BRAND_LOGO_FILE = os.getenv('BRAND_LOGO_FILE', '')
+BRAND_ADDRESS = os.getenv('BRAND_ADDRESS', '')
+BRAND_PHONE = os.getenv('BRAND_PHONE', '')
+BRAND_EMAIL = os.getenv('BRAND_EMAIL', '')
