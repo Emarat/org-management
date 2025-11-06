@@ -384,3 +384,35 @@ class StockHistory(models.Model):
     
     def __str__(self):
         return f"{self.item.part_name} - {self.transaction_type} ({self.quantity})"
+
+
+class LedgerEntry(models.Model):
+    """Simple ledger to track credits (inflows) and debits (outflows).
+    Used for calculating current balance and auditing payments/expenses.
+    """
+
+    ENTRY_TYPES = [
+        ("credit", "Credit"),
+        ("debit", "Debit"),
+    ]
+
+    SOURCES = [
+        ("sale_payment", "Sale Payment"),
+        ("expense", "Expense"),
+        ("other", "Other"),
+    ]
+
+    timestamp = models.DateTimeField(auto_now_add=True)
+    entry_type = models.CharField(max_length=10, choices=ENTRY_TYPES)
+    source = models.CharField(max_length=20, choices=SOURCES, default="other")
+    reference = models.CharField(max_length=100, blank=True)
+    description = models.TextField(blank=True)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+
+    class Meta:
+        ordering = ["-timestamp"]
+        verbose_name = "Ledger Entry"
+        verbose_name_plural = "Ledger Entries"
+
+    def __str__(self):
+        return f"{self.timestamp:%Y-%m-%d %H:%M} {self.entry_type} {self.amount} ({self.source})"

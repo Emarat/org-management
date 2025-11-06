@@ -8,7 +8,7 @@ from django.db.models import Sum, Count, Q, F
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry
 from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -208,11 +208,16 @@ def expense_list(request):
             pass
     
     total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
+    # Current balance from ledger (credits - debits)
+    credit_total = LedgerEntry.objects.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
+    debit_total = LedgerEntry.objects.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
+    current_balance = (credit_total or 0) - (debit_total or 0)
     
     return render(request, 'core/expense_list.html', {
         'expenses': expenses, 
         'query': query,
-        'total_expenses': total_expenses
+        'total_expenses': total_expenses,
+        'balance': current_balance,
     })
 
 
@@ -221,7 +226,19 @@ def expense_add(request):
     if request.method == 'POST':
         form = ExpenseForm(request.POST)
         if form.is_valid():
-            form.save()
+            exp = form.save()
+            # Log to ledger as a debit (outflow)
+            try:
+                LedgerEntry.objects.create(
+                    entry_type='debit',
+                    source='expense',
+                    reference=f"EXP-{exp.id}",
+                    description=f"{exp.get_category_display()} - {exp.description[:80]}",
+                    amount=exp.amount,
+                )
+            except Exception:
+                # Do not block expense creation on ledger failure
+                pass
             messages.success(request, 'Expense added successfully!')
             return redirect('expense_list')
     else:
@@ -533,9 +550,15 @@ def reports(request):
         'overdue': Payment.objects.filter(status='overdue').count(),
     }
     
+    # Current balance from ledger
+    credit_total = LedgerEntry.objects.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
+    debit_total = LedgerEntry.objects.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
+    current_balance = (credit_total or 0) - (debit_total or 0)
+
     context = {
         'monthly_expenses': monthly_expenses,
         'payment_stats': payment_stats,
+        'balance': current_balance,
     }
     return render(request, 'core/reports.html', context)
 
@@ -842,6 +865,18 @@ def sale_add_payment(request, pk):
                 messages.error(request, 'Payment exceeds remaining balance.')
             else:
                 payment.save()
+                # Log to ledger as a credit (inflow)
+                try:
+                    LedgerEntry.objects.create(
+                        entry_type='credit',
+                        source='sale_payment',
+                        reference=payment.receipt_number,
+                        description=f"Payment for {sale.sale_number}",
+                        amount=payment.amount,
+                    )
+                except Exception:
+                    # Non-blocking on ledger write failure
+                    pass
                 messages.success(request, f'Payment recorded. Receipt: {payment.receipt_number}')
                 return redirect('sale_detail', pk=sale.pk)
         else:
@@ -861,3 +896,20 @@ def sale_payment_receipt(request, sale_pk, payment_pk):
         'payment': payment,
     }
     return render(request, 'core/sale_payment_receipt.html', context)
+
+
+@login_required
+@manager_required
+def ledger(request):
+    """Simple ledger listing showing credits and debits with current balance."""
+    entries = LedgerEntry.objects.all().order_by('-timestamp')
+    credit_total = entries.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
+    debit_total = entries.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
+    current_balance = (credit_total or 0) - (debit_total or 0)
+    context = {
+        'entries': entries,
+        'balance': current_balance,
+        'credit_total': credit_total,
+        'debit_total': debit_total,
+    }
+    return render(request, 'core/ledger.html', context)

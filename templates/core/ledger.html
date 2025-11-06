@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+{% block title %}Ledger - Organization Management{% endblock %}
+{% block content %}
+<div class="content-header d-flex justify-content-between align-items-center">
+  <div>
+    <h1><i class="fas fa-book"></i> Ledger</h1>
+    <p class="text-muted">Credits and debits overview</p>
+  </div>
+  <div class="text-end">
+    <div class="mb-1">Current Balance: <strong>${{ balance|default:0|floatformat:2 }}</strong></div>
+    <div class="small">
+      <span class="me-3 text-success">Total Credits: ${{ credit_total|default:0|floatformat:2 }}</span>
+      <span class="text-danger">Total Debits: ${{ debit_total|default:0|floatformat:2 }}</span>
+    </div>
+  </div>
+ </div>
+<div class="card">
+  <div class="card-body">
+    {% if entries %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Source</th>
+            <th>Reference</th>
+            <th>Description</th>
+            <th class="text-end">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entries %}
+          <tr>
+            <td>{{ e.timestamp|date:"Y-m-d H:i" }}</td>
+            <td>
+              {% if e.entry_type == 'credit' %}
+                <span class="badge bg-success">Credit</span>
+              {% else %}
+                <span class="badge bg-danger">Debit</span>
+              {% endif %}
+            </td>
+            <td>{{ e.get_source_display }}</td>
+            <td>{{ e.reference|default:'-' }}</td>
+            <td>{{ e.description|default:'-' }}</td>
+            <td class="text-end">
+              {% if e.entry_type == 'credit' %}
+                <span class="text-success">+${{ e.amount|floatformat:2 }}</span>
+              {% else %}
+                <span class="text-danger">-${{ e.amount|floatformat:2 }}</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+      <i class="fas fa-book fa-4x text-muted mb-3"></i>
+      <p class="text-muted">No ledger entries yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
