@@ -11,6 +11,11 @@
         </a>
       {% endif %}
     {% endif %}
+    {% if user.is_superuser or perms.core.view_sale %}
+      <a href="{% url 'sale_invoice' sale.pk %}" target="_blank" class="btn btn-outline-primary">
+        <i class="fas fa-print"></i> Print Invoice
+      </a>
+    {% endif %}
     <a href="{% url 'sale_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back</a>
   </div>
 </div>
@@ -157,4 +162,24 @@
     </div>
   </div>
 </div>
+{% if inventory_prices %}
+  {{ inventory_prices|json_script:"inv_prices_data_detail" }}
+  <script>
+    (function(){
+      function onInvChange(){
+        var map = {};
+        try { var el = document.getElementById('inv_prices_data_detail'); if (el) map = JSON.parse(el.textContent); } catch(e){}
+        var sel = document.querySelector('#addItemCollapse select[name="inventory_item"]');
+        var priceEl = document.querySelector('#addItemCollapse input[name="unit_price"]');
+        if (!sel || !priceEl) return;
+        var id = sel.value;
+        if (id && map[id] !== undefined) { priceEl.value = map[id]; }
+      }
+      document.addEventListener('DOMContentLoaded', function(){
+        var sel = document.querySelector('#addItemCollapse select[name="inventory_item"]');
+        if (sel) sel.addEventListener('change', onInvChange);
+      });
+    })();
+  </script>
+{% endif %}
 {% endblock %}

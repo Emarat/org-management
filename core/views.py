@@ -677,7 +677,19 @@ def sale_create(request):
     else:
         sale_form = SaleForm()
         item_form = CombinedSaleItemForm()
-    return render(request, 'core/sale_form.html', {'form': sale_form, 'item_form': item_form, 'title': 'Create Sale'})
+    # Provide inventory prices for client-side autofill
+    inv_qs = None
+    try:
+        inv_qs = item_form.fields['inventory_item'].queryset
+    except Exception:
+        inv_qs = InventoryItem.objects.none()
+    inventory_prices = {str(i.id): float(i.unit_price) for i in inv_qs}
+    return render(request, 'core/sale_form.html', {
+        'form': sale_form,
+        'item_form': item_form,
+        'title': 'Create Sale',
+        'inventory_prices': inventory_prices,
+    })
 
 
 @login_required
@@ -692,14 +704,35 @@ def sale_detail(request, pk):
         add_item_form = SaleItemForm()
     if request.user.has_perm('core.add_salepayment') and sale.status != 'cancelled':
         add_payment_form = SalePaymentForm()
+    # Inventory prices for client-side autofill in add-item form
+    inv_qs = None
+    if add_item_form:
+        try:
+            inv_qs = add_item_form.fields['inventory_item'].queryset
+        except Exception:
+            inv_qs = InventoryItem.objects.none()
+    inventory_prices = {str(i.id): float(i.unit_price) for i in (inv_qs or [])}
     context = {
         'sale': sale,
         'items': items,
         'payments': payments,
         'add_item_form': add_item_form,
         'add_payment_form': add_payment_form,
+        'inventory_prices': inventory_prices,
     }
     return render(request, 'core/sale_detail.html', context)
+
+
+@login_required
+@permission_required('core.view_sale', raise_exception=True)
+def sale_invoice(request, pk):
+    sale = get_object_or_404(Sale.objects.select_related('customer'), pk=pk)
+    items = sale.items.select_related('inventory_item').all()
+    context = {
+        'sale': sale,
+        'items': items,
+    }
+    return render(request, 'core/sale_invoice.html', context)
 
 
 @login_required

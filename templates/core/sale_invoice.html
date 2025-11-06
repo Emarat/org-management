@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Invoice {{ sale.sale_number }} - OrgMS</title>
+  <style>
+    :root { --text:#111; --muted:#666; --border:#ddd; --accent:#2c3e50; }
+    html, body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color:var(--text); margin:0; padding:0; background:#fff; }
+    .page { max-width: 900px; margin: 16px auto; padding: 16px 20px; }
+    .header { display:flex; align-items:center; justify-content:space-between; }
+    .title { font-size: 22px; font-weight: 700; }
+    .muted { color: var(--muted); }
+    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-top: 10px; }
+    .label { color: var(--muted); font-size: 12px; }
+    .value { font-weight: 600; }
+    hr { border:0; border-top:1px solid var(--border); margin: 16px 0; }
+    .actions { text-align:right; margin: 8px 0; }
+    .btn { border:1px solid var(--border); background:#f7f7f7; color:var(--text); padding:6px 10px; border-radius:6px; cursor:pointer; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--border); text-align:left; padding:8px; font-size: 14px; }
+    th { background:#fafafa; }
+    .text-end { text-align:right; }
+    .totals { display:flex; gap:16px; justify-content:flex-end; margin-top: 8px; }
+    .totals .box { border:1px solid var(--border); border-radius:8px; padding:8px 12px; min-width: 180px; }
+    .badge { display:inline-block; border:1px solid var(--border); border-radius: 999px; padding:2px 8px; font-size: 12px; }
+    .badge.finalized { border-color: #27ae60; color: #27ae60; }
+    .badge.draft { border-color: #f39c12; color: #f39c12; }
+    .badge.cancelled { border-color: #e74c3c; color: #e74c3c; }
+    @media print { .actions { display:none !important; } @page { size: A4; margin: 12mm; } .page { margin:0; padding:0; } }
+  </style>
+  <script>
+    window.addEventListener('load', function(){ window.print(); });
+  </script>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <div class="title">Invoice {{ sale.sale_number }}</div>
+      <div class="actions"><button class="btn" onclick="window.print()">Print</button></div>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="label">Customer</div>
+        <div class="value">{{ sale.customer.name }}</div>
+      </div>
+      <div>
+        <div class="label">Status</div>
+        <div>
+          <span class="badge {% if sale.status == 'finalized' %}finalized{% elif sale.status == 'cancelled' %}cancelled{% else %}draft{% endif %}">{{ sale.status|title }}</span>
+        </div>
+      </div>
+      <div>
+        <div class="label">Created</div>
+        <div class="value">{{ sale.created_at }}</div>
+      </div>
+      {% if sale.finalized_at %}
+      <div>
+        <div class="label">Finalized</div>
+        <div class="value">{{ sale.finalized_at }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <hr />
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 15%">Type</th>
+          <th>Description</th>
+          <th class="text-end" style="width: 10%">Qty</th>
+          <th class="text-end" style="width: 15%">Unit Price</th>
+          <th class="text-end" style="width: 15%">Line Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td>{{ item.item_type|title }}</td>
+          <td>
+            {% if item.item_type == 'inventory' and item.inventory_item %}
+              {{ item.inventory_item.part_name }} ({{ item.inventory_item.part_code }})
+            {% else %}
+              {{ item.description }}
+            {% endif %}
+          </td>
+          <td class="text-end">{{ item.quantity }}</td>
+          <td class="text-end">${{ item.unit_price }}</td>
+          <td class="text-end">${{ item.line_total }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-end">No items.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="totals">
+      <div class="box">
+        <div class="label">Total</div>
+        <div class="value">${{ sale.total_amount }}</div>
+      </div>
+      <div class="box">
+        <div class="label">Paid</div>
+        <div class="value">${{ sale.total_paid }}</div>
+      </div>
+      <div class="box">
+        <div class="label">Balance Due</div>
+        <div class="value">${{ sale.balance_due }}</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

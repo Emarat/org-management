@@ -33,9 +33,17 @@
   </div>
   </div>
 
+{% if inventory_prices %}
+  {{ inventory_prices|json_script:"inv_prices_data" }}
+{% endif %}
 <script>
   (function() {
     function $(id){ return document.getElementById(id); }
+    var INVENTORY_PRICES = {};
+    try {
+      var el = document.getElementById('inv_prices_data');
+      if (el) { INVENTORY_PRICES = JSON.parse(el.textContent); }
+    } catch (e) {}
     function onTypeChange() {
       var type = document.querySelector('select[name="item_type"]').value;
       var invWrap = $('inventoryItemWrap');
@@ -50,12 +58,7 @@
         descWrap.style.display = 'none';
         // Read-only price; autofill from inventory change
         priceInput.readOnly = true;
-        if (invSelect && invSelect.options.length > 0) {
-          // If current selection has data-price attribute, use it; fallback server will enforce
-          var selected = invSelect.options[invSelect.selectedIndex];
-          var p = selected ? selected.getAttribute('data-price') : null;
-          if (p) priceInput.value = p;
-        }
+        if (invSelect) { onInventoryChange(); }
       } else {
         invWrap.style.display = 'none';
         nameWrap.style.display = '';
@@ -68,9 +71,10 @@
       var invSelect = document.querySelector('select[name="inventory_item"]');
       var priceInput = document.querySelector('input[name="unit_price"]');
       if (!invSelect) return;
-      var selected = invSelect.options[invSelect.selectedIndex];
-      var p = selected ? selected.getAttribute('data-price') : null;
-      if (p) priceInput.value = p;
+      var val = invSelect.value;
+      if (val && INVENTORY_PRICES[val] !== undefined) {
+        priceInput.value = INVENTORY_PRICES[val];
+      }
     }
 
     document.addEventListener('DOMContentLoaded', function() {
