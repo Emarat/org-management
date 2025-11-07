@@ -113,8 +113,8 @@
     {% endif %}
   </div>
 </div>
-{% if perms.core.add_customer %}
+{% if request.user.is_authenticated %}
   {% url 'customer_add' as customer_add_url %}
-  {% include 'partials/fab_add.html' with url=customer_add_url label='Add Customer' icon='fa-user-plus' %}
+  {% include 'partials/fab_add.html' with url=customer_add_url label='Add Customer' icon='fa-user-plus' btn_class='btn-success' %}
 {% endif %}
 {% endblock %}

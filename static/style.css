@@ -49,7 +49,23 @@
   z-index: 1030; /* above cards, below modals */
 }
 
-.fab-add .btn {
+.fab-add .fab-btn {
   border-radius: 9999px;
-  padding: 0.75rem 1.1rem;
+  padding: 0.85rem 1.25rem;
+  font-weight: 600;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.fab-add .fab-btn:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+}
+
+@media (max-width: 768px) {
+  .fab-add {
+    right: 16px;
+    bottom: 16px;
+  }
+  .fab-add .fab-btn span { display: none; }
 }

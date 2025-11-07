@@ -89,6 +89,6 @@
 </div>
 {% if perms.core.add_sale %}
   {% url 'sale_create' as sale_create_url %}
-  {% include 'partials/fab_add.html' with url=sale_create_url label='New Sale' icon='fa-plus' %}
+  {% include 'partials/fab_add.html' with url=sale_create_url label='New Sale' icon='fa-plus' btn_class='btn-primary' %}
 {% endif %}
 {% endblock %}
