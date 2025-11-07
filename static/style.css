@@ -44,8 +44,8 @@
 /* Floating Add Button */
 .fab-add {
   position: fixed;
+  top: 80px; /* below any navbar */
   right: 24px;
-  bottom: 24px;
   z-index: 1030; /* above cards, below modals */
 }
 
@@ -53,19 +53,39 @@
   border-radius: 9999px;
   padding: 0.85rem 1.25rem;
   font-weight: 600;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.25);
-  transition: transform .2s ease, box-shadow .2s ease;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .fab-add .fab-btn:hover {
   transform: translateY(-4px);
-  box-shadow: 0 10px 24px rgba(0,0,0,0.35);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 
 @media (max-width: 768px) {
   .fab-add {
-    right: 16px;
-    bottom: 16px;
+    right: 12px;
+    top: 70px;
   }
-  .fab-add .fab-btn span { display: none; }
+  .fab-add .fab-btn span {
+    display: none;
+  }
+}
+
+/* Stacked FAB group (multiple actions) */
+.fab-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  z-index: 1030;
+}
+
+@media (max-width: 768px) {
+  .fab-stack {
+    right: 12px;
+    top: 70px;
+  }
 }

@@ -115,7 +115,9 @@
   </div>
 </div>
 {% if request.user.is_authenticated %}
-  {% url 'inventory_add' as inventory_add_url %}
-  {% include 'partials/fab_add.html' with url=inventory_add_url label='Add Item' icon='fa-box' btn_class='btn-warning' %}
+  <div class="fab-stack">
+    {% url 'inventory_add' as inventory_add_url %}
+    {% include 'partials/fab_add.html' with url=inventory_add_url label='Add Item' icon='fa-box' btn_class='btn-warning' %}
+  </div>
 {% endif %}
 {% endblock %}

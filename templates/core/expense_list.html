@@ -110,7 +110,9 @@
   </div>
 </div>
   {% if request.user.is_superuser or request.user.is_manager %}
-    {% url 'expense_add' as expense_add_url %}
-    {% include 'partials/fab_add.html' with url=expense_add_url label='Add Expense' icon='fa-receipt' btn_class='btn-danger' %}
+    <div class="fab-stack">
+      {% url 'expense_add' as expense_add_url %}
+      {% include 'partials/fab_add.html' with url=expense_add_url label='Add Expense' icon='fa-receipt' btn_class='btn-danger' %}
+    </div>
   {% endif %}
 {% endblock %}
