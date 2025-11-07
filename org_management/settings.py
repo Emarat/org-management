@@ -4,23 +4,67 @@ Django settings for org_management project.
 
 from pathlib import Path
 import os
+import importlib.util
+
+# Load environment variables from .env if available (without hard import for linters)
+try:
+    _dotenv_spec = importlib.util.find_spec('dotenv')
+    if _dotenv_spec and _dotenv_spec.loader:
+        _dotenv = importlib.util.module_from_spec(_dotenv_spec)
+        _dotenv_spec.loader.exec_module(_dotenv)
+        _dotenv.load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / '.env')
+except Exception:
+    # Proceed without .env if python-dotenv isn't installed or file missing
+    pass
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-your-secret-key-change-this-in-production')
+# Prefer SECRET_KEY, fallback to legacy DJANGO_SECRET_KEY for compatibility
+SECRET_KEY = os.getenv('SECRET_KEY') or os.getenv('DJANGO_SECRET_KEY', 'django-insecure-your-secret-key-change-this-in-production')
 
 # SECURITY WARNING: don't run with debug turned on in production!
+# Toggleable via env; defaults to True for local dev
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
 
-_default_hosts = 'localhost,127.0.0.1,testserver,.vercel.app'
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('DJANGO_ALLOWED_HOSTS', _default_hosts).split(',') if h.strip()]
+_env_allowed_hosts = os.getenv('ALLOWED_HOSTS', '') or os.getenv('DJANGO_ALLOWED_HOSTS', '')
+if _env_allowed_hosts.strip():
+    ALLOWED_HOSTS = [h.strip() for h in _env_allowed_hosts.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', 'testserver']
 
-# Optional: CSRF trusted origins for deployments (e.g., Vercel)
-_default_csrf = 'http://localhost,https://localhost'
-CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS', _default_csrf).split(',') if o.strip()]
+# Allow binding to 0.0.0.0 during local development (useful when running runserver 0.0.0.0:8000)
+try:
+    _is_debug = DEBUG  # may be defined below; if not, fallback in except
+except NameError:
+    _is_debug = True
+
+if _is_debug and '0.0.0.0' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('0.0.0.0')
+
+# CSRF trusted origins
+# In development, trust common local origins to avoid CSRF failures when accessing via IP/host variants.
+# In production, set CSRF_TRUSTED_ORIGINS via env as a comma-separated list of full origins (scheme://host[:port]).
+_env_csrf_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '').strip()
+if _env_csrf_origins:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _env_csrf_origins.split(',') if o.strip()]
+elif DEBUG:
+    CSRF_TRUSTED_ORIGINS = [
+        'http://localhost',
+        'http://localhost:8000',
+        'http://localhost:8001',
+        'http://localhost:8002',
+        'http://127.0.0.1',
+        'http://127.0.0.1:8000',
+        'http://127.0.0.1:8001',
+        'http://127.0.0.1:8002',
+        'http://0.0.0.0',
+        'http://0.0.0.0:8000',
+        'http://0.0.0.0:8001',
+        'http://0.0.0.0:8002',
+    ]
 
 
 # Application definition
@@ -38,8 +82,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    # Serve compressed static files directly from Django (useful on serverless like Vercel)
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -47,6 +89,12 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Enable WhiteNoise only when running in production (DEBUG=False) and package is installed
+_HAS_WHITENOISE = importlib.util.find_spec('whitenoise') is not None
+if not DEBUG and _HAS_WHITENOISE:
+    # Insert after SecurityMiddleware
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 
 ROOT_URLCONF = 'org_management.urls'
 
@@ -61,6 +109,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.branding',
             ],
         },
     },
@@ -124,8 +173,9 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Use WhiteNoise for efficient static file serving
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Use compressed manifest storage only in production when WhiteNoise is available
+if not DEBUG and _HAS_WHITENOISE:
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
 MEDIA_URL = '/media/'
@@ -140,3 +190,11 @@ LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
+
+# Branding (used in printable documents)
+BRAND_NAME = os.getenv('BRAND_NAME', 'OrgMS')
+# Path under static/ e.g., 'logo.png' (optional)
+BRAND_LOGO_FILE = os.getenv('BRAND_LOGO_FILE', '')
+BRAND_ADDRESS = os.getenv('BRAND_ADDRESS', '')
+BRAND_PHONE = os.getenv('BRAND_PHONE', '')
+BRAND_EMAIL = os.getenv('BRAND_EMAIL', '')

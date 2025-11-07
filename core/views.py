@@ -8,8 +8,8 @@ from django.db.models import Sum, Count, Q, F
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim
-from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment
+from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
@@ -295,6 +295,7 @@ def expense_detail(request, pk):
 
 # Payment Views
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def payment_list(request):
     query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
@@ -327,6 +328,7 @@ def payment_list(request):
 
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def payment_add(request):
     if request.method == 'POST':
         form = PaymentForm(request.POST)
@@ -340,6 +342,7 @@ def payment_add(request):
 
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def payment_edit(request, pk):
     payment = get_object_or_404(Payment, pk=pk)
     if request.method == 'POST':
@@ -354,6 +357,7 @@ def payment_edit(request, pk):
 
 
 @login_required
+@user_passes_test(lambda u: u.is_superuser)
 def payment_delete(request, pk):
     payment = get_object_or_404(Payment, pk=pk)
     if request.method == 'POST':
@@ -594,3 +598,266 @@ def export_excel(request):
     wb.save(response)
     
     return response
+
+
+# =========================
+# Sales Views (minimal UI)
+# =========================
+
+from django.contrib.auth.decorators import permission_required
+
+
+@login_required
+@permission_required('core.view_sale', raise_exception=True)
+def sale_list(request):
+    query = request.GET.get('q', '')
+    status = request.GET.get('status', '')
+    sales = Sale.objects.select_related('customer').all().order_by('-created_at')
+    if query:
+        sales = sales.filter(
+            Q(sale_number__icontains=query) |
+            Q(customer__name__icontains=query) |
+            Q(customer__customer_id__icontains=query)
+        )
+    if status:
+        sales = sales.filter(status=status)
+    return render(request, 'core/sale_list.html', {'sales': sales, 'query': query, 'status': status})
+
+
+@login_required
+@permission_required('core.add_sale', raise_exception=True)
+def sale_create(request):
+    """Create a sale and first item on the same page.
+    For inventory item type, unit price is forced from selected inventory item.
+    For machine item type, accept machine_name + description.
+    """
+    if request.method == 'POST':
+        sale_form = SaleForm(request.POST)
+        item_form = CombinedSaleItemForm(request.POST)
+        if sale_form.is_valid() and item_form.is_valid():
+            from django.db import transaction
+            with transaction.atomic():
+                sale = sale_form.save(commit=False)
+                sale.created_by = request.user
+                sale.save()
+
+                cd = item_form.cleaned_data
+                if cd['item_type'] == 'inventory':
+                    inv = cd['inventory_item']
+                    unit_price = inv.unit_price
+                    desc = f"{inv.part_name} ({inv.part_code})"
+                    SaleItem.objects.create(
+                        sale=sale,
+                        item_type='inventory',
+                        inventory_item=inv,
+                        description=desc,
+                        quantity=cd['quantity'],
+                        unit_price=unit_price,
+                    )
+                else:
+                    # machine: merge name + description into one description field
+                    machine_label = cd.get('machine_name') or ''
+                    desc = f"{machine_label} - {cd.get('description') or ''}".strip(' -')
+                    SaleItem.objects.create(
+                        sale=sale,
+                        item_type='non_inventory',
+                        inventory_item=None,
+                        description=desc,
+                        quantity=cd['quantity'],
+                        unit_price=cd['unit_price'],
+                    )
+            messages.success(request, 'Sale created with first item. You can add more items if needed.')
+            return redirect('sale_detail', pk=sale.pk)
+        else:
+            # Bubble up form errors to messages
+            for f in (sale_form, item_form):
+                for field, errs in f.errors.items():
+                    for err in errs:
+                        messages.error(request, f"{field}: {err}")
+    else:
+        sale_form = SaleForm()
+        item_form = CombinedSaleItemForm()
+    # Provide inventory prices for client-side autofill
+    inv_qs = None
+    try:
+        inv_qs = item_form.fields['inventory_item'].queryset
+    except Exception:
+        inv_qs = InventoryItem.objects.none()
+    inventory_prices = {str(i.id): float(i.unit_price) for i in inv_qs}
+    return render(request, 'core/sale_form.html', {
+        'form': sale_form,
+        'item_form': item_form,
+        'title': 'Create Sale',
+        'inventory_prices': inventory_prices,
+    })
+
+
+@login_required
+@permission_required('core.view_sale', raise_exception=True)
+def sale_detail(request, pk):
+    sale = get_object_or_404(Sale.objects.select_related('customer'), pk=pk)
+    items = sale.items.select_related('inventory_item').all()
+    payments = sale.payments.all()
+    add_item_form = None
+    add_payment_form = None
+    if request.user.has_perm('core.add_saleitem') and sale.status == 'draft':
+        add_item_form = SaleItemForm()
+    if request.user.has_perm('core.add_salepayment') and sale.status != 'cancelled':
+        add_payment_form = SalePaymentForm()
+    # Inventory prices for client-side autofill in add-item form
+    inv_qs = None
+    if add_item_form:
+        try:
+            inv_qs = add_item_form.fields['inventory_item'].queryset
+        except Exception:
+            inv_qs = InventoryItem.objects.none()
+    inventory_prices = {str(i.id): float(i.unit_price) for i in (inv_qs or [])}
+    context = {
+        'sale': sale,
+        'items': items,
+        'payments': payments,
+        'add_item_form': add_item_form,
+        'add_payment_form': add_payment_form,
+        'inventory_prices': inventory_prices,
+    }
+    return render(request, 'core/sale_detail.html', context)
+
+
+@login_required
+@permission_required('core.view_sale', raise_exception=True)
+def sale_invoice(request, pk):
+    sale = get_object_or_404(Sale.objects.select_related('customer'), pk=pk)
+    items = sale.items.select_related('inventory_item').all()
+    context = {
+        'sale': sale,
+        'items': items,
+    }
+    return render(request, 'core/sale_invoice.html', context)
+
+
+@login_required
+@permission_required('core.add_saleitem', raise_exception=True)
+def sale_add_item(request, pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    if sale.status != 'draft':
+        messages.warning(request, 'Cannot add items to a finalized sale.')
+        return redirect('sale_detail', pk=sale.pk)
+    if request.method == 'POST':
+        form = SaleItemForm(request.POST)
+        if form.is_valid():
+            item = form.save(commit=False)
+            item.sale = sale
+            # Basic validation: require description for non-inventory items
+            if item.item_type == 'non_inventory' and not item.description:
+                messages.error(request, 'Description is required for non-inventory items.')
+            else:
+                # If inventory item selected, force unit price from inventory
+                if item.item_type == 'inventory' and item.inventory_item:
+                    item.unit_price = item.inventory_item.unit_price
+                item.save()
+                messages.success(request, 'Item added to sale.')
+                return redirect('sale_detail', pk=sale.pk)
+        else:
+            for field, errs in form.errors.items():
+                for err in errs:
+                    messages.error(request, f"{field}: {err}")
+    return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
+@permission_required('core.finalize_sale', raise_exception=True)
+def sale_finalize(request, pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    if sale.status == 'finalized':
+        messages.info(request, 'Sale already finalized.')
+        return redirect('sale_detail', pk=sale.pk)
+    try:
+        low_stock = sale.finalize(user=request.user)
+        if low_stock:
+            names = ', '.join([f"{i.part_name} ({i.part_code})" for i in low_stock])
+            messages.warning(request, f"Finalized. Low stock: {names}")
+        else:
+            messages.success(request, 'Sale finalized successfully.')
+    except ValueError as e:
+        messages.error(request, str(e))
+    return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
+@permission_required('core.delete_saleitem', raise_exception=True)
+def sale_delete_item(request, pk, item_pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    if sale.status != 'draft':
+        messages.warning(request, 'Cannot delete items from a finalized sale.')
+        return redirect('sale_detail', pk=sale.pk)
+    item = get_object_or_404(SaleItem, pk=item_pk, sale=sale)
+    if request.method == 'POST':
+        item.delete()
+        try:
+            sale.recalc_total(save=True)
+        except Exception:
+            pass
+        messages.success(request, 'Item removed from sale.')
+    return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
+@permission_required('core.view_salepayment', raise_exception=True)
+def sale_payments_export(request, pk):
+    import csv
+    from django.utils.encoding import smart_str
+    sale = get_object_or_404(Sale, pk=pk)
+    payments = sale.payments.all().order_by('-payment_date', '-created_at')
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = f'attachment; filename="{sale.sale_number}_payments.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Receipt', 'Date', 'Method', 'Amount'])
+    for p in payments:
+        writer.writerow([
+            smart_str(p.receipt_number),
+            p.payment_date,
+            smart_str(p.get_method_display()),
+            f"{p.amount}",
+        ])
+    return response
+
+
+@login_required
+@permission_required('core.add_salepayment', raise_exception=True)
+def sale_add_payment(request, pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    if sale.status == 'cancelled':
+        messages.warning(request, 'Cannot record payments for a cancelled sale.')
+        return redirect('sale_detail', pk=sale.pk)
+
+    if request.method == 'POST':
+        form = SalePaymentForm(request.POST)
+        if form.is_valid():
+            payment = form.save(commit=False)
+            payment.sale = sale
+            # Prevent overpayment beyond balance due
+            if payment.amount <= 0:
+                messages.error(request, 'Amount must be greater than zero.')
+            elif payment.amount > sale.balance_due:
+                messages.error(request, 'Payment exceeds remaining balance.')
+            else:
+                payment.save()
+                messages.success(request, f'Payment recorded. Receipt: {payment.receipt_number}')
+                return redirect('sale_detail', pk=sale.pk)
+        else:
+            for field, errs in form.errors.items():
+                for err in errs:
+                    messages.error(request, f"{field}: {err}")
+    return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
+@permission_required('core.view_salepayment', raise_exception=True)
+def sale_payment_receipt(request, sale_pk, payment_pk):
+    sale = get_object_or_404(Sale, pk=sale_pk)
+    payment = get_object_or_404(SalePayment, pk=payment_pk, sale=sale)
+    context = {
+        'sale': sale,
+        'payment': payment,
+    }
+    return render(request, 'core/sale_payment_receipt.html', context)

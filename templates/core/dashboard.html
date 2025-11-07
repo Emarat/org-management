@@ -3,6 +3,48 @@
 {% block title %}Dashboard - Organization Management{% endblock %}
 
 {% block content %}
+{# Minimal dashboard for users with only bill permissions #}
+{% if not perms.core.view_customers_menu and not perms.core.view_inventory_menu and not perms.core.view_expenses_menu and not perms.core.view_payments_menu and not perms.core.view_reports_menu %}
+  <div class="content-header">
+    <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
+    <p class="text-muted">Welcome, {{ user.username }}. Quick actions for your work.</p>
+  </div>
+
+  <div class="row mt-3">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body text-center">
+          <h5 class="mb-3">Submit a Bill</h5>
+          <p class="text-muted">Upload your bill with description and amount for manager review.</p>
+          {% if perms.core.submit_bill %}
+            <a href="{% url 'submit_bill_claim' %}" class="btn btn-primary">
+              <i class="fas fa-file-upload"></i> Submit Bill
+            </a>
+          {% else %}
+            <div class="alert alert-warning mb-0">You don't have permission to submit bills.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body text-center">
+          <h5 class="mb-3">My Bills</h5>
+          <p class="text-muted">View the bills you've submitted and their status.</p>
+          {% if perms.core.view_my_bills %}
+            <a href="{% url 'my_bill_claims' %}" class="btn btn-outline-primary">
+              <i class="fas fa-list-alt"></i> My Bills
+            </a>
+          {% else %}
+            <div class="alert alert-warning mb-0">You don't have permission to view your bills.</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  {% comment %} End minimal dashboard {% endcomment %}
+
 <div class="content-header">
   <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
   <p class="text-muted">Overview of your organization</p>
@@ -257,29 +299,40 @@
 </div>
 {% endif %}
 
-<!-- Quick Actions -->
+<!-- Quick Actions (shown when user has broader permissions) -->
 <div class="row mt-4">
   <div class="col-12">
     <div class="card">
       <div class="card-header"><i class="fas fa-bolt"></i> Quick Actions</div>
       <div class="card-body">
-        <a href="{% url 'customer_add' %}" class="btn btn-success me-2 mb-2">
-          <i class="fas fa-user-tie"></i> Add Customer
-        </a>
-        <a href="{% url 'inventory_add' %}" class="btn btn-warning me-2 mb-2">
-          <i class="fas fa-box"></i> Add Inventory Item
-        </a>
-        <a href="{% url 'expense_add' %}" class="btn btn-danger me-2 mb-2">
-          <i class="fas fa-receipt"></i> Add Expense
-        </a>
-        <a href="{% url 'payment_add' %}" class="btn btn-info me-2 mb-2">
-          <i class="fas fa-money-bill"></i> Add Payment
-        </a>
-        <a href="{% url 'export_excel' %}" class="btn btn-secondary me-2 mb-2">
-          <i class="fas fa-file-excel"></i> Export to Excel
-        </a>
+        {% if perms.core.view_customers_menu %}
+          <a href="{% url 'customer_add' %}" class="btn btn-success me-2 mb-2">
+            <i class="fas fa-user-tie"></i> Add Customer
+          </a>
+        {% endif %}
+        {% if perms.core.view_inventory_menu %}
+          <a href="{% url 'inventory_add' %}" class="btn btn-warning me-2 mb-2">
+            <i class="fas fa-box"></i> Add Inventory Item
+          </a>
+        {% endif %}
+        {% if perms.core.view_expenses_menu %}
+          <a href="{% url 'expense_add' %}" class="btn btn-danger me-2 mb-2">
+            <i class="fas fa-receipt"></i> Add Expense
+          </a>
+        {% endif %}
+        {% if perms.core.view_payments_menu %}
+          <a href="{% url 'payment_add' %}" class="btn btn-info me-2 mb-2">
+            <i class="fas fa-money-bill"></i> Add Payment
+          </a>
+        {% endif %}
+        {% if perms.core.view_reports_menu %}
+          <a href="{% url 'export_excel' %}" class="btn btn-secondary me-2 mb-2">
+            <i class="fas fa-file-excel"></i> Export to Excel
+          </a>
+        {% endif %}
       </div>
     </div>
   </div>
 </div>
+{% endif %}
 {% endblock %}

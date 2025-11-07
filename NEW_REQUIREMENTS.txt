@@ -1,0 +1,108 @@
+New Requirements — Organization Management System
+Date: 2025-11-05
+
+Overview
+- This document captures new feature requests prior to solution planning/estimation.
+- Scope spans invoicing, installment payments, machine (non-inventory) sales records, quotations, UI adjustments, expense balance tracking, inventory sync/alerts, and role-based access control (RBAC).
+
+1) Invoicing
+- Ability to generate an invoice for any sale (parts from inventory or machine).
+- After every installment payment, generate a receipt/invoice document for that payment.
+- Invoice should show items, quantities, unit prices, totals, and status (e.g., pending/partially_paid/paid/cancelled).
+
+Acceptance notes
+- User can create an invoice with one or more items.
+- Printable/PDF version is available for the invoice.
+- A receipt/invoice can be generated after each payment.
+
+2) Payments & Installments
+- Set/edit the number of installments for a sale/invoice.
+- First payment (e.g., 10,000 on price 50,000) recorded, due becomes 40,000.
+- For each subsequent installment: record both the amount and the date (e.g., second 20,000 → due 20,000).
+- Allow entering the "next payment amount" and the "next payment date" at each step.
+- When the remaining amount is paid, record that payment and date, and update payment status accordingly.
+- Track the reason/purpose of each payment (what it is for), and link payments to the correct sale/invoice and items.
+- For parts, payments should be associated with selected items from inventory; for machines, allow freeform machine details (name/specs).
+
+Acceptance notes
+- User can set planned installments count and adjust it later.
+- Each payment captures: amount, paid date, next payment date (optional), and a reason/purpose.
+- The system auto-updates due amount and invoice status after each payment.
+- A receipt is available for each payment.
+
+3) Machine Sales Records (non-inventory)
+- Two product types: parts (inventory) and machines (not kept in inventory records).
+- When selling a machine, store the sale information without adding/maintaining machine stock in the system.
+- Machine sale data includes: machine name, specs/notes, price, quantity (usually 1), and links to the buyer/invoice.
+- Revenue from machine sales should be reflected in balances/reports; stock is not affected.
+
+Acceptance notes
+- User can add a machine line item with freeform fields (name/specs/price/qty) on an invoice.
+- Machine sales appear in sales reports and balance calculations.
+
+4) Dummy Invoice (Quotation)
+- Ability to create a quotation (dummy invoice) for a client before the actual sale.
+- Quotation should be printable and not affect stock or balances.
+- Option to convert a quotation into a real invoice later.
+
+Acceptance notes
+- User can create, view, print, and send a quotation.
+- Converting a quotation to an invoice preserves items/prices and starts normal invoicing flow.
+
+5) UI — Move "Add New" Buttons
+- Remove "Add New" from the upper-right on every page.
+- Place the "Add …" button below each list/table instead.
+
+Acceptance notes
+- All list pages display the primary add action below the table or list content.
+
+6) Expenses with Running Balance and History
+- Show current balance (income from sales of parts and machines minus expenses).
+- When adding an expense,  show the remaining balance after that expense.
+- Maintain a history/ledger of balance changes (payments in, expenses out, adjustments).
+
+Acceptance notes
+- Expenses page displays current balance.
+- After adding an expense, the UI shows the updated remaining balance.
+- A history view lists chronological ledger entries with amounts and notes.
+
+7) Terminology Updates
+- Rename labels/navigation:
+  - "Submit Claim" → "Submit Bill"
+  - "My Claims" → "My Bills"
+  - "Review Claims" → "Review Bills"
+
+Acceptance notes
+- All UI references updated consistently across navigation and pages.
+
+8) Inventory Sync and Low Stock Alerts
+- After selling inventory parts, stock is updated automatically.
+- A low stock notification/indicator is shown when stock falls to/below a threshold.
+- Thresholds should be configurable (per item and/or global default).
+
+Acceptance notes
+- Finalizing a sale that contains inventory parts reduces item stock by the sold quantity.
+- When stock ≤ threshold, a visible alert is shown (and optional notification channel later).
+- Thresholds can be configured by an authorized user.
+
+9) Role-Based Access Control (RBAC)
+- There are main users (e.g., Owner/Manager/Finance) and employees.
+- Access should be role-based and configurable; not everyone can see or do everything.
+- Example: employees only see "Submit Bill" and "My Bills" while other modules are hidden/blocked.
+
+Acceptance notes
+- Roles can be assigned to users; permissions reflect the role.
+- UI elements and routes are hidden/blocked based on permissions.
+
+Constraints & Assumptions (to confirm)
+- Currency is single for now (no multi-currency requirements stated). -- no need
+- Taxes/discounts not specified; if needed, define tax-rate and discount rules later. --no need
+- Payments apply at the invoice level (not per-line allocation) unless specified otherwise.
+- PDF/print outputs may use existing libraries (reportlab) unless a different renderer is required.
+
+Out-of-scope (for now)
+- Full machine catalog management (stocking machines).
+- Complex accounting integrations (export formats can follow later phases).
+- Multi-currency and tax compliance specifics.
+
+End of document.

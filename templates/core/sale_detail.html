@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% block title %}Sale {{ sale.sale_number }} - OrgMS{% endblock %}
+{% block content %}
+<div class="content-header d-flex justify-content-between align-items-center">
+  <h1>Sale {{ sale.sale_number }}</h1>
+  <div>
+    {% if sale.status == 'draft' %}
+      {% if user.is_superuser or perms.core.finalize_sale %}
+        <a href="{% url 'sale_finalize' sale.pk %}" class="btn btn-success" onclick="return confirm('Finalize this sale? This will decrease inventory.');">
+          <i class="fas fa-check"></i> Finalize
+        </a>
+      {% endif %}
+    {% endif %}
+    {% if user.is_superuser or perms.core.view_sale %}
+      <a href="{% url 'sale_invoice' sale.pk %}" target="_blank" class="btn btn-outline-primary">
+        <i class="fas fa-print"></i> Print Invoice
+      </a>
+    {% endif %}
+    <a href="{% url 'sale_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back</a>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header">Overview</div>
+      <div class="card-body">
+        <p><strong>Customer:</strong> {{ sale.customer.name }}</p>
+        <p><strong>Status:</strong> {{ sale.status|title }}</p>
+        <p><strong>Total:</strong> ${{ sale.total_amount }}</p>
+        <p><strong>Paid:</strong> ${{ sale.total_paid }} &nbsp; <strong>Balance:</strong> ${{ sale.balance_due }}</p>
+        {% if sale.finalized_at %}
+          <p><strong>Finalized:</strong> {{ sale.finalized_at }} by {{ sale.finalized_by }}</p>
+        {% endif %}
+      </div>
+    </div>
+    <div class="card mt-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Payments</span>
+        {% if sale.status != 'cancelled' %}
+          {% if user.is_superuser or perms.core.add_salepayment %}
+            <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#addPaymentCollapse">
+              <i class="fas fa-plus"></i> Add Payment
+            </button>
+          {% endif %}
+        {% endif %}
+        {% if user.is_superuser or perms.core.view_salepayment %}
+          <a class="btn btn-sm btn-outline-secondary" href="{% url 'sale_payments_export' sale.pk %}">
+            <i class="fas fa-file-csv"></i> Export CSV
+          </a>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Receipt</th>
+                <th>Date</th>
+                <th>Method</th>
+                <th class="text-end">Amount</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in payments %}
+              <tr>
+                <td>{{ p.receipt_number }}</td>
+                <td>{{ p.payment_date }}</td>
+                <td>{{ p.get_method_display }}</td>
+                <td class="text-end">${{ p.amount }}</td>
+                <td class="text-end">
+                  {% if user.is_superuser or perms.core.view_salepayment %}
+                    <a class="btn btn-sm btn-outline-secondary" href="{% url 'sale_payment_receipt' sale.pk p.pk %}" target="_blank">
+                      <i class="fas fa-print"></i> Receipt
+                    </a>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="5" class="text-center">No payments recorded.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if add_payment_form %}
+        <div class="collapse mt-3" id="addPaymentCollapse">
+          <form method="post" action="{% url 'sale_add_payment' sale.pk %}">
+            {% csrf_token %}
+            <div class="row g-2">
+              <div class="col-md-4">{{ add_payment_form.amount.label_tag }} {{ add_payment_form.amount }}</div>
+              <div class="col-md-4">{{ add_payment_form.payment_date.label_tag }} {{ add_payment_form.payment_date }}</div>
+              <div class="col-md-4">{{ add_payment_form.method.label_tag }} {{ add_payment_form.method }}</div>
+            </div>
+            <div class="mt-2">
+              <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-check"></i> Save Payment</button>
+            </div>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Items</span>
+        {% if sale.status == 'draft' %}
+          {% if user.is_superuser or perms.core.add_saleitem %}
+            <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#addItemCollapse">
+              <i class="fas fa-plus"></i> Add Item
+            </button>
+          {% endif %}
+        {% endif %}
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Description</th>
+                <th class="text-end">Qty</th>
+                <th class="text-end">Unit Price</th>
+                <th class="text-end">Line Total</th>
+                <th class="text-end"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in items %}
+              <tr>
+                <td>{{ item.item_type|title }}</td>
+                <td>
+                  {% if item.item_type == 'inventory' and item.inventory_item %}
+                    {{ item.inventory_item.part_name }} ({{ item.inventory_item.part_code }})
+                  {% else %}
+                    {{ item.description }}
+                  {% endif %}
+                </td>
+                <td class="text-end">{{ item.quantity }}</td>
+                <td class="text-end">${{ item.unit_price }}</td>
+                <td class="text-end">${{ item.line_total }}</td>
+                <td class="text-end">
+                  {% if sale.status == 'draft' %}
+                    {% if user.is_superuser or perms.core.delete_saleitem %}
+                      <form method="post" action="{% url 'sale_delete_item' sale.pk item.pk %}" style="display:inline;" onsubmit="return confirm('Remove this item?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
+                      </form>
+                    {% endif %}
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" class="text-center">No items yet.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if add_item_form %}
+        <div class="collapse mt-3" id="addItemCollapse">
+          <form method="post" action="{% url 'sale_add_item' sale.pk %}">
+            {% csrf_token %}
+            <div class="row g-2">
+              <div class="col-md-3">{{ add_item_form.item_type.label_tag }} {{ add_item_form.item_type }}</div>
+              <div class="col-md-4">{{ add_item_form.inventory_item.label_tag }} {{ add_item_form.inventory_item }}</div>
+              <div class="col-md-5">{{ add_item_form.description.label_tag }} {{ add_item_form.description }}</div>
+              <div class="col-md-3">{{ add_item_form.quantity.label_tag }} {{ add_item_form.quantity }}</div>
+              <div class="col-md-3">{{ add_item_form.unit_price.label_tag }} {{ add_item_form.unit_price }}</div>
+            </div>
+            <div class="mt-2">
+              <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add</button>
+            </div>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% if inventory_prices %}
+  {{ inventory_prices|json_script:"inv_prices_data_detail" }}
+  <script>
+    (function(){
+      function onInvChange(){
+        var map = {};
+        try { var el = document.getElementById('inv_prices_data_detail'); if (el) map = JSON.parse(el.textContent); } catch(e){}
+        var sel = document.querySelector('#addItemCollapse select[name="inventory_item"]');
+        var priceEl = document.querySelector('#addItemCollapse input[name="unit_price"]');
+        if (!sel || !priceEl) return;
+        var id = sel.value;
+        if (id && map[id] !== undefined) { priceEl.value = map[id]; }
+      }
+      document.addEventListener('DOMContentLoaded', function(){
+        var sel = document.querySelector('#addItemCollapse select[name="inventory_item"]');
+        if (sel) sel.addEventListener('change', onInvChange);
+      });
+    })();
+  </script>
+{% endif %}
+{% endblock %}

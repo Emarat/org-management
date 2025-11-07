@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}Create Sale - OrgMS{% endblock %}
+{% block content %}
+<div class="content-header d-flex justify-content-between align-items-center">
+  <h1>Create Sale</h1>
+  <a href="{% url 'sale_list' %}" class="btn btn-outline-secondary">Cancel</a>
+  </div>
+<div class="card mb-3">
+  <div class="card-header">Sale Info</div>
+  <div class="card-body">
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="row g-3">
+        <div class="col-md-6">{{ form.customer.label_tag }} {{ form.customer }}</div>
+        <div class="col-md-6">{{ form.expected_installments.label_tag }} {{ form.expected_installments }}</div>
+      </div>
+
+      <hr>
+      <h5 class="mb-3">First Item</h5>
+      <div class="row g-3">
+        <div class="col-md-3">{{ item_form.item_type.label_tag }} {{ item_form.item_type }}</div>
+        <div class="col-md-4" id="inventoryItemWrap">{{ item_form.inventory_item.label_tag }} {{ item_form.inventory_item }}</div>
+        <div class="col-md-5" id="machineNameWrap">{{ item_form.machine_name.label_tag }} {{ item_form.machine_name }}</div>
+        <div class="col-md-12" id="machineDescWrap">{{ item_form.description.label_tag }} {{ item_form.description }}</div>
+        <div class="col-md-3">{{ item_form.quantity.label_tag }} {{ item_form.quantity }}</div>
+        <div class="col-md-3">{{ item_form.unit_price.label_tag }} {{ item_form.unit_price }}</div>
+      </div>
+
+      <div class="mt-3">
+        <button class="btn btn-primary" type="submit"><i class="fas fa-save"></i> Save Sale & Add Item</button>
+      </div>
+    </form>
+  </div>
+  </div>
+
+{% if inventory_prices %}
+  {{ inventory_prices|json_script:"inv_prices_data" }}
+{% endif %}
+<script>
+  (function() {
+    function $(id){ return document.getElementById(id); }
+    var INVENTORY_PRICES = {};
+    try {
+      var el = document.getElementById('inv_prices_data');
+      if (el) { INVENTORY_PRICES = JSON.parse(el.textContent); }
+    } catch (e) {}
+    function onTypeChange() {
+      var type = document.querySelector('select[name="item_type"]').value;
+      var invWrap = $('inventoryItemWrap');
+      var nameWrap = $('machineNameWrap');
+      var descWrap = $('machineDescWrap');
+      var invSelect = document.querySelector('select[name="inventory_item"]');
+      var priceInput = document.querySelector('input[name="unit_price"]');
+
+      if (type === 'inventory') {
+        invWrap.style.display = '';
+        nameWrap.style.display = 'none';
+        descWrap.style.display = 'none';
+        // Read-only price; autofill from inventory change
+        priceInput.readOnly = true;
+        if (invSelect) { onInventoryChange(); }
+      } else {
+        invWrap.style.display = 'none';
+        nameWrap.style.display = '';
+        descWrap.style.display = '';
+        priceInput.readOnly = false;
+      }
+    }
+
+    function onInventoryChange() {
+      var invSelect = document.querySelector('select[name="inventory_item"]');
+      var priceInput = document.querySelector('input[name="unit_price"]');
+      if (!invSelect) return;
+      var val = invSelect.value;
+      if (val && INVENTORY_PRICES[val] !== undefined) {
+        priceInput.value = INVENTORY_PRICES[val];
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      var typeEl = document.querySelector('select[name="item_type"]');
+      var invSelect = document.querySelector('select[name="inventory_item"]');
+      if (typeEl) { typeEl.addEventListener('change', onTypeChange); }
+      if (invSelect) { invSelect.addEventListener('change', onInventoryChange); }
+      onTypeChange();
+    });
+  })();
+</script>
+{% endblock %}

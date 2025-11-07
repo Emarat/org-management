@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Receipt {{ payment.receipt_number }} - {{ brand.name|default:'OrgMS' }}</title>
+  <style>
+    :root {
+      --text: #111;
+      --muted: #666;
+      --border: #ddd;
+    }
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      margin: 0; padding: 0;
+      background: #fff;
+    }
+    .page {
+      max-width: 720px;
+      margin: 16px auto;
+      padding: 16px 20px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .actions { text-align: right; }
+    .btn {
+      border: 1px solid var(--border);
+      background: #f7f7f7;
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    h1 { font-size: 20px; margin: 0; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }
+    .label { color: var(--muted); font-size: 12px; }
+    .value { font-weight: 600; }
+    hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
+    .footer { color: var(--muted); font-size: 12px; }
+    .totals { display: flex; gap: 16px; }
+    .totals .value { font-weight: 700; }
+    @media print {
+      .page { border: 0; margin: 0; padding: 0; max-width: 100%; }
+      .actions { display: none !important; }
+      @page { size: A4; margin: 12mm; }
+    }
+  </style>
+  <script>
+    window.addEventListener('load', function(){
+      // Auto-open print dialog for convenience
+      window.print();
+    });
+  </script>
+  </head>
+  <body>
+    <div class="page">
+      <div class="header">
+        <div style="display:flex; align-items:center; gap:12px;">
+          {% if brand.logo_url %}
+            <img src="{{ brand.logo_url }}" alt="Logo" style="height:40px; width:auto;"/>
+          {% endif %}
+          <div>
+            <h1 style="margin:0; font-size:20px;">{{ brand.name|default:'Receipt' }}</h1>
+            <div class="muted" style="font-size:12px;">Receipt {{ payment.receipt_number }}</div>
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn" onclick="window.print()">Print</button>
+        </div>
+      </div>
+      {% if brand.address or brand.phone or brand.email %}
+      <div class="muted" style="font-size:12px; margin-top:6px;">
+        {% if brand.address %}<div>{{ brand.address }}</div>{% endif %}
+        {% if brand.phone %}<div>Phone: {{ brand.phone }}</div>{% endif %}
+        {% if brand.email %}<div>Email: {{ brand.email }}</div>{% endif %}
+      </div>
+      {% endif %}
+
+      <div class="grid">
+        <div>
+          <div class="label">Sale #</div>
+          <div class="value">{{ sale.sale_number }}</div>
+        </div>
+        <div>
+          <div class="label">Customer</div>
+          <div class="value">{{ sale.customer.name }}</div>
+        </div>
+        <div>
+          <div class="label">Payment Date</div>
+          <div class="value">{{ payment.payment_date }}</div>
+        </div>
+        <div>
+          <div class="label">Method</div>
+          <div class="value">{{ payment.get_method_display }}</div>
+        </div>
+      </div>
+
+      <hr />
+      <div class="grid">
+        <div>
+          <div class="label">Payment Amount</div>
+          <div class="value">${{ payment.amount }}</div>
+        </div>
+        <div class="totals">
+          <div>
+            <div class="label">Total Paid (after this)</div>
+            <div class="value">${{ sale.total_paid }}</div>
+          </div>
+          <div>
+            <div class="label">Balance Due</div>
+            <div class="value">${{ sale.balance_due }}</div>
+          </div>
+        </div>
+      </div>
+
+      <hr />
+      <div class="footer">Generated on {{ payment.created_at }}. Keep this receipt for your records.</div>
+    </div>
+  </body>
+  </html>

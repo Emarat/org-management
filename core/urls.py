@@ -45,4 +45,16 @@ urlpatterns = [
     # Reports
     path('reports/', views.reports, name='reports'),
     path('reports/export-excel/', views.export_excel, name='export_excel'),
+
+    # Sales URLs
+    path('sales/', views.sale_list, name='sale_list'),
+    path('sales/new/', views.sale_create, name='sale_create'),
+    path('sales/<int:pk>/', views.sale_detail, name='sale_detail'),
+    path('sales/<int:pk>/invoice/', views.sale_invoice, name='sale_invoice'),
+    path('sales/<int:pk>/add-item/', views.sale_add_item, name='sale_add_item'),
+    path('sales/<int:pk>/items/<int:item_pk>/delete/', views.sale_delete_item, name='sale_delete_item'),
+    path('sales/<int:pk>/finalize/', views.sale_finalize, name='sale_finalize'),
+    path('sales/<int:pk>/add-payment/', views.sale_add_payment, name='sale_add_payment'),
+    path('sales/<int:pk>/payments/export.csv', views.sale_payments_export, name='sale_payments_export'),
+    path('sales/<int:sale_pk>/payments/<int:payment_pk>/receipt/', views.sale_payment_receipt, name='sale_payment_receipt'),
 ]
