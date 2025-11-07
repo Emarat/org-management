@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.templatetags.static import static
+from .models import InventoryItem
+from django.db.models import F
 
 
 def branding(request):
@@ -27,4 +29,16 @@ def branding(request):
             'phone': phone,
             'email': email,
         }
+    }
+
+
+def alerts(request):
+    """Global lightweight alerts for templates (e.g., low stock banner)."""
+    try:
+        low_stock_qs = InventoryItem.objects.filter(quantity__lte=F('minimum_stock')).only('id')
+        count = low_stock_qs.count()
+    except Exception:
+        count = 0
+    return {
+        'low_stock_count': count,
     }

@@ -302,6 +302,15 @@
           </nav>
 
           <!-- Messages -->
+          {% if low_stock_count and low_stock_count > 0 %}
+          <div class="alert alert-warning d-flex align-items-center" role="alert">
+            <i class="fas fa-triangle-exclamation me-2"></i>
+            <div>
+              Low stock on {{ low_stock_count }} item{{ low_stock_count|pluralize }}. 
+              <a href="{% url 'inventory_list' %}?low_stock=1" class="alert-link">View low stock</a>.
+            </div>
+          </div>
+          {% endif %}
           {% if messages %} {% for message in messages %}
           <div
             class="alert alert-{{ message.tags }} alert-dismissible fade show"
