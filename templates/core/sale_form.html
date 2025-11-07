@@ -27,7 +27,7 @@
       </div>
 
       <div class="mt-3">
-        <button class="btn btn-primary" type="submit"><i class="fas fa-save"></i> Save Sale & Add Item</button>
+        <button type="submit" class="btn btn-primary">{% if is_quote %}Save Quotation{% else %}Save Sale & Add Item{% endif %}</button>
       </div>
     </form>
   </div>

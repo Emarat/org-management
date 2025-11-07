@@ -8,7 +8,7 @@ from django.db.models import Sum, Count, Q, F
 from django.http import HttpResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry
 from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -208,11 +208,15 @@ def expense_list(request):
             pass
     
     total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
+    # Current balance: payments (income) - expenses
+    total_payments = SalePayment.objects.aggregate(total=Sum('amount'))['total'] or 0
+    current_balance = (total_payments or 0) - (Expense.objects.aggregate(total=Sum('amount'))['total'] or 0)
     
     return render(request, 'core/expense_list.html', {
         'expenses': expenses, 
         'query': query,
-        'total_expenses': total_expenses
+        'total_expenses': total_expenses,
+        'current_balance': current_balance,
     })
 
 
@@ -221,7 +225,11 @@ def expense_add(request):
     if request.method == 'POST':
         form = ExpenseForm(request.POST)
         if form.is_valid():
-            form.save()
+            expense = form.save()
+            try:
+                LedgerEntry.objects.create(entry_type='expense', amount=-expense.amount, expense=expense, note='Expense recorded')
+            except Exception:
+                pass
             messages.success(request, 'Expense added successfully!')
             return redirect('expense_list')
     else:
@@ -533,11 +541,20 @@ def reports(request):
         'overdue': Payment.objects.filter(status='overdue').count(),
     }
     
+    balance = (SalePayment.objects.aggregate(total=Sum('amount'))['total'] or 0) - (Expense.objects.aggregate(total=Sum('amount'))['total'] or 0)
     context = {
         'monthly_expenses': monthly_expenses,
         'payment_stats': payment_stats,
+        'balance': balance,
     }
     return render(request, 'core/reports.html', context)
+
+
+@login_required
+def ledger(request):
+    entries = LedgerEntry.objects.all().select_related('sale_payment', 'expense')[:200]
+    balance = (SalePayment.objects.aggregate(total=Sum('amount'))['total'] or 0) - (Expense.objects.aggregate(total=Sum('amount'))['total'] or 0)
+    return render(request, 'core/ledger.html', {'entries': entries, 'balance': balance})
 
 
 @login_required
@@ -693,6 +710,83 @@ def sale_create(request):
 
 
 @login_required
+@permission_required('core.add_sale', raise_exception=True)
+def sale_quote_create(request):
+    """Create a quotation (dummy sale) that doesn't affect stock/balance until converted."""
+    if request.method == 'POST':
+        sale_form = SaleForm(request.POST)
+        item_form = CombinedSaleItemForm(request.POST)
+        if sale_form.is_valid() and item_form.is_valid():
+            from django.db import transaction
+            with transaction.atomic():
+                sale = sale_form.save(commit=False)
+                sale.created_by = request.user
+                sale.status = 'quote'
+                sale.save()
+
+                cd = item_form.cleaned_data
+                if cd['item_type'] == 'inventory':
+                    inv = cd['inventory_item']
+                    unit_price = inv.unit_price
+                    desc = f"{inv.part_name} ({inv.part_code})"
+                    SaleItem.objects.create(
+                        sale=sale,
+                        item_type='inventory',
+                        inventory_item=inv,
+                        description=desc,
+                        quantity=cd['quantity'],
+                        unit_price=unit_price,
+                    )
+                else:
+                    machine_label = cd.get('machine_name') or ''
+                    desc = f"{machine_label} - {cd.get('description') or ''}".strip(' -')
+                    SaleItem.objects.create(
+                        sale=sale,
+                        item_type='non_inventory',
+                        inventory_item=None,
+                        description=desc,
+                        quantity=cd['quantity'],
+                        unit_price=cd['unit_price'],
+                    )
+            messages.success(request, 'Quotation created. Convert to invoice when ready.')
+            return redirect('sale_detail', pk=sale.pk)
+        else:
+            for f in (sale_form, item_form):
+                for field, errs in f.errors.items():
+                    for err in errs:
+                        messages.error(request, f"{field}: {err}")
+    else:
+        sale_form = SaleForm()
+        item_form = CombinedSaleItemForm()
+    inv_qs = None
+    try:
+        inv_qs = item_form.fields['inventory_item'].queryset
+    except Exception:
+        inv_qs = InventoryItem.objects.none()
+    inventory_prices = {str(i.id): float(i.unit_price) for i in inv_qs}
+    return render(request, 'core/sale_form.html', {
+        'form': sale_form,
+        'item_form': item_form,
+        'title': 'Create Quotation',
+        'inventory_prices': inventory_prices,
+        'is_quote': True,
+    })
+
+
+@login_required
+@permission_required('core.change_sale', raise_exception=True)
+def sale_convert_to_invoice(request, pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    if sale.status != 'quote':
+        messages.info(request, 'This sale is not a quotation.')
+        return redirect('sale_detail', pk=sale.pk)
+    sale.status = 'draft'
+    sale.save(update_fields=['status', 'updated_at'])
+    messages.success(request, 'Quotation converted to invoice. You can now finalize when ready.')
+    return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
 @permission_required('core.view_sale', raise_exception=True)
 def sale_detail(request, pk):
     sale = get_object_or_404(Sale.objects.select_related('customer'), pk=pk)
@@ -702,7 +796,7 @@ def sale_detail(request, pk):
     add_payment_form = None
     if request.user.has_perm('core.add_saleitem') and sale.status == 'draft':
         add_item_form = SaleItemForm()
-    if request.user.has_perm('core.add_salepayment') and sale.status != 'cancelled':
+    if request.user.has_perm('core.add_salepayment') and sale.status != 'cancelled' and sale.status != 'quote':
         add_payment_form = SalePaymentForm()
     # Inventory prices for client-side autofill in add-item form
     inv_qs = None
@@ -842,6 +936,10 @@ def sale_add_payment(request, pk):
                 messages.error(request, 'Payment exceeds remaining balance.')
             else:
                 payment.save()
+                try:
+                    LedgerEntry.objects.create(entry_type='payment', amount=payment.amount, sale_payment=payment, note=f"Payment for {sale.sale_number}")
+                except Exception:
+                    pass
                 messages.success(request, f'Payment recorded. Receipt: {payment.receipt_number}')
                 return redirect('sale_detail', pk=sale.pk)
         else:

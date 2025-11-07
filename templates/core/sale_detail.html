@@ -97,7 +97,12 @@
             </div>
           </form>
         </div>
-        {% endif %}
+          {% elif sale.status == 'quote' %}
+            <div class="alert alert-info mt-3">This is a quotation. Convert to an invoice to accept payments and affect stock.</div>
+            {% if perms.core.change_sale %}
+              <a href="{% url 'sale_convert_to_invoice' sale.pk %}" class="btn btn-outline-primary"><i class="fas fa-exchange-alt"></i> Convert to Invoice</a>
+            {% endif %}
+          {% endif %}
       </div>
     </div>
   </div>

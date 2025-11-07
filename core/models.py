@@ -170,6 +170,7 @@ class Sale(models.Model):
     """
 
     STATUS_CHOICES = [
+        ("quote", "Quotation"),
         ("draft", "Draft"),
         ("finalized", "Finalized"),
         ("cancelled", "Cancelled"),
@@ -329,6 +330,28 @@ class SalePayment(models.Model):
             today = timezone.now()
             self.receipt_number = f"RCPT-{today.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
         super().save(*args, **kwargs)
+
+
+class LedgerEntry(models.Model):
+    """Simple ledger to track income (payments) and expenses."""
+    ENTRY_TYPES = [
+        ('payment', 'Payment'),
+        ('expense', 'Expense'),
+    ]
+    entry_type = models.CharField(max_length=20, choices=ENTRY_TYPES)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    sale_payment = models.ForeignKey('SalePayment', null=True, blank=True, on_delete=models.SET_NULL, related_name='ledger_entries')
+    expense = models.ForeignKey('Expense', null=True, blank=True, on_delete=models.SET_NULL, related_name='ledger_entries')
+    note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        sign = '+' if self.amount >= 0 else '-'
+        label = self.entry_type
+        return f"{label} {sign}${abs(self.amount)}"
 
 
 class BillClaim(models.Model):
