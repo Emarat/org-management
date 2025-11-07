@@ -146,6 +146,7 @@
   </div>
 </div>
 {% if request.user.is_superuser %}
-  {% include 'partials/fab_add.html' with url=('/payments/add/'|urlencode) label='Add Payment' icon='fa-money-bill-wave' %}
+  {% url 'payment_add' as payment_add_url %}
+  {% include 'partials/fab_add.html' with url=payment_add_url label='Add Payment' icon='fa-money-bill-wave' %}
 {% endif %}
 {% endblock %}
