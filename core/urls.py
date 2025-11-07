@@ -44,6 +44,7 @@ urlpatterns = [
     
     # Reports
     path('reports/', views.reports, name='reports'),
+    path('reports/ledger/', views.ledger, name='ledger'),
     path('reports/export-excel/', views.export_excel, name='export_excel'),
 
     # Sales URLs

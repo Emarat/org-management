@@ -208,15 +208,16 @@ def expense_list(request):
             pass
     
     total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
-    # Current balance: payments (income) - expenses
-    total_payments = SalePayment.objects.aggregate(total=Sum('amount'))['total'] or 0
-    current_balance = (total_payments or 0) - (Expense.objects.aggregate(total=Sum('amount'))['total'] or 0)
+    # Current balance from ledger (credits - debits)
+    credit_total = LedgerEntry.objects.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
+    debit_total = LedgerEntry.objects.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
+    current_balance = (credit_total or 0) - (debit_total or 0)
     
     return render(request, 'core/expense_list.html', {
         'expenses': expenses, 
         'query': query,
-        'total_expenses': total_expenses,
-        'current_balance': current_balance,
+    'total_expenses': total_expenses,
+    'balance': current_balance,
     })
 
 
@@ -225,10 +226,18 @@ def expense_add(request):
     if request.method == 'POST':
         form = ExpenseForm(request.POST)
         if form.is_valid():
-            expense = form.save()
+            exp = form.save()
+            # Log to ledger as a debit (outflow)
             try:
-                LedgerEntry.objects.create(entry_type='expense', amount=-expense.amount, expense=expense, note='Expense recorded')
+                LedgerEntry.objects.create(
+                    entry_type='debit',
+                    source='expense',
+                    reference=f"EXP-{exp.id}",
+                    description=f"{exp.get_category_display()} - {exp.description[:80]}",
+                    amount=exp.amount,
+                )
             except Exception:
+                # Do not block expense creation on ledger failure
                 pass
             messages.success(request, 'Expense added successfully!')
             return redirect('expense_list')
@@ -541,20 +550,34 @@ def reports(request):
         'overdue': Payment.objects.filter(status='overdue').count(),
     }
     
-    balance = (SalePayment.objects.aggregate(total=Sum('amount'))['total'] or 0) - (Expense.objects.aggregate(total=Sum('amount'))['total'] or 0)
+    # Current balance from ledger
+    credit_total = LedgerEntry.objects.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
+    debit_total = LedgerEntry.objects.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
+    current_balance = (credit_total or 0) - (debit_total or 0)
+
     context = {
         'monthly_expenses': monthly_expenses,
         'payment_stats': payment_stats,
-        'balance': balance,
+        'balance': current_balance,
     }
     return render(request, 'core/reports.html', context)
 
 
 @login_required
+@manager_required
 def ledger(request):
-    entries = LedgerEntry.objects.all().select_related('sale_payment', 'expense')[:200]
-    balance = (SalePayment.objects.aggregate(total=Sum('amount'))['total'] or 0) - (Expense.objects.aggregate(total=Sum('amount'))['total'] or 0)
-    return render(request, 'core/ledger.html', {'entries': entries, 'balance': balance})
+    """Simple ledger listing showing credits and debits with current balance."""
+    entries = LedgerEntry.objects.all().order_by('-timestamp')
+    credit_total = entries.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
+    debit_total = entries.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
+    current_balance = (credit_total or 0) - (debit_total or 0)
+    context = {
+        'entries': entries,
+        'balance': current_balance,
+        'credit_total': credit_total,
+        'debit_total': debit_total,
+    }
+    return render(request, 'core/ledger.html', context)
 
 
 @login_required
@@ -936,9 +959,17 @@ def sale_add_payment(request, pk):
                 messages.error(request, 'Payment exceeds remaining balance.')
             else:
                 payment.save()
+                # Log to ledger as a credit (inflow)
                 try:
-                    LedgerEntry.objects.create(entry_type='payment', amount=payment.amount, sale_payment=payment, note=f"Payment for {sale.sale_number}")
+                    LedgerEntry.objects.create(
+                        entry_type='credit',
+                        source='sale_payment',
+                        reference=payment.receipt_number,
+                        description=f"Payment for {sale.sale_number}",
+                        amount=payment.amount,
+                    )
                 except Exception:
+                    # Non-blocking on ledger write failure
                     pass
                 messages.success(request, f'Payment recorded. Receipt: {payment.receipt_number}')
                 return redirect('sale_detail', pk=sale.pk)
@@ -959,3 +990,20 @@ def sale_payment_receipt(request, sale_pk, payment_pk):
         'payment': payment,
     }
     return render(request, 'core/sale_payment_receipt.html', context)
+
+
+@login_required
+@manager_required
+def ledger(request):
+    """Simple ledger listing showing credits and debits with current balance."""
+    entries = LedgerEntry.objects.all().order_by('-timestamp')
+    credit_total = entries.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
+    debit_total = entries.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
+    current_balance = (credit_total or 0) - (debit_total or 0)
+    context = {
+        'entries': entries,
+        'balance': current_balance,
+        'credit_total': credit_total,
+        'debit_total': debit_total,
+    }
+    return render(request, 'core/ledger.html', context)
