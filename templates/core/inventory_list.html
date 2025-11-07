@@ -101,11 +101,13 @@
         </tbody>
       </table>
     </div>
-    <div class="d-flex justify-content-between align-items-center mt-3">
-      <strong>Total Items: {{ items.count }}</strong>
+    {% include 'partials/pagination.html' %}
+    <div class="d-flex justify-content-end mt-3">
+      {% if page_obj and page_obj.paginator.num_pages > 1 %}
       <a href="{% url 'inventory_add' %}" class="btn btn-warning">
         <i class="fas fa-plus"></i> Add Item
       </a>
+      {% endif %}
     </div>
     {% else %}
     <div class="text-center py-5">
