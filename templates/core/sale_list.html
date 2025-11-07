@@ -64,16 +64,14 @@
     <div class="d-flex justify-content-end gap-2 mt-3">
       {% if user.is_superuser or perms.core.add_sale %}
         <a href="{% url 'sale_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> New Sale</a>
-        {% url 'sale_quote_create' as quote_url %}
-        {% if quote_url %}
-          <a href="{{ quote_url }}" class="btn btn-outline-secondary"><i class="fas fa-file"></i> New Quotation</a>
-        {% endif %}
       {% endif %}
     </div>
     {% include 'partials/pagination.html' %}
     <div class="d-flex justify-content-end mt-3">
-      {% if page_obj and page_obj.paginator.num_pages > 1 and (user.is_superuser or perms.core.add_sale) %}
-      <a href="{% url 'sale_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> New Sale</a>
+      {% if page_obj and page_obj.paginator.num_pages > 1 %}
+        {% if user.is_superuser or perms.core.add_sale %}
+          <a href="{% url 'sale_create' %}" class="btn btn-primary"><i class="fas fa-plus"></i> New Sale</a>
+        {% endif %}
       {% endif %}
     </div>
   </div>
