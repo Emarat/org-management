@@ -83,6 +83,14 @@
   z-index: 1030;
 }
 
+/* When using stacked FABs, ensure children are positioned relative to the stack,
+   not fixed to the viewport, so multiple buttons don't overlap. */
+.fab-stack .fab-add {
+  position: static;
+  top: auto;
+  right: auto;
+}
+
 @media (max-width: 768px) {
   .fab-stack {
     right: 12px;
