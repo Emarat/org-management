@@ -7,5 +7,6 @@ class CoreConfig(AppConfig):
     verbose_name = 'Organization Management'
 
     def ready(self):
-        # Import signal handlers to ensure they are registered
-        from . import signals  # noqa: F401
+        # Import signal handlers to ensure they are registered. Use absolute path
+        # to avoid issues with relative import resolution under autoreload.
+        from core import signals  # noqa: F401
