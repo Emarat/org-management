@@ -120,4 +120,7 @@
     {% endif %}
   </div>
 </div>
+{% if perms.core.add_inventoryitem %}
+  {% include 'partials/fab_add.html' with url=('/inventory/add/'|urlencode) label='Add Item' icon='fa-box' %}
+{% endif %}
 {% endblock %}

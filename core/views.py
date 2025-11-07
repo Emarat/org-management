@@ -571,12 +571,15 @@ def reports(request):
 @manager_required
 def ledger(request):
     """Simple ledger listing showing credits and debits with current balance."""
-    entries = LedgerEntry.objects.all().order_by('-timestamp')
-    credit_total = entries.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
-    debit_total = entries.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
+    qs = LedgerEntry.objects.all().order_by('-timestamp')
+    credit_total = qs.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
+    debit_total = qs.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
     current_balance = (credit_total or 0) - (debit_total or 0)
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
     context = {
-        'entries': entries,
+        'entries': page_obj.object_list,
+        'page_obj': page_obj,
         'balance': current_balance,
         'credit_total': credit_total,
         'debit_total': debit_total,
@@ -667,11 +670,19 @@ def sale_list(request):
         qs = qs.filter(status=status)
     paginator = Paginator(qs, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
+    # Sales overview metrics
+    totals_qs = qs  # after filters
+    total_sales_amount = totals_qs.aggregate(total=Sum('total_amount'))['total'] or 0
+    total_paid_amount = totals_qs.annotate(paid=Sum('payments__amount')).aggregate(total=Sum('paid'))['total'] or 0
+    total_due_amount = (total_sales_amount or 0) - (total_paid_amount or 0)
     return render(request, 'core/sale_list.html', {
         'sales': page_obj.object_list,
         'page_obj': page_obj,
         'query': query,
         'status': status,
+        'total_sales_amount': total_sales_amount,
+        'total_paid_amount': total_paid_amount,
+        'total_due_amount': total_due_amount,
     })
 
 
@@ -1002,19 +1013,3 @@ def sale_payment_receipt(request, sale_pk, payment_pk):
     }
     return render(request, 'core/sale_payment_receipt.html', context)
 
-
-@login_required
-@manager_required
-def ledger(request):
-    """Simple ledger listing showing credits and debits with current balance."""
-    entries = LedgerEntry.objects.all().order_by('-timestamp')
-    credit_total = entries.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
-    debit_total = entries.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
-    current_balance = (credit_total or 0) - (debit_total or 0)
-    context = {
-        'entries': entries,
-        'balance': current_balance,
-        'credit_total': credit_total,
-        'debit_total': debit_total,
-    }
-    return render(request, 'core/ledger.html', context)

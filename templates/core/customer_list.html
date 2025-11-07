@@ -113,4 +113,7 @@
     {% endif %}
   </div>
 </div>
+{% if perms.core.add_customer %}
+  {% include 'partials/fab_add.html' with url=('/customers/add/'|urlencode) label='Add Customer' icon='fa-user-plus' %}
+{% endif %}
 {% endblock %}

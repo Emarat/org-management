@@ -1,0 +1,7 @@
+{% comment %}Floating action button partial: expects url, label, optional icon (FontAwesome class without 'fas ').{% endcomment %}
+<div class="fab-add">
+  <a href="{{ url }}" class="btn btn-primary shadow">
+    <i class="fas {{ icon|default:'fa-plus' }}"></i>
+    <span class="d-none d-md-inline">{{ label }}</span>
+  </a>
+</div>

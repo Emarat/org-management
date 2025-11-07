@@ -145,4 +145,7 @@
     {% endif %}
   </div>
 </div>
+{% if request.user.is_superuser %}
+  {% include 'partials/fab_add.html' with url=('/payments/add/'|urlencode) label='Add Payment' icon='fa-money-bill-wave' %}
+{% endif %}
 {% endblock %}
