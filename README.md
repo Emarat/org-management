@@ -4,14 +4,20 @@ A comprehensive web-based application to manage your organization's operations i
 
 ## 🚀 Features
 
-- **Employee Management**: Track employee details, salaries, and status
-- **Customer Management**: Manage customer information and relationships
-- **Inventory/Warehouse**: Monitor machine parts stock levels with low-stock alerts
-- **Daily Expenses**: Record and categorize daily business expenses
-- **Payment Tracking**: Manage payments with down payment, installment, and full payment options
-- **Dashboard**: Visual overview of key business metrics
-- **Reports**: Export data to Excel for further analysis
-- **User Authentication**: Secure login system
+Core modules and recent enhancements:
+
+- Dashboard with overview metrics and low-stock alerts
+- Sales & Quotations with balances and payments tracking
+- Customer Management with search and filters
+- Inventory with low-stock highlighting and valuation
+- Expenses with categories and totals
+- Payments including partial/instalment flows
+- Ledger & Reports with pagination and Excel export
+- Bill Claims workflow (submit, review, approve/reject)
+- Authentication & permissions-driven menus/actions
+- UI: fixed top-right action buttons (Add / New Sale / New Quotation)
+- Timezone: defaults to Asia/Dhaka (changeable in settings)
+- Dockerized deployment: Postgres + Gunicorn + WhiteNoise
 
 ## 📋 Prerequisites
 
@@ -74,7 +80,7 @@ You'll be prompted to enter:
 
 **Remember these credentials! You'll need them to log in.**
 
-### Step 4: Start the Application
+### Step 4: Start the Application (Development)
 
 Run the development server:
 
@@ -86,6 +92,39 @@ You should see output like:
 
 ```
 Starting development server at http://127.0.0.1:8000/
+```
+
+## 🐳 Docker Deployment (Production-like Stack)
+
+Run the app with Docker (includes Postgres + Gunicorn + WhiteNoise):
+
+```bash
+# 1) Copy and configure environment
+cp .env.example .env
+# Edit .env and set a strong SECRET_KEY; adjust ALLOWED_HOSTS/CSRF_TRUSTED_ORIGINS
+
+# 2) Build & start
+docker compose up --build -d
+
+# 3) Create an admin user
+docker compose exec web python manage.py createsuperuser
+
+# 4) View logs (optional)
+docker compose logs -f web
+```
+
+Open http://localhost:8000
+
+Stop services:
+
+```bash
+docker compose down
+```
+
+Rebuild after code changes:
+
+```bash
+docker compose up --build -d
 ```
 
 ## 🌐 Accessing the Application
@@ -202,6 +241,23 @@ python manage.py createsuperuser
 2. Run migrations: `python manage.py migrate`
 3. Start server again: `python manage.py runserver`
 
+### Problem: Docker web service keeps restarting
+
+**Solution**:
+
+1. Check logs: `docker compose logs -f web`
+2. Verify DB credentials and host in `.env` match `docker-compose.yml`
+3. Ensure migrations succeed (look for migration errors in logs)
+4. Set `SECRET_KEY` when `DJANGO_DEBUG=False`
+
+### Problem: Static files not loading in Docker
+
+**Solution**:
+
+1. WhiteNoise must be installed (is in requirements.txt)
+2. With DEBUG=False, `docker-entrypoint.sh` runs `collectstatic` on startup
+3. Inspect collected assets: `docker compose exec web ls staticfiles | head`
+
 ## 📊 Exporting Data
 
 To export all your data to Excel:
@@ -283,7 +339,7 @@ This project is for internal business use. Modify as needed for your organizatio
 
 ---
 
-## Quick Start Commands
+## Quick Start Commands (Dev)
 
 ```bash
 # Install dependencies
@@ -301,6 +357,17 @@ python manage.py runserver
 
 # Access application
 # Open browser: http://localhost:8000/
+```
+
+---
+
+## Quick Start Commands (Docker)
+
+```bash
+cp .env.example .env
+docker compose up --build -d
+docker compose exec web python manage.py createsuperuser
+# Open http://localhost:8000/
 ```
 
 ---
