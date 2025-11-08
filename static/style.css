@@ -91,8 +91,30 @@
   right: auto;
 }
 
+/* Horizontal FAB group (side-by-side actions) */
+.fab-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.65rem;
+  position: fixed;
+  top: 80px;
+  right: 24px;
+  z-index: 1030;
+}
+
+.fab-row .fab-add {
+  position: static;
+  top: auto;
+  right: auto;
+}
+
 @media (max-width: 768px) {
   .fab-stack {
+    right: 12px;
+    top: 70px;
+  }
+  .fab-row {
     right: 12px;
     top: 70px;
   }
