@@ -125,13 +125,14 @@
         </tbody>
       </table>
     </div>
+    {% include 'partials/pagination.html' %}
     <div class="d-flex justify-content-between align-items-center mt-3">
-      <strong>
-        Total Payments: {{ payments.count }} | Pending Amount: {{ total_pending|floatformat:2 }}
-      </strong>
+      <strong>Pending Amount: ${{ total_pending|floatformat:2 }}</strong>
+      {% if page_obj and page_obj.paginator.num_pages > 1 %}
       <a href="{% url 'payment_add' %}" class="btn btn-info">
         <i class="fas fa-plus"></i> Add Payment
       </a>
+      {% endif %}
     </div>
     {% else %}
     <div class="text-center py-5">
@@ -144,4 +145,10 @@
     {% endif %}
   </div>
 </div>
+{% if request.user.is_superuser %}
+  <div class="fab-stack">
+    {% url 'payment_add' as payment_add_url %}
+    {% include 'partials/fab_add.html' with url=payment_add_url label='Add Payment' icon='fa-money-bill-wave' btn_class='btn-info' %}
+  </div>
+{% endif %}
 {% endblock %}

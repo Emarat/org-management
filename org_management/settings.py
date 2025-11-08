@@ -162,7 +162,8 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+# Set default timezone to Dhaka, Bangladesh
+TIME_ZONE = 'Asia/Dhaka'
 
 USE_I18N = True
 

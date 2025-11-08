@@ -40,3 +40,87 @@
     font-size: 0.75rem;
   }
 }
+
+/* Floating Add Button */
+.fab-add {
+  position: fixed;
+  top: 80px; /* below any navbar */
+  right: 24px;
+  z-index: 1030; /* above cards, below modals */
+}
+
+.fab-add .fab-btn {
+  border-radius: 9999px;
+  padding: 0.85rem 1.25rem;
+  font-weight: 600;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fab-add .fab-btn:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+
+@media (max-width: 768px) {
+  .fab-add {
+    right: 12px;
+    top: 70px;
+  }
+  .fab-add .fab-btn span {
+    display: none;
+  }
+}
+
+/* Stacked FAB group (multiple actions) */
+.fab-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  position: fixed;
+  top: 96px; /* align with navbar clearance similar to .fab-row */
+  right: 24px;
+  z-index: 1050;
+}
+
+/* When using stacked FABs, ensure children are positioned relative to the stack,
+   not fixed to the viewport, so multiple buttons don't overlap. */
+.fab-stack .fab-add {
+  position: static;
+  top: auto;
+  right: auto;
+}
+
+/* Horizontal FAB group (side-by-side actions) */
+.fab-row {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.75rem; /* a bit more breathing room between buttons */
+  position: fixed;
+  top: 96px; /* sit slightly below the navbar/title area */
+  right: 24px;
+  z-index: 1050;
+}
+
+.fab-row .fab-add {
+  position: relative; /* allow z-index and layering if needed */
+  top: auto;
+  right: auto;
+}
+
+/* Prevent labels from wrapping in the horizontal FAB */
+.fab-row .fab-btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .fab-stack {
+    right: 12px;
+    top: 70px;
+  }
+  .fab-row {
+    right: 12px;
+    top: 70px;
+  }
+}

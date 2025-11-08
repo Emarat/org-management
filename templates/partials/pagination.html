@@ -1,0 +1,35 @@
+{% comment %}
+Reusable pagination include.
+Requires: page_obj and request in context.
+Preserves existing query parameters except 'page'.
+{% endcomment %}
+{% if page_obj.paginator.num_pages > 1 %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
+  <div class="text-muted small">
+    Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}
+  </div>
+  <nav aria-label="Page navigation" class="flex-grow-1">
+    <ul class="pagination pagination-sm justify-content-center mb-0">
+      {% if page_obj.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.previous_page_number }}">«</a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">«</span></li>
+      {% endif %}
+      {% for i in page_obj.paginator.page_range %}
+        {% if i == page_obj.number %}
+          <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+        {% else %}
+          <li class="page-item"><a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ i }}">{{ i }}</a></li>
+        {% endif %}
+      {% endfor %}
+      {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?{% for k,v in request.GET.items %}{% if k != 'page' %}{{ k }}={{ v|urlencode }}&{% endif %}{% endfor %}page={{ page_obj.next_page_number }}">»</a></li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link">»</span></li>
+      {% endif %}
+    </ul>
+  </nav>
+</div>
+{% endif %}

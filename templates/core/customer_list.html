@@ -94,11 +94,13 @@
         </tbody>
       </table>
     </div>
-    <div class="d-flex justify-content-between align-items-center mt-3">
-      <strong>Total Customers: {{ customers.count }}</strong>
+    {% include 'partials/pagination.html' %}
+    <div class="d-flex justify-content-end mt-3">
+      {% if page_obj and page_obj.paginator.num_pages > 1 %}
       <a href="{% url 'customer_add' %}" class="btn btn-success">
         <i class="fas fa-plus"></i> Add Customer
       </a>
+      {% endif %}
     </div>
     {% else %}
     <div class="text-center py-5">
@@ -111,4 +113,10 @@
     {% endif %}
   </div>
 </div>
+{% if request.user.is_authenticated %}
+  <div class="fab-stack">
+    {% url 'customer_add' as customer_add_url %}
+    {% include 'partials/fab_add.html' with url=customer_add_url label='Add Customer' icon='fa-user-plus' btn_class='btn-success' %}
+  </div>
+{% endif %}
 {% endblock %}

@@ -9,6 +9,7 @@ from django.http import HttpResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
 from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry
+from django.core.paginator import Paginator
 from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
@@ -65,21 +66,24 @@ def dashboard(request):
 def customer_list(request):
     query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
-    
-    customers = Customer.objects.all()
-    
+    qs = Customer.objects.all()
     if query:
-        customers = customers.filter(
+        qs = qs.filter(
             Q(name__icontains=query) |
             Q(customer_id__icontains=query) |
             Q(company__icontains=query) |
             Q(phone__icontains=query)
         )
-    
     if status_filter:
-        customers = customers.filter(status=status_filter)
-    
-    return render(request, 'core/customer_list.html', {'customers': customers, 'query': query})
+        qs = qs.filter(status=status_filter)
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'core/customer_list.html', {
+        'customers': page_obj.object_list,
+        'page_obj': page_obj,
+        'query': query,
+        'status_filter': status_filter,
+    })
 
 
 @login_required
@@ -125,23 +129,26 @@ def inventory_list(request):
     query = request.GET.get('q', '')
     category_filter = request.GET.get('category', '')
     low_stock = request.GET.get('low_stock', '')
-    
-    items = InventoryItem.objects.all()
-    
+    qs = InventoryItem.objects.all()
     if query:
-        items = items.filter(
+        qs = qs.filter(
             Q(part_name__icontains=query) |
             Q(part_code__icontains=query) |
             Q(category__icontains=query)
         )
-    
     if category_filter:
-        items = items.filter(category__icontains=category_filter)
-    
+        qs = qs.filter(category__icontains=category_filter)
     if low_stock:
-        items = items.filter(quantity__lte=F('minimum_stock'))
-    
-    return render(request, 'core/inventory_list.html', {'items': items, 'query': query})
+        qs = qs.filter(quantity__lte=F('minimum_stock'))
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'core/inventory_list.html', {
+        'items': page_obj.object_list,
+        'page_obj': page_obj,
+        'query': query,
+        'category_filter': category_filter,
+        'low_stock': low_stock,
+    })
 
 
 @login_required
@@ -187,37 +194,35 @@ def expense_list(request):
     query = request.GET.get('q', '')
     category_filter = request.GET.get('category', '')
     month_filter = request.GET.get('month', '')
-    
-    expenses = Expense.objects.all()
-    
+    qs = Expense.objects.all()
     if query:
-        expenses = expenses.filter(
+        qs = qs.filter(
             Q(description__icontains=query) |
             Q(paid_to__icontains=query) |
             Q(receipt_number__icontains=query)
         )
-    
     if category_filter:
-        expenses = expenses.filter(category=category_filter)
-    
+        qs = qs.filter(category=category_filter)
     if month_filter:
         try:
             month, year = month_filter.split('-')
-            expenses = expenses.filter(date__month=int(month), date__year=int(year))
-        except:
+            qs = qs.filter(date__month=int(month), date__year=int(year))
+        except Exception:
             pass
-    
-    total_expenses = expenses.aggregate(total=Sum('amount'))['total'] or 0
-    # Current balance from ledger (credits - debits)
+    total_expenses = qs.aggregate(total=Sum('amount'))['total'] or 0
     credit_total = LedgerEntry.objects.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
     debit_total = LedgerEntry.objects.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
     current_balance = (credit_total or 0) - (debit_total or 0)
-    
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'core/expense_list.html', {
-        'expenses': expenses, 
+        'expenses': page_obj.object_list,
+        'page_obj': page_obj,
         'query': query,
-    'total_expenses': total_expenses,
-    'balance': current_balance,
+        'category_filter': category_filter,
+        'month_filter': month_filter,
+        'total_expenses': total_expenses,
+        'balance': current_balance,
     })
 
 
@@ -317,29 +322,28 @@ def payment_list(request):
     query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
     payment_type = request.GET.get('payment_type', '')
-    
-    payments = Payment.objects.all()
-    
+    qs = Payment.objects.all()
     if query:
-        payments = payments.filter(
+        qs = qs.filter(
             Q(invoice_number__icontains=query) |
             Q(customer__name__icontains=query) |
             Q(customer__customer_id__icontains=query)
         )
-    
     if status_filter:
-        payments = payments.filter(status=status_filter)
-    
+        qs = qs.filter(status=status_filter)
     if payment_type:
-        payments = payments.filter(payment_type=payment_type)
-    
-    total_pending = payments.filter(status__in=['pending', 'overdue']).aggregate(
+        qs = qs.filter(payment_type=payment_type)
+    total_pending = qs.filter(status__in=['pending', 'overdue']).aggregate(
         total=Sum(F('total_amount') - F('paid_amount'))
     )['total'] or 0
-    
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'core/payment_list.html', {
-        'payments': payments, 
+        'payments': page_obj.object_list,
+        'page_obj': page_obj,
         'query': query,
+        'status_filter': status_filter,
+        'payment_type': payment_type,
         'total_pending': total_pending
     })
 
@@ -567,12 +571,15 @@ def reports(request):
 @manager_required
 def ledger(request):
     """Simple ledger listing showing credits and debits with current balance."""
-    entries = LedgerEntry.objects.all().order_by('-timestamp')
-    credit_total = entries.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
-    debit_total = entries.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
+    qs = LedgerEntry.objects.all().order_by('-timestamp')
+    credit_total = qs.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
+    debit_total = qs.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
     current_balance = (credit_total or 0) - (debit_total or 0)
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
     context = {
-        'entries': entries,
+        'entries': page_obj.object_list,
+        'page_obj': page_obj,
         'balance': current_balance,
         'credit_total': credit_total,
         'debit_total': debit_total,
@@ -652,16 +659,31 @@ from django.contrib.auth.decorators import permission_required
 def sale_list(request):
     query = request.GET.get('q', '')
     status = request.GET.get('status', '')
-    sales = Sale.objects.select_related('customer').all().order_by('-created_at')
+    qs = Sale.objects.select_related('customer').all().order_by('-created_at')
     if query:
-        sales = sales.filter(
+        qs = qs.filter(
             Q(sale_number__icontains=query) |
             Q(customer__name__icontains=query) |
             Q(customer__customer_id__icontains=query)
         )
     if status:
-        sales = sales.filter(status=status)
-    return render(request, 'core/sale_list.html', {'sales': sales, 'query': query, 'status': status})
+        qs = qs.filter(status=status)
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    # Sales overview metrics
+    totals_qs = qs  # after filters
+    total_sales_amount = totals_qs.aggregate(total=Sum('total_amount'))['total'] or 0
+    total_paid_amount = totals_qs.annotate(paid=Sum('payments__amount')).aggregate(total=Sum('paid'))['total'] or 0
+    total_due_amount = (total_sales_amount or 0) - (total_paid_amount or 0)
+    return render(request, 'core/sale_list.html', {
+        'sales': page_obj.object_list,
+        'page_obj': page_obj,
+        'query': query,
+        'status': status,
+        'total_sales_amount': total_sales_amount,
+        'total_paid_amount': total_paid_amount,
+        'total_due_amount': total_due_amount,
+    })
 
 
 @login_required
@@ -991,19 +1013,3 @@ def sale_payment_receipt(request, sale_pk, payment_pk):
     }
     return render(request, 'core/sale_payment_receipt.html', context)
 
-
-@login_required
-@manager_required
-def ledger(request):
-    """Simple ledger listing showing credits and debits with current balance."""
-    entries = LedgerEntry.objects.all().order_by('-timestamp')
-    credit_total = entries.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
-    debit_total = entries.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
-    current_balance = (credit_total or 0) - (debit_total or 0)
-    context = {
-        'entries': entries,
-        'balance': current_balance,
-        'credit_total': credit_total,
-        'debit_total': debit_total,
-    }
-    return render(request, 'core/ledger.html', context)
