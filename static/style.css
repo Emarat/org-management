@@ -78,9 +78,9 @@
   flex-direction: column;
   gap: 0.65rem;
   position: fixed;
-  top: 80px;
+  top: 96px; /* align with navbar clearance similar to .fab-row */
   right: 24px;
-  z-index: 1030;
+  z-index: 1050;
 }
 
 /* When using stacked FABs, ensure children are positioned relative to the stack,
