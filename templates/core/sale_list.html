@@ -89,10 +89,10 @@
 </div>
 {% if perms.core.add_sale %}
   <div class="fab-row">
-    {% url 'sale_create' as sale_create_url %}
-    {% include 'partials/fab_add.html' with url=sale_create_url label='New Sale' icon='fa-plus' btn_class='btn-primary' %}
     {% url 'sale_quote_create' as sale_quote_url %}
     {% include 'partials/fab_add.html' with url=sale_quote_url label='New Quotation' icon='fa-file-alt' btn_class='btn-secondary' %}
+    {% url 'sale_create' as sale_create_url %}
+    {% include 'partials/fab_add.html' with url=sale_create_url label='New Sale' icon='fa-plus' btn_class='btn-primary' %}
   </div>
 {% endif %}
 {% endblock %}
