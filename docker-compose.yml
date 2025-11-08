@@ -14,7 +14,8 @@ services:
   web:
     build: .
     restart: unless-stopped
-    command: gunicorn org_management.wsgi:application --bind 0.0.0.0:8000
+    # Use entrypoint for migrations & collectstatic then gunicorn
+    entrypoint: /code/docker-entrypoint.sh
     volumes:
       - .:/code
     ports:

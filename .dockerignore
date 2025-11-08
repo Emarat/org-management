@@ -1,0 +1,26 @@
+# Ignore Python cache and virtual envs
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Git and editor files
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Python build artifacts
+build/
+dist/
+
+# Local media and runtime artifacts (kept outside image)
+media/
+
+# Collected static (generated inside container)
+staticfiles/
+
+# Docker
+Dockerfile*
+!Dockerfile
