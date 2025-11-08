@@ -104,7 +104,7 @@
 }
 
 .fab-row .fab-add {
-  position: static;
+  position: relative; /* allow z-index and layering if needed */
   top: auto;
   right: auto;
 }
