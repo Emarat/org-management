@@ -231,19 +231,7 @@ def expense_add(request):
     if request.method == 'POST':
         form = ExpenseForm(request.POST)
         if form.is_valid():
-            exp = form.save()
-            # Log to ledger as a debit (outflow)
-            try:
-                LedgerEntry.objects.create(
-                    entry_type='debit',
-                    source='expense',
-                    reference=f"EXP-{exp.id}",
-                    description=f"{exp.get_category_display()} - {exp.description[:80]}",
-                    amount=exp.amount,
-                )
-            except Exception:
-                # Do not block expense creation on ledger failure
-                pass
+            exp = form.save()  # Ledger entry now created exclusively by post_save signal
             messages.success(request, 'Expense added successfully!')
             return redirect('expense_list')
     else:
