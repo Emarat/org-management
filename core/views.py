@@ -231,19 +231,7 @@ def expense_add(request):
     if request.method == 'POST':
         form = ExpenseForm(request.POST)
         if form.is_valid():
-            exp = form.save()
-            # Log to ledger as a debit (outflow)
-            try:
-                LedgerEntry.objects.create(
-                    entry_type='debit',
-                    source='expense',
-                    reference=f"EXP-{exp.id}",
-                    description=f"{exp.get_category_display()} - {exp.description[:80]}",
-                    amount=exp.amount,
-                )
-            except Exception:
-                # Do not block expense creation on ledger failure
-                pass
+            exp = form.save()  # Ledger entry now created exclusively by post_save signal
             messages.success(request, 'Expense added successfully!')
             return redirect('expense_list')
     else:
@@ -671,9 +659,12 @@ def sale_list(request):
     paginator = Paginator(qs, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
     # Sales overview metrics
-    totals_qs = qs  # after filters
+    # Business rule: exclude Draft & Quotation from aggregate totals and dues
+    totals_qs = qs.exclude(status__in=['draft', 'quote'])  # after filters
     total_sales_amount = totals_qs.aggregate(total=Sum('total_amount'))['total'] or 0
-    total_paid_amount = totals_qs.annotate(paid=Sum('payments__amount')).aggregate(total=Sum('paid'))['total'] or 0
+    total_paid_amount = (
+        totals_qs.annotate(paid=Sum('payments__amount')).aggregate(total=Sum('paid'))['total'] or 0
+    )
     total_due_amount = (total_sales_amount or 0) - (total_paid_amount or 0)
     return render(request, 'core/sale_list.html', {
         'sales': page_obj.object_list,
