@@ -194,6 +194,8 @@ def expense_list(request):
     query = request.GET.get('q', '')
     category_filter = request.GET.get('category', '')
     month_filter = request.GET.get('month', '')
+    start_date = request.GET.get('start_date', '')
+    end_date = request.GET.get('end_date', '')
     qs = Expense.objects.all()
     if query:
         qs = qs.filter(
@@ -203,12 +205,32 @@ def expense_list(request):
         )
     if category_filter:
         qs = qs.filter(category=category_filter)
-    if month_filter:
+    # Month filter (accept both YYYY-MM from input type="month" and MM-YYYY)
+    if month_filter and not (start_date or end_date):  # prioritize explicit date range
         try:
-            month, year = month_filter.split('-')
-            qs = qs.filter(date__month=int(month), date__year=int(year))
+            parts = month_filter.split('-')
+            if len(parts) == 2:
+                # Detect ordering: if first part length == 4 treat as year-month
+                if len(parts[0]) == 4:
+                    year = int(parts[0])
+                    month = int(parts[1])
+                else:
+                    month = int(parts[0])
+                    year = int(parts[1])
+                qs = qs.filter(date__year=year, date__month=month)
         except Exception:
             pass
+
+    # Specific date or date range filtering
+    from django.utils.dateparse import parse_date
+    sd = parse_date(start_date) if start_date else None
+    ed = parse_date(end_date) if end_date else None
+    if sd and ed:
+        qs = qs.filter(date__range=(sd, ed))
+    elif sd:
+        qs = qs.filter(date=sd)
+    elif ed:
+        qs = qs.filter(date=ed)
     total_expenses = qs.aggregate(total=Sum('amount'))['total'] or 0
     credit_total = LedgerEntry.objects.filter(entry_type='credit').aggregate(total=Sum('amount'))['total'] or 0
     debit_total = LedgerEntry.objects.filter(entry_type='debit').aggregate(total=Sum('amount'))['total'] or 0
@@ -221,6 +243,8 @@ def expense_list(request):
         'query': query,
         'category_filter': category_filter,
         'month_filter': month_filter,
+        'start_date': start_date,
+        'end_date': end_date,
         'total_expenses': total_expenses,
         'balance': current_balance,
     })
