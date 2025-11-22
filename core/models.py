@@ -5,6 +5,20 @@ import uuid
 from django.conf import settings
 
 
+class CustomerIdSequence(models.Model):
+    """Singleton sequence tracker for continuous customer serials.
+    Holds the last assigned serial to ensure concurrency-safe increments.
+    """
+    last_serial = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"CustomerIdSequence(last_serial={self.last_serial})"
+
+    class Meta:
+        verbose_name = "Customer ID Sequence"
+        verbose_name_plural = "Customer ID Sequences"
+
+
 class Customer(models.Model):
     """Customer Management Model"""
     STATUS_CHOICES = [
@@ -25,8 +39,18 @@ class Customer(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
+        # Auto-generate only if missing
         if not self.customer_id:
-            self.customer_id = f"CUST-{uuid.uuid4().hex[:8].upper()}"
+            from django.utils import timezone
+            today = timezone.now().date()
+            formatted_date = today.strftime('%d%m%Y')  # DDMMYYYY
+            # Obtain/lock sequence row
+            with transaction.atomic():
+                seq, _created = CustomerIdSequence.objects.select_for_update().get_or_create(pk=1, defaults={'last_serial': 0})
+                seq.last_serial += 1
+                serial = seq.last_serial
+                seq.save(update_fields=['last_serial'])
+            self.customer_id = f"FE{formatted_date}-{serial:02d}"  # zero-padded serial
         super().save(*args, **kwargs)
     
     class Meta:
