@@ -5,6 +5,7 @@ from django.contrib.auth.views import redirect_to_login
 from functools import wraps
 from django.contrib import messages
 from django.db.models import Sum, Count, Q, F
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
@@ -39,7 +40,7 @@ def dashboard(request):
         'total_inventory_items': InventoryItem.objects.count(),
         'low_stock_items': InventoryItem.objects.filter(quantity__lte=F('minimum_stock')).count(),
         'total_inventory_value': InventoryItem.objects.aggregate(
-            total=Sum(F('quantity') * F('unit_price'))
+            total=Sum(F('quantity') * Coalesce(F('unit_price'), 0))
         )['total'] or 0,
         'pending_payments': Payment.objects.filter(status='pending').count(),
         'overdue_payments': Payment.objects.filter(status='overdue').count(),
@@ -629,8 +630,8 @@ def export_excel(request):
     ws_inventory.append(['Part Code', 'Part Name', 'Category', 'Quantity', 'Unit Price', 'Total Value'])
     for item in InventoryItem.objects.all():
         ws_inventory.append([
-            item.part_code, item.part_name, item.category, item.quantity, 
-            float(item.unit_price), float(item.total_value)
+            item.part_code, item.part_name, item.category, item.quantity,
+            float(item.unit_price or 0), float(item.total_value)
         ])
     
     # Export Expenses
