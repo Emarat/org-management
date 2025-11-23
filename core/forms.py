@@ -92,10 +92,9 @@ class BillClaimForm(forms.ModelForm):
 class SaleForm(forms.ModelForm):
     class Meta:
         model = Sale
-        fields = ['customer', 'expected_installments']
+        fields = ['customer']
         widgets = {
             'customer': forms.Select(attrs={'class': 'form-control'}),
-            'expected_installments': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
         }
 
 

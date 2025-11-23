@@ -10,9 +10,11 @@
   <div class="card-body">
     <form method="post" novalidate>
       {% csrf_token %}
-      <div class="row g-3">
-        <div class="col-md-6">{{ form.customer.label_tag }} {{ form.customer }}</div>
-        <div class="col-md-6">{{ form.expected_installments.label_tag }} {{ form.expected_installments }}</div>
+      <div class="row g-3 align-items-end">
+        <div class="col-md-8">{{ form.customer.label_tag }} {{ form.customer }}</div>
+        <div class="col-md-4">
+          <button type="button" class="btn btn-outline-secondary" id="quickAddCustomerBtn">Add New Customer</button>
+        </div>
       </div>
 
       <hr>
@@ -84,6 +86,130 @@
       if (invSelect) { invSelect.addEventListener('change', onInventoryChange); }
       onTypeChange();
     });
+  })();
+</script>
+<!-- Quick Add Customer Modal -->
+<div class="modal" tabindex="-1" id="quickAddCustomerModal" style="display:none; background:rgba(0,0,0,0.5); position:fixed; top:0; left:0; right:0; bottom:0;">
+  <div class="modal-dialog" style="max-width:600px; margin:60px auto;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Customer</h5>
+        <button type="button" class="btn-close" id="quickAddCustomerClose"></button>
+      </div>
+      <div class="modal-body">
+        <form id="quickAddCustomerForm">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Name*</label>
+              <input type="text" name="name" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Phone*</label>
+              <input type="text" name="phone" class="form-control" required>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Company</label>
+              <input type="text" name="company" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Email</label>
+              <input type="email" name="email" class="form-control">
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Address</label>
+              <textarea name="address" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">City</label>
+              <input type="text" name="city" class="form-control">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select">
+                <option value="active" selected>Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
+            <div class="col-md-12">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" class="form-control" rows="2"></textarea>
+            </div>
+          </div>
+        </form>
+        <div class="alert alert-danger mt-3 d-none" id="quickAddErrors"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="quickAddCustomerCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="quickAddCustomerSave">Save Customer</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function(){
+    const btn = document.getElementById('quickAddCustomerBtn');
+    const modal = document.getElementById('quickAddCustomerModal');
+    const closeBtn = document.getElementById('quickAddCustomerClose');
+    const cancelBtn = document.getElementById('quickAddCustomerCancel');
+    const saveBtn = document.getElementById('quickAddCustomerSave');
+    const formEl = document.getElementById('quickAddCustomerForm');
+    const errorBox = document.getElementById('quickAddErrors');
+    const customerSelect = document.getElementById('id_customer');
+
+    function openModal(){ modal.style.display='block'; }
+    function closeModal(){ modal.style.display='none'; errorBox.classList.add('d-none'); errorBox.innerHTML=''; formEl.reset(); }
+
+    function getCsrf(){
+      const name='csrftoken';
+      const cookies=document.cookie.split(';').map(c=>c.trim());
+      for(const c of cookies){ if(c.startsWith(name+'=')) return c.split('=')[1]; }
+      const input=document.querySelector('input[name=csrfmiddlewaretoken]');
+      return input?input.value:'';
+    }
+
+    async function saveCustomer(){
+      errorBox.classList.add('d-none');
+      errorBox.innerHTML='';
+      const fd=new FormData(formEl);
+      try {
+        const resp = await fetch('{% url "customer_quick_add" %}', {
+          method:'POST',
+          headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken':getCsrf()},
+          body:fd
+        });
+        if(!resp.ok){
+          const data = await resp.json();
+          if(data.errors){
+            const msgs = [];
+            for(const [field, errs] of Object.entries(data.errors)){
+              msgs.push('<strong>'+field+':</strong> '+errs.join(', '));
+            }
+            errorBox.innerHTML=msgs.join('<br>');
+            errorBox.classList.remove('d-none');
+          } else {
+            errorBox.innerHTML='Error saving customer';
+            errorBox.classList.remove('d-none');
+          }
+          return;
+        }
+        const data = await resp.json();
+        // Add option to select
+        const opt=document.createElement('option');
+        opt.value=data.id;
+        opt.textContent=data.display;
+        customerSelect.appendChild(opt);
+        customerSelect.value=data.id;
+        closeModal();
+      } catch(e){
+        errorBox.textContent='Network error';
+        errorBox.classList.remove('d-none');
+      }
+    }
+
+    if(btn){ btn.addEventListener('click', openModal); }
+    if(closeBtn){ closeBtn.addEventListener('click', closeModal); }
+    if(cancelBtn){ cancelBtn.addEventListener('click', closeModal); }
+    if(saveBtn){ saveBtn.addEventListener('click', saveCustomer); }
   })();
 </script>
 {% endblock %}

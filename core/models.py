@@ -203,7 +203,6 @@ class Sale(models.Model):
     customer = models.ForeignKey('Customer', on_delete=models.PROTECT, related_name='sales')
     sale_number = models.CharField(max_length=100, unique=True, editable=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    expected_installments = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_sales')
     created_at = models.DateTimeField(auto_now_add=True)
