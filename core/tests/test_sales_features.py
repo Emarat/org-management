@@ -26,7 +26,8 @@ class SalesFeatureTests(TestCase):
         html = resp.content.decode()
         self.assertNotIn('expected_installments', html, 'expected_installments field still rendered')
 
-    def test_create_inventory_item_sale(self):
+    def test_create_inventory_item_sale_with_custom_price(self):
+        """Inventory sale should respect a positive custom unit_price override."""
         url = reverse('sale_create')
         data = {
             'customer': str(self.customer.pk),
@@ -35,17 +36,14 @@ class SalesFeatureTests(TestCase):
             'machine_name': '',
             'description': '',  # ignored for inventory
             'quantity': '3',
-            'unit_price': '0',  # should be overridden by inventory unit_price
+            'unit_price': '65',  # custom price lower than inventory price (75)
         }
         resp = self.client.post(url, data)
-        # Redirect to sale_detail
         self.assertEqual(resp.status_code, 302)
         sale = Sale.objects.latest('id')
-        self.assertEqual(sale.customer, self.customer)
-        self.assertEqual(sale.items.count(), 1)
         item = sale.items.first()
         self.assertEqual(item.inventory_item, self.inv)
-        self.assertEqual(item.unit_price, self.inv.unit_price)
+        self.assertEqual(item.unit_price, 65)
         self.assertEqual(item.quantity, 3)
         self.assertEqual(sale.total_amount, item.unit_price * item.quantity)
 

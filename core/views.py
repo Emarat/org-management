@@ -727,7 +727,9 @@ def sale_create(request):
                 cd = item_form.cleaned_data
                 if cd['item_type'] == 'inventory':
                     inv = cd['inventory_item']
-                    unit_price = inv.unit_price
+                    # Allow override: use provided unit_price if > 0 else fallback to inventory price
+                    provided_price = cd.get('unit_price') or 0
+                    unit_price = provided_price if provided_price > 0 else inv.unit_price
                     desc = f"{inv.part_name} ({inv.part_code})"
                     SaleItem.objects.create(
                         sale=sale,
@@ -793,7 +795,8 @@ def sale_quote_create(request):
                 cd = item_form.cleaned_data
                 if cd['item_type'] == 'inventory':
                     inv = cd['inventory_item']
-                    unit_price = inv.unit_price
+                    provided_price = cd.get('unit_price') or 0
+                    unit_price = provided_price if provided_price > 0 else inv.unit_price
                     desc = f"{inv.part_name} ({inv.part_code})"
                     SaleItem.objects.create(
                         sale=sale,
@@ -929,8 +932,8 @@ def sale_add_item(request, pk):
             if item.item_type == 'non_inventory' and not item.description:
                 messages.error(request, 'Description is required for non-inventory items.')
             else:
-                # If inventory item selected, force unit price from inventory
-                if item.item_type == 'inventory' and item.inventory_item:
+                # Allow override: use provided unit_price if > 0 else fallback to inventory price
+                if item.item_type == 'inventory' and item.inventory_item and (item.unit_price is None or item.unit_price <= 0):
                     item.unit_price = item.inventory_item.unit_price
                 item.save()
                 messages.success(request, 'Item added to sale.')

@@ -114,8 +114,8 @@ class SaleItemForm(forms.ModelForm):
 class CombinedSaleItemForm(forms.Form):
     """Non-model form used on Create Sale page to capture the first line item.
     Supports two item types:
-      - inventory: choose inventory_item; unit_price auto from inventory
-      - machine: provide machine_name, description, quantity, unit_price
+      - inventory: choose inventory_item; unit_price defaults from inventory if user enters 0 or leaves blank
+      - machine: provide machine_name, description, quantity, unit_price (required)
     """
     ITEM_TYPE_CHOICES = [
         ("inventory", "Inventory Item"),
@@ -141,7 +141,7 @@ class CombinedSaleItemForm(forms.Form):
         if item_type == 'inventory':
             if not inv:
                 self.add_error('inventory_item', 'Select an inventory item')
-            # Price will be forced in view from inventory
+            # Allow override: positive unit_price respected; fallback handled in view if 0
         elif item_type == 'machine':
             if not machine_name:
                 self.add_error('machine_name', 'Machine name is required')

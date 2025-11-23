@@ -58,8 +58,8 @@
         invWrap.style.display = '';
         nameWrap.style.display = 'none';
         descWrap.style.display = 'none';
-        // Read-only price; autofill from inventory change
-        priceInput.readOnly = true;
+        // Autofill from inventory but keep editable
+        priceInput.readOnly = false;
         if (invSelect) { onInventoryChange(); }
       } else {
         invWrap.style.display = 'none';
