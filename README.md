@@ -4,12 +4,14 @@ A comprehensive web-based application to manage your organization's operations i
 
 ## 🚀 Features
 
- Core modules and recent enhancements:
+Core modules and recent enhancements:
 
 - Dashboard with overview metrics and low-stock alerts
 - Sales & Quotations with balances and payments tracking
+- Quick-add Customer on Sale creation (inline modal)
+- Sales list item type filter (Inventory vs Machines)
 - Customer Management with search and filters
- - Continuous auto-generated Customer IDs (FE<DDMMYYYY>-NN sequence)
+- Continuous auto-generated Customer IDs (FE<DDMMYYYY>-NN sequence)
 - Inventory with low-stock highlighting and valuation
 - Expenses with categories and totals
 - Payments including partial/instalment flows

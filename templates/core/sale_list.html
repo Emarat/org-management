@@ -43,6 +43,13 @@
           <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>Cancelled</option>
         </select>
       </div>
+      <div class="col-md-3">
+        <select name="item_type" class="form-select">
+          <option value="">All Item Types</option>
+          <option value="inventory" {% if item_type == 'inventory' %}selected{% endif %}>Inventory Items</option>
+          <option value="machine" {% if item_type == 'machine' %}selected{% endif %}>Machines</option>
+        </select>
+      </div>
       <div class="col-md-2">
         <button class="btn btn-outline-secondary w-100" type="submit"><i class="fas fa-filter"></i> Filter</button>
       </div>
@@ -57,7 +64,7 @@
             <th>Status</th>
             <th class="text-end">Total</th>
             <th class="text-end">Paid</th>
-            <th class="text-end">Balance</th>
+            <th class="text-end">Due</th>
             <th></th>
           </tr>
         </thead>

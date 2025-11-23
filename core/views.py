@@ -5,7 +5,7 @@ from django.contrib.auth.views import redirect_to_login
 from functools import wraps
 from django.contrib import messages
 from django.db.models import Sum, Count, Q, F
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
 from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry
@@ -671,6 +671,7 @@ from django.contrib.auth.decorators import permission_required
 def sale_list(request):
     query = request.GET.get('q', '')
     status = request.GET.get('status', '')
+    item_type = request.GET.get('item_type', '')  # 'inventory' or 'machine'
     qs = Sale.objects.select_related('customer').all().order_by('-created_at')
     if query:
         qs = qs.filter(
@@ -680,6 +681,10 @@ def sale_list(request):
         )
     if status:
         qs = qs.filter(status=status)
+    if item_type in ['inventory', 'machine']:
+        # Map 'machine' to non_inventory sale items
+        mapped = 'non_inventory' if item_type == 'machine' else 'inventory'
+        qs = qs.filter(items__item_type=mapped).distinct()
     paginator = Paginator(qs, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
     # Sales overview metrics
@@ -695,6 +700,7 @@ def sale_list(request):
         'page_obj': page_obj,
         'query': query,
         'status': status,
+        'item_type': item_type,
         'total_sales_amount': total_sales_amount,
         'total_paid_amount': total_paid_amount,
         'total_due_amount': total_due_amount,
@@ -721,7 +727,9 @@ def sale_create(request):
                 cd = item_form.cleaned_data
                 if cd['item_type'] == 'inventory':
                     inv = cd['inventory_item']
-                    unit_price = inv.unit_price
+                    # Allow override: use provided unit_price if > 0 else fallback to inventory price
+                    provided_price = cd.get('unit_price') or 0
+                    unit_price = provided_price if provided_price > 0 else inv.unit_price
                     desc = f"{inv.part_name} ({inv.part_code})"
                     SaleItem.objects.create(
                         sale=sale,
@@ -787,7 +795,8 @@ def sale_quote_create(request):
                 cd = item_form.cleaned_data
                 if cd['item_type'] == 'inventory':
                     inv = cd['inventory_item']
-                    unit_price = inv.unit_price
+                    provided_price = cd.get('unit_price') or 0
+                    unit_price = provided_price if provided_price > 0 else inv.unit_price
                     desc = f"{inv.part_name} ({inv.part_code})"
                     SaleItem.objects.create(
                         sale=sale,
@@ -831,6 +840,24 @@ def sale_quote_create(request):
         'inventory_prices': inventory_prices,
         'is_quote': True,
     })
+
+
+@login_required
+@permission_required('core.add_customer', raise_exception=True)
+def customer_quick_add(request):
+    """AJAX endpoint to quickly add a customer and return JSON for select update."""
+    if request.method != 'POST' or request.headers.get('x-requested-with') != 'XMLHttpRequest':
+        return JsonResponse({'error': 'Invalid request'}, status=400)
+    form = CustomerForm(request.POST)
+    if form.is_valid():
+        cust = form.save()
+        return JsonResponse({
+            'id': cust.pk,
+            'name': cust.name,
+            'customer_id': cust.customer_id,
+            'display': f"{cust.name} ({cust.customer_id})"
+        })
+    return JsonResponse({'errors': form.errors}, status=422)
 
 
 @login_required
@@ -905,8 +932,8 @@ def sale_add_item(request, pk):
             if item.item_type == 'non_inventory' and not item.description:
                 messages.error(request, 'Description is required for non-inventory items.')
             else:
-                # If inventory item selected, force unit price from inventory
-                if item.item_type == 'inventory' and item.inventory_item:
+                # Allow override: use provided unit_price if > 0 else fallback to inventory price
+                if item.item_type == 'inventory' and item.inventory_item and (item.unit_price is None or item.unit_price <= 0):
                     item.unit_price = item.inventory_item.unit_price
                 item.save()
                 messages.success(request, 'Item added to sale.')

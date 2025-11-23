@@ -28,7 +28,7 @@
         <p><strong>Customer:</strong> {{ sale.customer.name }}</p>
         <p><strong>Status:</strong> {{ sale.status|title }}</p>
         <p><strong>Total:</strong> ${{ sale.total_amount }}</p>
-        <p><strong>Paid:</strong> ${{ sale.total_paid }} &nbsp; <strong>Balance:</strong> ${{ sale.balance_due }}</p>
+        <p><strong>Paid:</strong> ${{ sale.total_paid }} &nbsp; <strong>Due:</strong> ${{ sale.balance_due }}</p>
         {% if sale.finalized_at %}
           <p><strong>Finalized:</strong> {{ sale.finalized_at }} by {{ sale.finalized_by }}</p>
         {% endif %}
@@ -194,7 +194,7 @@
         var priceEl = document.querySelector('#addItemCollapse input[name="unit_price"]');
         if (!sel || !priceEl) return;
         var id = sel.value;
-        if (id && map[id] !== undefined) { priceEl.value = map[id]; }
+        if (id && map[id] !== undefined && (!priceEl.value || parseFloat(priceEl.value) <= 0)) { priceEl.value = map[id]; }
       }
       document.addEventListener('DOMContentLoaded', function(){
         var sel = document.querySelector('#addItemCollapse select[name="inventory_item"]');
