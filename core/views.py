@@ -4,7 +4,7 @@ from django.core.exceptions import PermissionDenied
 from django.contrib.auth.views import redirect_to_login
 from functools import wraps
 from django.contrib import messages
-from django.db.models import Sum, Count, Q, F
+from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 from django.http import HttpResponse, JsonResponse
 from datetime import datetime, timedelta
@@ -39,8 +39,14 @@ def dashboard(request):
         'total_customers': Customer.objects.filter(status='active').count(),
         'total_inventory_items': InventoryItem.objects.count(),
         'low_stock_items': InventoryItem.objects.filter(quantity__lte=F('minimum_stock')).count(),
+        # Ensure mixed int/decimal multiplication resolves to decimal via ExpressionWrapper
         'total_inventory_value': InventoryItem.objects.aggregate(
-            total=Sum(F('quantity') * Coalesce(F('unit_price'), 0))
+            total=Sum(
+                ExpressionWrapper(
+                    F('quantity') * Coalesce(F('unit_price'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))),
+                    output_field=DecimalField(max_digits=12, decimal_places=2)
+                )
+            )
         )['total'] or 0,
         'pending_payments': Payment.objects.filter(status='pending').count(),
         'overdue_payments': Payment.objects.filter(status='overdue').count(),
