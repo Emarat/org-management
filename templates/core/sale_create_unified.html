@@ -1,0 +1,501 @@
+{% extends 'base.html' %}
+{% block title %}{{ title|default:'Create Sale' }} - OrgMS{% endblock %}
+{% block content %}
+<form method="post" novalidate id="saleBuilderForm" autocomplete="off">
+  {% csrf_token %}
+  {{ item_formset.management_form }}
+  <div class="row g-3">
+    <div class="col-lg-8">
+      <div class="card mb-3 shadow-sm">
+        <div class="card-header fw-semibold">Customer Details</div>
+        <div class="card-body">
+          <div class="row g-2 align-items-start">
+            <div class="col-md-7">
+              <label class="form-label">Customer</label>
+              {{ sale_form.customer }}
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Quick Add</label><br>
+              <button type="button" class="btn btn-outline-secondary btn-sm" id="quickAddCustomerBtn"> Add New Customer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card mb-3 shadow-sm" id="productsCard">
+        <div class="card-header d-flex justify-content-between align-items-center fw-semibold">
+          <span>Products</span>
+          <button type="button" class="btn btn-sm btn-primary" id="addItemRowBtn">+ Add Item</button>
+        </div>
+        <div class="card-body p-2">
+          <div id="itemsContainer">
+            {% for form in item_formset.forms %}
+            <div class="item-card border rounded p-3 mb-3 position-relative" data-index="{{ forloop.counter0 }}">
+              <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-item-btn" style="z-index:10;">&times;</button>
+              
+              <div class="row g-2">
+                <!-- Type Selection - Always visible -->
+                <div class="col-md-3">
+                  <label class="form-label small fw-semibold">Type <span class="text-danger">*</span></label>
+                  {{ form.item_type }}
+                </div>
+
+                <!-- Inventory Fields - Show when type=inventory -->
+                <div class="inv-fields" style="display:none;">
+                  <div class="row g-2">
+                    <div class="col-md-5">
+                      <label class="form-label small fw-semibold">Item <span class="text-danger">*</span></label>
+                      {{ form.inventory_item }}
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label small fw-semibold">Quantity <span class="text-danger">*</span></label>
+                      <input type="number" min="1" name="items-{{ forloop.counter0 }}-quantity_inv" value="1" class="form-control form-control-sm quantity-inv">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label small fw-semibold">Unit Price <span class="text-danger">*</span></label>
+                      <input type="number" step="0.01" name="items-{{ forloop.counter0 }}-unit_price_inv" value="0" class="form-control form-control-sm unit-price-inv">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Machine Fields - Show when type=non_inventory -->
+                <div class="machine-fields" style="display:none;">
+                  <div class="row g-2">
+                    <div class="col-md-5">
+                      <label class="form-label small fw-semibold">Machine Name <span class="text-danger">*</span></label>
+                      <input type="text" name="items-{{ forloop.counter0 }}-machine_name" id="machine_name_{{ forloop.counter0 }}" class="form-control form-control-sm machine-name" placeholder="Enter machine name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+                    </div>
+                    <div class="col-md-3">
+                      <label class="form-label small fw-semibold">Quantity <span class="text-danger">*</span></label>
+                      <input type="number" min="1" name="items-{{ forloop.counter0 }}-quantity_machine" value="1" class="form-control form-control-sm quantity-machine">
+                    </div>
+                    <div class="col-md-4">
+                      <label class="form-label small fw-semibold">Unit Price <span class="text-danger">*</span></label>
+                      <input type="number" step="0.01" name="items-{{ forloop.counter0 }}-unit_price_machine" value="0" class="form-control form-control-sm unit-price-machine">
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hidden fields for backend -->
+              <div style="display:none;">
+                {{ form.description }}
+                {{ form.quantity }}
+                {{ form.unit_price }}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card mb-3 shadow-sm">
+        <div class="card-header fw-semibold">Summary</div>
+        <div class="card-body">
+          <div class="d-flex justify-content-between mb-3">
+            <span class="fw-semibold">Total Amount</span>
+            <span class="fs-4 fw-bold text-primary" id="summaryTotal">$0.00</span>
+          </div>
+          <div class="d-flex justify-content-between small mb-2 text-muted">
+            <span>Amount Paid</span>
+            <span id="amountPaidSummary">$0.00</span>
+          </div>
+          <div class="d-flex justify-content-between mb-3">
+            <span class="fw-semibold">Balance Due</span>
+            <span class="fw-bold text-danger" id="balanceDueSummary">$0.00</span>
+          </div>
+        </div>
+      </div>
+      <div class="card mb-3 shadow-sm" id="paymentCard">
+        <div class="card-header fw-semibold">Payment (Optional)</div>
+        <div class="card-body">
+          <div class="mb-2">
+            <label class="form-label">Payment Method</label>
+            {{ payment_form.method }}
+          </div>
+          <div class="mb-2">
+            <label class="form-label">Payment Date</label>
+            {{ payment_form.payment_date }}
+          </div>
+            <div class="mb-3">
+            <label class="form-label">Amount</label>
+            {{ payment_form.amount }}
+          </div>
+          <button type="submit" class="btn btn-primary w-100">{{ title|default:'Create Sale' }}</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</form>
+{% if inventory_prices %}
+  {{ inventory_prices|json_script:'inv_prices_data' }}
+{% endif %}
+{% if inventory_items %}
+<script id="inv_items_data" type="application/json">
+[{% for item in inventory_items %}{"id":"{{ item.id }}","name":"{{ item.part_name|escapejs }} ({{ item.part_code|escapejs }})"}{% if not forloop.last %},{% endif %}{% endfor %}]
+</script>
+{% endif %}
+
+<div class="modal" tabindex="-1" id="quickAddCustomerModal" style="display:none; background:rgba(0,0,0,0.5); position:fixed; top:0; left:0; right:0; bottom:0;">
+  <div class="modal-dialog" style="max-width:600px; margin:60px auto;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add Customer</h5>
+        <button type="button" class="btn-close" id="quickAddCustomerClose"></button>
+      </div>
+      <div class="modal-body">
+        <form id="quickAddCustomerForm">
+          <div class="row g-3">
+            <div class="col-md-6"><label class="form-label">Name*</label><input type="text" name="name" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">Phone*</label><input type="text" name="phone" class="form-control" required></div>
+            <div class="col-md-6"><label class="form-label">Company</label><input type="text" name="company" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
+            <div class="col-md-12"><label class="form-label">Address</label><textarea name="address" class="form-control" rows="2"></textarea></div>
+            <div class="col-md-6"><label class="form-label">City</label><input type="text" name="city" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Status</label><select name="status" class="form-select"><option value="active" selected>Active</option><option value="inactive">Inactive</option></select></div>
+            <div class="col-md-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
+          </div>
+        </form>
+        <div class="alert alert-danger mt-3 d-none" id="quickAddErrors"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" id="quickAddCustomerCancel">Cancel</button>
+        <button type="button" class="btn btn-primary" id="quickAddCustomerSave">Save Customer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function qs(sel, ctx){ return (ctx||document).querySelector(sel); }
+  function qsa(sel, ctx){ return Array.from((ctx||document).querySelectorAll(sel)); }
+  var INVENTORY_PRICES = {};
+  var INVENTORY_ITEMS = [];
+  try { 
+    var el = document.getElementById('inv_prices_data'); 
+    if (el) INVENTORY_PRICES = JSON.parse(el.textContent); 
+  } catch(e){}
+  try { 
+    var el = document.getElementById('inv_items_data'); 
+    if (el) INVENTORY_ITEMS = JSON.parse(el.textContent); 
+  } catch(e){}
+  var paymentAmountInput = document.getElementById('id_pay-amount');
+  var customerSelect = document.getElementById('id_customer');
+  var summaryTotal = document.getElementById('summaryTotal');
+  var amountPaidSummary = document.getElementById('amountPaidSummary');
+  var balanceDueSummary = document.getElementById('balanceDueSummary');
+
+  function recalc(){
+    var total = 0;
+    qsa('.item-card').forEach(function(card){
+      var typeSel = card.querySelector('select[name$="item_type"]');
+      var type = typeSel ? typeSel.value : 'inventory';
+      var qty = 0, price = 0;
+      
+      if(type === 'inventory'){
+        var qtyEl = card.querySelector('.quantity-inv');
+        var priceEl = card.querySelector('.unit-price-inv');
+        qty = parseFloat(qtyEl && qtyEl.value ? qtyEl.value : 0);
+        price = parseFloat(priceEl && priceEl.value ? priceEl.value : 0);
+      } else {
+        var qtyEl = card.querySelector('.quantity-machine');
+        var priceEl = card.querySelector('.unit-price-machine');
+        qty = parseFloat(qtyEl && qtyEl.value ? qtyEl.value : 0);
+        price = parseFloat(priceEl && priceEl.value ? priceEl.value : 0);
+      }
+      
+      total += qty * price;
+    });
+    
+    summaryTotal.textContent = '$' + total.toFixed(2);
+    var paid = parseFloat(paymentAmountInput && paymentAmountInput.value ? paymentAmountInput.value : 0);
+    amountPaidSummary.textContent = '$' + paid.toFixed(2);
+    balanceDueSummary.textContent = '$' + (total - paid).toFixed(2);
+  }
+
+  function wireCard(card){
+    var typeSel = card.querySelector('select[name$="item_type"]');
+    var invFields = card.querySelector('.inv-fields');
+    var machineFields = card.querySelector('.machine-fields');
+    var invSel = card.querySelector('select[name$="inventory_item"]');
+    var machineNameInput = card.querySelector('.machine-name');
+    var hiddenDesc = card.querySelector('input[name$="-description"]:not([name*="machine"])');
+    
+    // Hidden Django form fields (always present)
+    var hiddenQty = card.querySelector('input[name$="-quantity"]:not([name*="machine"]):not([name*="_inv"])');
+    var hiddenPrice = card.querySelector('input[name$="-unit_price"]:not([name*="machine"]):not([name*="_inv"])');
+    
+    // Visible input fields
+    var invQtyInput = card.querySelector('.quantity-inv');
+    var invPriceInput = card.querySelector('.unit-price-inv');
+    var machineQtyInput = card.querySelector('.quantity-machine');
+    var machinePriceInput = card.querySelector('.unit-price-machine');
+
+    function syncType(){
+      var t = typeSel ? typeSel.value : 'inventory';
+      if(t === 'inventory'){
+        if(invFields) invFields.style.display='block';
+        if(machineFields) machineFields.style.display='none';
+        // Clear hidden description for inventory
+        if(hiddenDesc) hiddenDesc.value = '';
+        // Sync inventory inputs to hidden fields
+        syncInventoryToFormFields();
+        // Auto-populate price from inventory
+        if(invSel && invSel.value && INVENTORY_PRICES[invSel.value] !== undefined && invPriceInput){
+          if(!invPriceInput.value || parseFloat(invPriceInput.value) <= 0){
+            invPriceInput.value = INVENTORY_PRICES[invSel.value];
+            if(hiddenPrice) hiddenPrice.value = invPriceInput.value;
+          }
+        }
+      } else { // machine
+        if(invFields) invFields.style.display='none';
+        if(machineFields) machineFields.style.display='block';
+        // Copy machine values to hidden form fields
+        syncMachineToFormFields();
+      }
+      recalc();
+    }
+
+    function syncInv(){
+      if(invSel && invSel.value && INVENTORY_PRICES[invSel.value] !== undefined && invPriceInput){
+        if(!invPriceInput.value || parseFloat(invPriceInput.value) <= 0){
+          invPriceInput.value = INVENTORY_PRICES[invSel.value];
+          if(hiddenPrice) hiddenPrice.value = invPriceInput.value;
+        }
+      }
+      recalc();
+    }
+
+    function syncInventoryToFormFields(){
+      if(hiddenQty && invQtyInput) hiddenQty.value = invQtyInput.value;
+      if(hiddenPrice && invPriceInput) hiddenPrice.value = invPriceInput.value;
+      recalc();
+    }
+
+    function syncMachineToFormFields(){
+      // Copy machine fields to actual form fields for submission
+      if(hiddenQty && machineQtyInput) hiddenQty.value = machineQtyInput.value;
+      if(hiddenPrice && machinePriceInput) hiddenPrice.value = machinePriceInput.value;
+      if(hiddenDesc){
+        var mn = machineNameInput ? machineNameInput.value.trim() : '';
+        hiddenDesc.value = mn;
+      }
+      recalc();
+    }
+
+    // Wire up event listeners
+    if(typeSel){ typeSel.addEventListener('change', syncType); syncType(); }
+    if(invSel){ invSel.addEventListener('change', syncInv); }
+    
+    ['change','keyup'].forEach(function(evt){
+      if(invPriceInput) invPriceInput.addEventListener(evt, syncInventoryToFormFields);
+      if(invQtyInput) invQtyInput.addEventListener(evt, syncInventoryToFormFields);
+      if(machinePriceInput) machinePriceInput.addEventListener(evt, syncMachineToFormFields);
+      if(machineQtyInput) machineQtyInput.addEventListener(evt, syncMachineToFormFields);
+      if(machineNameInput) machineNameInput.addEventListener(evt, syncMachineToFormFields);
+    });
+
+    var removeBtn = card.querySelector('.remove-item-btn');
+    if(removeBtn){
+      removeBtn.addEventListener('click', function(){
+        card.remove();
+        var totalForms = document.getElementById('id_items-TOTAL_FORMS');
+        if(totalForms){ totalForms.value = qsa('.item-card').length; }
+        recalc();
+      });
+    }
+  }
+
+  qsa('.item-card').forEach(wireCard);
+
+  var addBtn = document.getElementById('addItemRowBtn');
+  addBtn.addEventListener('click', function(){
+    var totalForms = document.getElementById('id_items-TOTAL_FORMS');
+    var index = parseInt(totalForms.value, 10);
+    
+      var cardHtml = '<div class="item-card border rounded p-3 mb-3 position-relative" data-index="'+index+'">'
+        + '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-item-btn" style="z-index:10;">&times;</button>'
+        + '<div class="row g-2">'
+        + '<div class="col-md-3">'
+        + '<label class="form-label small fw-semibold">Type <span class="text-danger">*</span></label>'
+        + '<select name="items-'+index+'-item_type" class="form-select form-select-sm"><option value="inventory">Inventory</option><option value="non_inventory">Machine</option></select>'
+        + '</div>'
+        + '<div class="inv-fields" style="display:none;">'
+        + '<div class="row g-2">'
+        + '<div class="col-md-5">'
+        + '<label class="form-label small fw-semibold">Item <span class="text-danger">*</span></label>'
+        + '<select name="items-'+index+'-inventory_item" class="form-select form-select-sm"></select>'
+        + '</div>'
+        + '<div class="col-md-3">'
+        + '<label class="form-label small fw-semibold">Quantity <span class="text-danger">*</span></label>'
+        + '<input type="number" min="1" name="items-'+index+'-quantity" value="1" class="form-control form-control-sm">'
+        + '</div>'
+        + '<div class="col-md-4">'
+        + '<label class="form-label small fw-semibold">Unit Price <span class="text-danger">*</span></label>'
+        + '<input type="number" step="0.01" name="items-'+index+'-unit_price" value="0" class="form-control form-control-sm">'
+        + '</div>'
+        + '</div>'
+        + '</div>'
+        + '<div class="machine-fields" style="display:none;">'
+        + '<div class="row g-2">'
+      + '<div class="col-md-5">'
+      + '<label class="form-label small fw-semibold">Machine Name <span class="text-danger">*</span></label>'
+      + '<input type="text" name="items-'+index+'-machine_name" id="machine_name_'+index+'" class="form-control form-control-sm machine-name" placeholder="Enter machine name" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">'
+      + '</div>'
+        + '<div class="col-md-5">'
+        + '<label class="form-label small fw-semibold">Description</label>'
+        + '<input type="text" name="items-'+index+'-machine_description" id="machine_desc_'+index+'" class="form-control form-control-sm machine-desc" placeholder="Enter description" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" data-lpignore="true">'
+        + '</div>'
+        + '<div class="col-md-2">'
+        + '<label class="form-label small fw-semibold">Quantity <span class="text-danger">*</span></label>'
+        + '<input type="number" min="1" name="items-'+index+'-quantity_machine" value="1" class="form-control form-control-sm quantity-machine">'
+        + '</div>'
+        + '<div class="col-md-3">'
+        + '<label class="form-label small fw-semibold">Unit Price <span class="text-danger">*</span></label>'
+        + '<input type="number" step="0.01" name="items-'+index+'-unit_price_machine" value="0" class="form-control form-control-sm unit-price-machine">'
+        + '</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>'
+        + '<div style="display:none;">'
+        + '<input type="hidden" name="items-'+index+'-description" class="form-control form-control-sm" />'
+        + '<input type="number" name="items-'+index+'-quantity" value="1" class="form-control form-control-sm">'
+        + '<input type="number" step="0.01" name="items-'+index+'-unit_price" value="0" class="form-control form-control-sm">'
+        + '</div>'
+        + '</div>';
+    
+    var temp = document.createElement('div');
+    temp.innerHTML = cardHtml;
+    var card = temp.firstElementChild;
+    
+    // Populate inventory dropdown
+    var invSelect = card.querySelector('select[name$="inventory_item"]');
+    if(invSelect){
+      var opts = '<option value="">---------</option>';
+      INVENTORY_ITEMS.forEach(function(item){ 
+        opts += '<option value="'+item.id+'">'+item.name+'</option>'; 
+      });
+      invSelect.innerHTML = opts;
+    }
+    
+    document.getElementById('itemsContainer').appendChild(card);
+    totalForms.value = index + 1;
+    wireCard(card);
+    recalc();
+  });
+
+  if(paymentAmountInput){ ['keyup','change'].forEach(function(e){ paymentAmountInput.addEventListener(e, recalc); }); }
+
+  // Quick Add Customer modal logic
+  var modal = document.getElementById('quickAddCustomerModal');
+  var openBtn = document.getElementById('quickAddCustomerBtn');
+  var closeBtn = document.getElementById('quickAddCustomerClose');
+  var cancelBtn = document.getElementById('quickAddCustomerCancel');
+  var saveBtn = document.getElementById('quickAddCustomerSave');
+  var formEl = document.getElementById('quickAddCustomerForm');
+  var errorBox = document.getElementById('quickAddErrors');
+
+  function openModal(){ modal.style.display='block'; }
+  function closeModal(){ modal.style.display='none'; errorBox.classList.add('d-none'); errorBox.textContent=''; formEl.reset(); }
+  function getCsrf(){ var name='csrftoken'; var cookies=document.cookie.split(';'); for(var i=0;i<cookies.length;i++){ var c=cookies[i].trim(); if(c.indexOf(name+'=')===0) return c.substring(name.length+1); } var input=document.querySelector('input[name=csrfmiddlewaretoken]'); return input?input.value:''; }
+  function saveCustomer(){
+    errorBox.classList.add('d-none'); errorBox.textContent='';
+    var fd=new FormData(formEl);
+    fetch('{% url "customer_quick_add" %}', {method:'POST', headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken':getCsrf()}, body:fd})
+      .then(function(resp){ return resp.json().then(function(data){ return {ok:resp.ok, data:data}; }); })
+      .then(function(res){
+        if(!res.ok){
+          if(res.data.errors){
+            var msgs=[]; for(var field in res.data.errors){ if(Object.prototype.hasOwnProperty.call(res.data.errors,field)){ msgs.push(field+': '+res.data.errors[field].join(', ')); }}
+            errorBox.innerHTML = msgs.join('<br>'); errorBox.classList.remove('d-none');
+          } else { errorBox.textContent='Error saving customer'; errorBox.classList.remove('d-none'); }
+          return;
+        }
+        var opt=document.createElement('option'); opt.value=res.data.id; opt.textContent=res.data.display; customerSelect.appendChild(opt); customerSelect.value=res.data.id; closeModal();
+      })
+      .catch(function(){ errorBox.textContent='Network error'; errorBox.classList.remove('d-none'); });
+  }
+  if(openBtn) openBtn.addEventListener('click', openModal);
+  if(closeBtn) closeBtn.addEventListener('click', closeModal);
+  if(cancelBtn) cancelBtn.addEventListener('click', closeModal);
+  if(saveBtn) saveBtn.addEventListener('click', saveCustomer);
+
+  // Ensure form can submit - sync machine values before submission
+  var mainForm = document.getElementById('saleBuilderForm');
+  if(mainForm){
+    mainForm.addEventListener('submit', function(e){
+      // Update TOTAL_FORMS to match actual item count
+      var totalForms = document.getElementById('id_items-TOTAL_FORMS');
+      var itemCards = qsa('.item-card');
+      if(totalForms) totalForms.value = itemCards.length;
+      
+      // Make sure all machine item values are synced to hidden fields
+      itemCards.forEach(function(card, index){
+        var typeSel = card.querySelector('select[name$="item_type"]');
+        console.log('Card', index, 'type:', typeSel ? typeSel.value : 'none');
+        
+        if(typeSel && typeSel.value === 'non_inventory'){
+          var machineQty = card.querySelector('.quantity-machine');
+          var machinePrice = card.querySelector('.unit-price-machine');
+          var machineName = card.querySelector('.machine-name');
+          var hiddenQty = card.querySelector('input[name$="-quantity"]:not([name*="machine"]):not([name*="_inv"])');
+          var hiddenPrice = card.querySelector('input[name$="-unit_price"]:not([name*="machine"]):not([name*="_inv"])');
+          var hiddenDesc = card.querySelector('input[name$="-description"]:not([name*="machine"])');
+          
+          console.log('  Machine name:', machineName ? machineName.value : 'not found');
+          console.log('  Machine qty:', machineQty ? machineQty.value : 'not found');
+          console.log('  Machine price:', machinePrice ? machinePrice.value : 'not found');
+          
+          if(machineQty && hiddenQty) {
+            hiddenQty.value = machineQty.value;
+            console.log('  Set hidden qty to:', hiddenQty.value);
+          }
+          if(machinePrice && hiddenPrice) {
+            hiddenPrice.value = machinePrice.value;
+            console.log('  Set hidden price to:', hiddenPrice.value);
+          }
+          
+          // Ensure hidden description is populated before submit
+          var mn = machineName ? machineName.value.trim() : '';
+          if(hiddenDesc) {
+            hiddenDesc.value = mn;
+            console.log('  Set hidden desc to:', hiddenDesc.value);
+          }
+        } else if(typeSel && typeSel.value === 'inventory'){
+          // Sync inventory inputs to hidden fields
+          var invQty = card.querySelector('.quantity-inv');
+          var invPrice = card.querySelector('.unit-price-inv');
+          var hiddenQty = card.querySelector('input[name$="-quantity"]:not([name*="machine"]):not([name*="_inv"])');
+          var hiddenPrice = card.querySelector('input[name$="-unit_price"]:not([name*="machine"]):not([name*="_inv"])');
+          
+          console.log('  Inventory qty:', invQty ? invQty.value : 'not found');
+          console.log('  Inventory price:', invPrice ? invPrice.value : 'not found');
+          
+          if(invQty && hiddenQty) {
+            hiddenQty.value = invQty.value;
+            console.log('  Set hidden qty to:', hiddenQty.value);
+          }
+          if(invPrice && hiddenPrice) {
+            hiddenPrice.value = invPrice.value;
+            console.log('  Set hidden price to:', hiddenPrice.value);
+          }
+        }
+      });
+      
+      // Debug: log all form fields being submitted
+      var formData = new FormData(mainForm);
+      console.log('=== FORM DATA BEING SUBMITTED ===');
+      for (var pair of formData.entries()) {
+        if(pair[0].includes('items-')) {
+          console.log(pair[0] + ': ' + pair[1]);
+        }
+      }
+      console.log('=================================');
+    });
+  }
+
+  recalc();
+})();
+</script>
+{% endblock %}

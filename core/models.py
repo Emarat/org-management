@@ -287,8 +287,8 @@ class SaleItem(models.Model):
     """Line items for a Sale, allowing inventory and non-inventory entries."""
 
     ITEM_TYPE_CHOICES = [
-        ("inventory", "Inventory Item"),
-        ("non_inventory", "Non-Inventory Item"),
+        ("inventory", "Inventory"),
+        ("non_inventory", "Machine"),
     ]
 
     sale = models.ForeignKey('Sale', on_delete=models.CASCADE, related_name='items')

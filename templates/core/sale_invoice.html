@@ -94,16 +94,16 @@
       <thead>
         <tr>
           <th style="width: 15%">Type</th>
-          <th>Description</th>
+          <th>Name</th>
           <th class="text-end" style="width: 10%">Qty</th>
           <th class="text-end" style="width: 15%">Unit Price</th>
-          <th class="text-end" style="width: 15%">Line Total</th>
+          <th class="text-end" style="width: 15%">Total</th>
         </tr>
       </thead>
       <tbody>
         {% for item in items %}
         <tr>
-          <td>{{ item.item_type|title }}</td>
+          <td>{{ item.get_item_type_display }}</td>
           <td>
             {% if item.item_type == 'inventory' and item.inventory_item %}
               {{ item.inventory_item.part_name }} ({{ item.inventory_item.part_code }})

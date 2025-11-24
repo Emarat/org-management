@@ -51,6 +51,7 @@ urlpatterns = [
     # Sales URLs
     path('sales/', views.sale_list, name='sale_list'),
     path('sales/new/', views.sale_create, name='sale_create'),
+    path('sales/new/unified/', views.sale_create_unified, name='sale_create_unified'),
     path('sales/new/quote/', views.sale_quote_create, name='sale_quote_create'),
     path('sales/<int:pk>/', views.sale_detail, name='sale_detail'),
     path('sales/<int:pk>/convert/', views.sale_convert_to_invoice, name='sale_convert_to_invoice'),

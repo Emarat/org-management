@@ -99,15 +99,19 @@ class SaleForm(forms.ModelForm):
 
 
 class SaleItemForm(forms.ModelForm):
+    inventory_item = forms.ModelChoiceField(
+        queryset=InventoryItem.objects.all(), required=False,
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+    description = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+
     class Meta:
         model = SaleItem
         fields = ['item_type', 'inventory_item', 'description', 'quantity', 'unit_price']
         widgets = {
             'item_type': forms.Select(attrs={'class': 'form-control'}),
-            'inventory_item': forms.Select(attrs={'class': 'form-control'}),
-            'description': forms.TextInput(attrs={'class': 'form-control'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
-            'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'value': '1'}),
+            'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'value': '0'}),
         }
 
 
@@ -119,7 +123,7 @@ class CombinedSaleItemForm(forms.Form):
     """
     ITEM_TYPE_CHOICES = [
         ("inventory", "Inventory Item"),
-        ("machine", "Machine"),
+        ("non_inventory", "Machine"),
     ]
 
     item_type = forms.ChoiceField(choices=ITEM_TYPE_CHOICES, widget=forms.Select(attrs={'class': 'form-control'}))

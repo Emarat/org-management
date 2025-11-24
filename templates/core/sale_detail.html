@@ -108,15 +108,8 @@
   </div>
   <div class="col-lg-6">
     <div class="card">
-      <div class="card-header d-flex justify-content-between align-items-center">
+      <div class="card-header">
         <span>Items</span>
-        {% if sale.status == 'draft' %}
-          {% if user.is_superuser or perms.core.add_saleitem %}
-            <button class="btn btn-sm btn-primary" data-bs-toggle="collapse" data-bs-target="#addItemCollapse">
-              <i class="fas fa-plus"></i> Add Item
-            </button>
-          {% endif %}
-        {% endif %}
       </div>
       <div class="card-body">
         <div class="table-responsive">
@@ -124,17 +117,16 @@
             <thead>
               <tr>
                 <th>Type</th>
-                <th>Description</th>
+                <th>Name</th>
                 <th class="text-end">Qty</th>
                 <th class="text-end">Unit Price</th>
-                <th class="text-end">Line Total</th>
-                <th class="text-end"></th>
+                <th class="text-end">Total</th>
               </tr>
             </thead>
             <tbody>
               {% for item in items %}
               <tr>
-                <td>{{ item.item_type|title }}</td>
+                <td>{{ item.get_item_type_display }}</td>
                 <td>
                   {% if item.item_type == 'inventory' and item.inventory_item %}
                     {{ item.inventory_item.part_name }} ({{ item.inventory_item.part_code }})
@@ -145,62 +137,15 @@
                 <td class="text-end">{{ item.quantity }}</td>
                 <td class="text-end">${{ item.unit_price }}</td>
                 <td class="text-end">${{ item.line_total }}</td>
-                <td class="text-end">
-                  {% if sale.status == 'draft' %}
-                    {% if user.is_superuser or perms.core.delete_saleitem %}
-                      <form method="post" action="{% url 'sale_delete_item' sale.pk item.pk %}" style="display:inline;" onsubmit="return confirm('Remove this item?');">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i></button>
-                      </form>
-                    {% endif %}
-                  {% endif %}
-                </td>
               </tr>
               {% empty %}
-              <tr><td colspan="6" class="text-center">No items yet.</td></tr>
+              <tr><td colspan="5" class="text-center">No items yet.</td></tr>
               {% endfor %}
             </tbody>
           </table>
         </div>
-        {% if add_item_form %}
-        <div class="collapse mt-3" id="addItemCollapse">
-          <form method="post" action="{% url 'sale_add_item' sale.pk %}">
-            {% csrf_token %}
-            <div class="row g-2">
-              <div class="col-md-3">{{ add_item_form.item_type.label_tag }} {{ add_item_form.item_type }}</div>
-              <div class="col-md-4">{{ add_item_form.inventory_item.label_tag }} {{ add_item_form.inventory_item }}</div>
-              <div class="col-md-5">{{ add_item_form.description.label_tag }} {{ add_item_form.description }}</div>
-              <div class="col-md-3">{{ add_item_form.quantity.label_tag }} {{ add_item_form.quantity }}</div>
-              <div class="col-md-3">{{ add_item_form.unit_price.label_tag }} {{ add_item_form.unit_price }}</div>
-            </div>
-            <div class="mt-2">
-              <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add</button>
-            </div>
-          </form>
-        </div>
-        {% endif %}
       </div>
     </div>
   </div>
 </div>
-{% if inventory_prices %}
-  {{ inventory_prices|json_script:"inv_prices_data_detail" }}
-  <script>
-    (function(){
-      function onInvChange(){
-        var map = {};
-        try { var el = document.getElementById('inv_prices_data_detail'); if (el) map = JSON.parse(el.textContent); } catch(e){}
-        var sel = document.querySelector('#addItemCollapse select[name="inventory_item"]');
-        var priceEl = document.querySelector('#addItemCollapse input[name="unit_price"]');
-        if (!sel || !priceEl) return;
-        var id = sel.value;
-        if (id && map[id] !== undefined && (!priceEl.value || parseFloat(priceEl.value) <= 0)) { priceEl.value = map[id]; }
-      }
-      document.addEventListener('DOMContentLoaded', function(){
-        var sel = document.querySelector('#addItemCollapse select[name="inventory_item"]');
-        if (sel) sel.addEventListener('change', onInvChange);
-      });
-    })();
-  </script>
-{% endif %}
 {% endblock %}

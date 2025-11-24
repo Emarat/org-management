@@ -671,6 +671,7 @@ def export_excel(request):
 # =========================
 
 from django.contrib.auth.decorators import permission_required
+from django.forms import formset_factory
 
 
 @login_required
@@ -716,136 +717,305 @@ def sale_list(request):
 
 @login_required
 @permission_required('core.add_sale', raise_exception=True)
-def sale_create(request):
-    """Create a sale and first item on the same page.
-    For inventory item type, unit price is forced from selected inventory item.
-    For machine item type, accept machine_name + description.
+def sale_create_unified(request):
+    """Unified sale creation: customer + multiple items + optional initial payment.
+    Steps 1-6 implementation (no finalize toggle yet).
     """
+    SaleItemFormSet = formset_factory(SaleItemForm, extra=1, can_delete=True)
     if request.method == 'POST':
         sale_form = SaleForm(request.POST)
-        item_form = CombinedSaleItemForm(request.POST)
-        if sale_form.is_valid() and item_form.is_valid():
+        item_formset = SaleItemFormSet(request.POST, prefix='items')
+        payment_form = SalePaymentForm(request.POST, prefix='pay')
+        valid = True
+        if not sale_form.is_valid():
+            valid = False
+        if not item_formset.is_valid():
+            valid = False
+        if payment_form.is_valid():
+            pass
+        else:
+            # Allow empty payment section (all fields blank) -> treat as no payment
+            # If user entered amount but form invalid, block
+            amt_raw = request.POST.get('pay-amount')
+            if amt_raw:
+                valid = False
+        # Basic item presence validation
+        cleaned_items = []
+        if item_formset.is_valid():
+            for f in item_formset.forms:
+                if f.cleaned_data.get('DELETE'):
+                    continue
+                cd = f.cleaned_data
+                # Skip rows where all key fields blank
+                if not cd.get('item_type') and not cd.get('inventory_item') and not cd.get('description'):
+                    continue
+                # Require item_type
+                if not cd.get('item_type'):
+                    f.add_error('item_type', 'Select type')
+                    valid = False
+                    continue
+                # For non-inventory ensure description present
+                if cd.get('item_type') == 'non_inventory' and not cd.get('description'):
+                    f.add_error('description', 'Description required')
+                    valid = False
+                    continue
+                # For inventory ensure inventory_item selected
+                if cd.get('item_type') == 'inventory' and not cd.get('inventory_item'):
+                    f.add_error('inventory_item', 'Choose inventory item')
+                    valid = False
+                    continue
+                cleaned_items.append(cd)
+        if not cleaned_items:
+            valid = False
+            messages.error(request, 'Add at least one valid item.')
+        # Compute total from items (unit_price fallback to inventory price if missing)
+        total_amount = 0
+        if cleaned_items:
+            for cd in cleaned_items:
+                unit_price = cd.get('unit_price') or 0
+                # If inventory and unit_price zero, fallback
+                if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
+                    unit_price = cd['inventory_item'].unit_price or 0
+                qty = cd.get('quantity') or 0
+                total_amount += unit_price * qty
+        # Payment validation (if provided)
+        payment_amount = None
+        if payment_form.is_valid():
+            payment_amount = payment_form.cleaned_data.get('amount')
+            if payment_amount and payment_amount > 0:
+                if payment_amount > total_amount:
+                    payment_form.add_error('amount', 'Payment exceeds total.')
+                    valid = False
+        if valid:
+            from django.db import transaction
+            with transaction.atomic():
+                sale = sale_form.save(commit=False)
+                sale.created_by = request.user
+                # status stays draft for now
+                sale.save()
+                for cd in cleaned_items:
+                    unit_price = cd.get('unit_price') or 0
+                    if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
+                        unit_price = cd['inventory_item'].unit_price or 0
+                    SaleItem.objects.create(
+                        sale=sale,
+                        item_type=cd['item_type'],
+                        inventory_item=cd.get('inventory_item') if cd['item_type'] == 'inventory' else None,
+                        description=(cd.get('description') or '') if cd['item_type'] != 'inventory' else (
+                            f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
+                        ),
+                        quantity=cd.get('quantity') or 0,
+                        unit_price=unit_price,
+                    )
+                sale.recalc_total(save=True)
+                payment = None
+                if payment_amount and payment_amount > 0:
+                    payment = payment_form.save(commit=False)
+                    payment.sale = sale
+                    payment.save()
+                messages.success(request, 'Sale created successfully.')
+                if payment:
+                    messages.success(request, f'Payment recorded (Receipt {payment.receipt_number}).')
+                return redirect('sale_detail', pk=sale.pk)
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        sale_form = SaleForm()
+        item_formset = formset_factory(SaleItemForm, extra=1, can_delete=True)(prefix='items')
+        payment_form = SalePaymentForm(prefix='pay')
+    # Inventory price data for JS
+    inv_prices = {str(i.id): float(i.unit_price or 0) for i in InventoryItem.objects.all()}
+    return render(request, 'core/sale_create_unified.html', {
+        'sale_form': sale_form,
+        'item_formset': item_formset,
+        'payment_form': payment_form,
+        'inventory_prices': inv_prices,
+        'title': 'Create Sale'
+    })
+
+
+@login_required
+@permission_required('core.add_sale', raise_exception=True)
+def sale_create(request):
+    """Unified multi-item + optional payment create (invoice mode)."""
+    SaleItemFormSet = formset_factory(SaleItemForm, extra=1, can_delete=True)
+    if request.method == 'POST':
+        sale_form = SaleForm(request.POST)
+        item_formset = SaleItemFormSet(request.POST, prefix='items')
+        payment_form = SalePaymentForm(request.POST, prefix='pay')
+        valid = True
+        if not sale_form.is_valid():
+            valid = False
+        if not item_formset.is_valid():
+            valid = False
+        if not payment_form.is_valid():
+            amt_raw = request.POST.get('pay-amount')
+            if amt_raw:
+                valid = False
+        cleaned_items = []
+        if item_formset.is_valid():
+            for f in item_formset.forms:
+                if f.cleaned_data.get('DELETE'): continue
+                cd = f.cleaned_data
+                if not cd.get('item_type') and not cd.get('inventory_item') and not cd.get('description'):
+                    continue
+                if not cd.get('item_type'):
+                    f.add_error('item_type', 'Select type'); valid = False; continue
+                if cd.get('item_type') == 'non_inventory' and not cd.get('description'):
+                    f.add_error('description', 'Description required'); valid = False; continue
+                if cd.get('item_type') == 'inventory' and not cd.get('inventory_item'):
+                    f.add_error('inventory_item', 'Choose inventory item'); valid = False; continue
+                cleaned_items.append(cd)
+        if not cleaned_items:
+            messages.error(request, 'Add at least one valid item.'); valid = False
+        total_amount = 0
+        for cd in cleaned_items:
+            unit_price = cd.get('unit_price') or 0
+            if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
+                unit_price = cd['inventory_item'].unit_price or 0
+            qty = cd.get('quantity') or 0
+            total_amount += unit_price * qty
+        payment_amount = None
+        if payment_form.is_valid():
+            payment_amount = payment_form.cleaned_data.get('amount')
+            if payment_amount and payment_amount > total_amount:
+                payment_form.add_error('amount', 'Payment exceeds total.'); valid = False
+        if valid:
             from django.db import transaction
             with transaction.atomic():
                 sale = sale_form.save(commit=False)
                 sale.created_by = request.user
                 sale.save()
-
-                cd = item_form.cleaned_data
-                if cd['item_type'] == 'inventory':
-                    inv = cd['inventory_item']
-                    # Allow override: use provided unit_price if > 0 else fallback to inventory price
-                    provided_price = cd.get('unit_price') or 0
-                    unit_price = provided_price if provided_price > 0 else inv.unit_price
-                    desc = f"{inv.part_name} ({inv.part_code})"
+                for cd in cleaned_items:
+                    unit_price = cd.get('unit_price') or 0
+                    if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
+                        unit_price = cd['inventory_item'].unit_price or 0
                     SaleItem.objects.create(
                         sale=sale,
-                        item_type='inventory',
-                        inventory_item=inv,
-                        description=desc,
-                        quantity=cd['quantity'],
+                        item_type=cd['item_type'],
+                        inventory_item=cd.get('inventory_item') if cd['item_type'] == 'inventory' else None,
+                        description=(cd.get('description') or '') if cd['item_type'] != 'inventory' else (
+                            f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
+                        ),
+                        quantity=cd.get('quantity') or 0,
                         unit_price=unit_price,
                     )
-                else:
-                    # machine: merge name + description into one description field
-                    machine_label = cd.get('machine_name') or ''
-                    desc = f"{machine_label} - {cd.get('description') or ''}".strip(' -')
-                    SaleItem.objects.create(
-                        sale=sale,
-                        item_type='non_inventory',
-                        inventory_item=None,
-                        description=desc,
-                        quantity=cd['quantity'],
-                        unit_price=cd['unit_price'],
-                    )
-            messages.success(request, 'Sale created with first item. You can add more items if needed.')
-            return redirect('sale_detail', pk=sale.pk)
+                sale.recalc_total(save=True)
+                payment = None
+                if payment_amount and payment_amount > 0:
+                    payment = payment_form.save(commit=False)
+                    payment.sale = sale
+                    payment.save()
+                messages.success(request, 'Sale created successfully.')
+                if payment:
+                    messages.success(request, f'Payment recorded (Receipt {payment.receipt_number}).')
+                return redirect('sale_detail', pk=sale.pk)
         else:
-            # Bubble up form errors to messages
-            for f in (sale_form, item_form):
-                for field, errs in f.errors.items():
-                    for err in errs:
-                        messages.error(request, f"{field}: {err}")
+            messages.error(request, 'Please correct the errors below.')
     else:
         sale_form = SaleForm()
-        item_form = CombinedSaleItemForm()
-    # Provide inventory prices for client-side autofill
-    inv_qs = None
-    try:
-        inv_qs = item_form.fields['inventory_item'].queryset
-    except Exception:
-        inv_qs = InventoryItem.objects.none()
-    inventory_prices = {str(i.id): float(i.unit_price) for i in inv_qs}
-    return render(request, 'core/sale_form.html', {
-        'form': sale_form,
-        'item_form': item_form,
-        'title': 'Create Sale',
-        'inventory_prices': inventory_prices,
+        item_formset = formset_factory(SaleItemForm, extra=1, can_delete=True)(prefix='items')
+        payment_form = SalePaymentForm(prefix='pay')
+    inventory_items = InventoryItem.objects.all()
+    inv_prices = {str(i.id): float(i.unit_price or 0) for i in inventory_items}
+    return render(request, 'core/sale_create_unified.html', {
+        'sale_form': sale_form,
+        'item_formset': item_formset,
+        'payment_form': payment_form,
+        'inventory_items': inventory_items,
+        'inventory_prices': inv_prices,
+        'title': 'Create Sale'
     })
 
 
 @login_required
 @permission_required('core.add_sale', raise_exception=True)
 def sale_quote_create(request):
-    """Create a quotation (dummy sale) that doesn't affect stock/balance until converted."""
+    """Unified multi-item + optional payment create (quotation mode)."""
+    SaleItemFormSet = formset_factory(SaleItemForm, extra=1, can_delete=True)
     if request.method == 'POST':
         sale_form = SaleForm(request.POST)
-        item_form = CombinedSaleItemForm(request.POST)
-        if sale_form.is_valid() and item_form.is_valid():
+        item_formset = SaleItemFormSet(request.POST, prefix='items')
+        payment_form = SalePaymentForm(request.POST, prefix='pay')
+        valid = True
+        if not sale_form.is_valid(): valid = False
+        if not item_formset.is_valid(): valid = False
+        if not payment_form.is_valid():
+            if request.POST.get('pay-amount'): valid = False
+        cleaned_items = []
+        if item_formset.is_valid():
+            for f in item_formset.forms:
+                if f.cleaned_data.get('DELETE'): continue
+                cd = f.cleaned_data
+                if not cd.get('item_type') and not cd.get('inventory_item') and not cd.get('description'): continue
+                if not cd.get('item_type'):
+                    f.add_error('item_type', 'Select type'); valid = False; continue
+                if cd.get('item_type') == 'non_inventory' and not cd.get('description'):
+                    f.add_error('description', 'Description required'); valid = False; continue
+                if cd.get('item_type') == 'inventory' and not cd.get('inventory_item'):
+                    f.add_error('inventory_item', 'Choose inventory item'); valid = False; continue
+                cleaned_items.append(cd)
+        if not cleaned_items:
+            messages.error(request, 'Add at least one valid item.'); valid = False
+        total_amount = 0
+        for cd in cleaned_items:
+            unit_price = cd.get('unit_price') or 0
+            if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
+                unit_price = cd['inventory_item'].unit_price or 0
+            qty = cd.get('quantity') or 0
+            total_amount += unit_price * qty
+        payment_amount = None
+        if payment_form.is_valid():
+            payment_amount = payment_form.cleaned_data.get('amount')
+            if payment_amount and payment_amount > total_amount:
+                payment_form.add_error('amount', 'Payment exceeds total.'); valid = False
+        if valid:
             from django.db import transaction
             with transaction.atomic():
                 sale = sale_form.save(commit=False)
                 sale.created_by = request.user
                 sale.status = 'quote'
                 sale.save()
-
-                cd = item_form.cleaned_data
-                if cd['item_type'] == 'inventory':
-                    inv = cd['inventory_item']
-                    provided_price = cd.get('unit_price') or 0
-                    unit_price = provided_price if provided_price > 0 else inv.unit_price
-                    desc = f"{inv.part_name} ({inv.part_code})"
+                for cd in cleaned_items:
+                    unit_price = cd.get('unit_price') or 0
+                    if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
+                        unit_price = cd['inventory_item'].unit_price or 0
                     SaleItem.objects.create(
                         sale=sale,
-                        item_type='inventory',
-                        inventory_item=inv,
-                        description=desc,
-                        quantity=cd['quantity'],
+                        item_type=cd['item_type'],
+                        inventory_item=cd.get('inventory_item') if cd['item_type'] == 'inventory' else None,
+                        description=(cd.get('description') or '') if cd['item_type'] != 'inventory' else (
+                            f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
+                        ),
+                        quantity=cd.get('quantity') or 0,
                         unit_price=unit_price,
                     )
-                else:
-                    machine_label = cd.get('machine_name') or ''
-                    desc = f"{machine_label} - {cd.get('description') or ''}".strip(' -')
-                    SaleItem.objects.create(
-                        sale=sale,
-                        item_type='non_inventory',
-                        inventory_item=None,
-                        description=desc,
-                        quantity=cd['quantity'],
-                        unit_price=cd['unit_price'],
-                    )
-            messages.success(request, 'Quotation created. Convert to invoice when ready.')
-            return redirect('sale_detail', pk=sale.pk)
+                sale.recalc_total(save=True)
+                # Usually quotations may not record payments; allow if provided
+                payment = None
+                if payment_amount and payment_amount > 0:
+                    payment = payment_form.save(commit=False)
+                    payment.sale = sale
+                    payment.save()
+                messages.success(request, 'Quotation created.')
+                if payment:
+                    messages.success(request, f'Payment recorded (Receipt {payment.receipt_number}).')
+                return redirect('sale_detail', pk=sale.pk)
         else:
-            for f in (sale_form, item_form):
-                for field, errs in f.errors.items():
-                    for err in errs:
-                        messages.error(request, f"{field}: {err}")
+            messages.error(request, 'Please correct the errors below.')
     else:
         sale_form = SaleForm()
-        item_form = CombinedSaleItemForm()
-    inv_qs = None
-    try:
-        inv_qs = item_form.fields['inventory_item'].queryset
-    except Exception:
-        inv_qs = InventoryItem.objects.none()
-    inventory_prices = {str(i.id): float(i.unit_price) for i in inv_qs}
-    return render(request, 'core/sale_form.html', {
-        'form': sale_form,
-        'item_form': item_form,
-        'title': 'Create Quotation',
-        'inventory_prices': inventory_prices,
-        'is_quote': True,
+        item_formset = formset_factory(SaleItemForm, extra=1, can_delete=True)(prefix='items')
+        payment_form = SalePaymentForm(prefix='pay')
+    inventory_items = InventoryItem.objects.all()
+    inv_prices = {str(i.id): float(i.unit_price or 0) for i in inventory_items}
+    return render(request, 'core/sale_create_unified.html', {
+        'sale_form': sale_form,
+        'item_formset': item_formset,
+        'payment_form': payment_form,
+        'inventory_items': inventory_items,
+        'inventory_prices': inv_prices,
+        'title': 'Create Quotation'
     })
 
 
