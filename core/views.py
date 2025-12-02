@@ -133,7 +133,7 @@ def customer_delete(request, pk):
 @login_required
 def customer_detail(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
-    sales = customer.sales.select_related().prefetch_related('items__inventory_item', 'payments').order_by('-created_at')
+    sales = customer.sales.filter(status='finalized').select_related().prefetch_related('items__inventory_item', 'payments').order_by('-created_at')
     context = {
         'customer': customer,
         'sales': sales,
