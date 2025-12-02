@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ customer.name }} - Customer Details{% endblock %}
+
+{% block content %}
+<div class="content-header d-flex justify-content-between align-items-center">
+  <h1><i class="fas fa-user-tie"></i> {{ customer.name }}</h1>
+  <div>
+    <a href="{% url 'customer_edit' customer.pk %}" class="btn btn-warning">
+      <i class="fas fa-edit"></i> Edit
+    </a>
+    <a href="{% url 'customer_list' %}" class="btn btn-outline-secondary">
+      <i class="fas fa-arrow-left"></i> Back to Customers
+    </a>
+  </div>
+</div>
+
+<!-- Nav tabs -->
+<ul class="nav nav-tabs" id="customerTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab" aria-controls="profile" aria-selected="true">Profile</button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="orders-tab" data-bs-toggle="tab" data-bs-target="#orders" type="button" role="tab" aria-controls="orders" aria-selected="false">Orders</button>
+  </li>
+</ul>
+
+<!-- Tab content -->
+<div class="tab-content" id="customerTabsContent">
+  <!-- Profile Tab -->
+  <div class="tab-pane fade show active" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+    <div class="card mt-3">
+      <div class="card-header">
+        <h5>Customer Information</h5>
+      </div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-6">
+            <p><strong>Customer ID:</strong> {{ customer.customer_id }}</p>
+            <p><strong>Name:</strong> {{ customer.name }}</p>
+            <p><strong>Company:</strong> {{ customer.company|default:"-" }}</p>
+            <p><strong>Phone:</strong> {{ customer.phone }}</p>
+          </div>
+          <div class="col-md-6">
+            <p><strong>Email:</strong> {{ customer.email|default:"-" }}</p>
+            <p><strong>City:</strong> {{ customer.city|default:"-" }}</p>
+            <p><strong>Status:</strong>
+              {% if customer.status == 'active' %}
+                <span class="badge bg-success">{{ customer.get_status_display }}</span>
+              {% else %}
+                <span class="badge bg-secondary">{{ customer.get_status_display }}</span>
+              {% endif %}
+            </p>
+            <p><strong>Created:</strong> {{ customer.created_at|date:"M d, Y" }}</p>
+          </div>
+        </div>
+        {% if customer.address %}
+        <div class="row">
+          <div class="col-12">
+            <p><strong>Address:</strong><br>{{ customer.address }}</p>
+          </div>
+        </div>
+        {% endif %}
+        {% if customer.notes %}
+        <div class="row">
+          <div class="col-12">
+            <p><strong>Notes:</strong><br>{{ customer.notes }}</p>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Orders Tab -->
+  <div class="tab-pane fade" id="orders" role="tabpanel" aria-labelledby="orders-tab">
+    <div class="card mt-3">
+      <div class="card-header">
+        <h5>Order History</h5>
+      </div>
+      <div class="card-body">
+        {% if sales %}
+          {% for sale in sales %}
+          <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h6 class="mb-0">
+                <a href="{% url 'sale_detail' sale.pk %}">{{ sale.sale_number }}</a>
+                <span class="badge bg-{% if sale.status == 'finalized' %}success{% elif sale.status == 'draft' %}warning{% elif sale.status == 'quote' %}info{% else %}secondary{% endif %} ms-2">{{ sale.get_status_display }}</span>
+              </h6>
+              <small class="text-muted">{{ sale.created_at|date:"M d, Y H:i" }}</small>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-8">
+                  <h6>Items Purchased:</h6>
+                  <ul class="list-group list-group-flush">
+                    {% for item in sale.items.all %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                      {{ item.description }}
+                      <span class="badge bg-primary rounded-pill">{{ item.quantity }} x ${{ item.unit_price }}</span>
+                    </li>
+                    {% endfor %}
+                  </ul>
+                </div>
+                <div class="col-md-4">
+                  <p><strong>Total Amount:</strong> ${{ sale.total_amount }}</p>
+                  <p><strong>Paid:</strong> ${{ sale.total_paid }}</p>
+                  <p><strong>Balance Due:</strong> ${{ sale.balance_due }}</p>
+                  <h6>Payment Status:</h6>
+                  {% if sale.payments.all %}
+                    <ul class="list-group list-group-flush">
+                      {% for payment in sale.payments.all %}
+                      <li class="list-group-item">
+                        <small>{{ payment.payment_date|date:"M d, Y" }} - {{ payment.get_method_display }} - ${{ payment.amount }}</small>
+                      </li>
+                      {% endfor %}
+                    </ul>
+                  {% else %}
+                    <p class="text-muted">No payments recorded.</p>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="text-center py-5">
+            <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>
+            <p class="text-muted">No orders found for this customer.</p>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

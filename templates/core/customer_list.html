@@ -79,6 +79,11 @@
             </td>
             <td>
               <a
+                href="{% url 'customer_detail' customer.pk %}"
+                class="btn btn-sm btn-info"
+                ><i class="fas fa-eye"></i
+              ></a>
+              <a
                 href="{% url 'customer_edit' customer.pk %}"
                 class="btn btn-sm btn-warning"
                 ><i class="fas fa-edit"></i
