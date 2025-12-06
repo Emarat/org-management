@@ -235,11 +235,14 @@
             </tbody>
           </table>
         </div>
+        {# DEPRECATED: Link to legacy Payments list - replaced by SalePayment #}
+        {% comment %}
         <a
           href="{% url 'payment_list' %}"
           class="btn btn-sm btn-outline-primary"
           >View All</a
         >
+        {% endcomment %}
         {% else %}
         <p class="text-muted">No recent payments</p>
         {% endif %}

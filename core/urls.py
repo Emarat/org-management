@@ -31,11 +31,11 @@ urlpatterns = [
     path('expenses/<int:pk>/edit/', views.expense_edit, name='expense_edit'),
     path('expenses/<int:pk>/delete/', views.expense_delete, name='expense_delete'),
     
-    # Payment URLs
-    path('payments/', views.payment_list, name='payment_list'),
-    path('payments/add/', views.payment_add, name='payment_add'),
-    path('payments/<int:pk>/edit/', views.payment_edit, name='payment_edit'),
-    path('payments/<int:pk>/delete/', views.payment_delete, name='payment_delete'),
+    # Payment URLs - DEPRECATED: Legacy payment system, replaced by SalePayment
+    # path('payments/', views.payment_list, name='payment_list'),
+    # path('payments/add/', views.payment_add, name='payment_add'),
+    # path('payments/<int:pk>/edit/', views.payment_edit, name='payment_edit'),
+    # path('payments/<int:pk>/delete/', views.payment_delete, name='payment_delete'),
 
     # Bill Claim URLs
     path('claims/', views.list_bill_claims, name='list_bill_claims'),

@@ -224,6 +224,8 @@
                   </a>
                 </li>
               {% endif %}
+              {# DEPRECATED: Legacy Payments module - replaced by SalePayment #}
+              {% comment %}
               {% if user.is_superuser %}
                 <li class="nav-item">
                   <a
@@ -234,6 +236,7 @@
                   </a>
                 </li>
               {% endif %}
+              {% endcomment %}
               {% if user.is_superuser or perms.core.view_sales_menu %}
                 <li class="nav-item">
                   <a
