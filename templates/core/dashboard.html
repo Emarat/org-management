@@ -323,11 +323,14 @@
             <i class="fas fa-receipt"></i> Add Expense
           </a>
         {% endif %}
+        {# DEPRECATED: Legacy payment_add removed - use SalePayment via sales workflow #}
+        {% comment %}
         {% if perms.core.view_payments_menu %}
           <a href="{% url 'payment_add' %}" class="btn btn-info me-2 mb-2">
             <i class="fas fa-money-bill"></i> Add Payment
           </a>
         {% endif %}
+        {% endcomment %}
         {% if perms.core.view_reports_menu %}
           <a href="{% url 'export_excel' %}" class="btn btn-secondary me-2 mb-2">
             <i class="fas fa-file-excel"></i> Export to Excel
