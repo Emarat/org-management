@@ -133,10 +133,13 @@ def customer_delete(request, pk):
 @login_required
 def customer_detail(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
-    sales = customer.sales.filter(status='finalized').select_related().prefetch_related('items__inventory_item', 'payments').order_by('-created_at')
+    sales_qs = customer.sales.filter(status='finalized').select_related().prefetch_related('items__inventory_item', 'payments').order_by('-created_at')
+    paginator = Paginator(sales_qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
     context = {
         'customer': customer,
-        'sales': sales,
+        'sales': page_obj.object_list,
+        'page_obj': page_obj,
     }
     return render(request, 'core/customer_detail.html', context)
 
