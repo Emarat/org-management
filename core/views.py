@@ -48,19 +48,19 @@ def dashboard(request):
                 )
             )
         )['total'] or 0,
-        'pending_payments': Payment.objects.filter(status='pending').count(),
-        'overdue_payments': Payment.objects.filter(status='overdue').count(),
-        'total_pending_amount': Payment.objects.filter(
-            status__in=['pending', 'overdue']
-        ).aggregate(
-            total=Sum(F('total_amount') - F('paid_amount'))
-        )['total'] or 0,
+        # Sale metrics (replacing legacy Payment metrics)
+        'pending_sales': Sale.objects.filter(status='draft').count(),
+        'finalized_sales': Sale.objects.filter(status='finalized').count(),
+        'total_sales_due': Sale.objects.filter(status='finalized').annotate(
+            balance=F('total_amount') - Coalesce(Sum('payments__amount'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)))
+        ).aggregate(total=Sum('balance'))['total'] or 0,
         'monthly_expenses': Expense.objects.filter(
             date__month=datetime.now().month,
             date__year=datetime.now().year
         ).aggregate(total=Sum('amount'))['total'] or 0,
         'recent_expenses': Expense.objects.all()[:5],
-        'recent_payments': Payment.objects.all()[:5],
+        'recent_sales': Sale.objects.select_related('customer').all()[:5],
+        'pending_bill_claims': BillClaim.objects.filter(status='pending').count(),
         'low_stock_alerts': InventoryItem.objects.filter(
             quantity__lte=F('minimum_stock')
         )[:5],

@@ -108,14 +108,14 @@
       <div class="card-body">
         <div class="d-flex justify-content-between">
           <div>
-            <h6 class="text-muted">Pending Payments</h6>
-            <h2>{{ pending_payments }}</h2>
+            <h6 class="text-muted">Sales Balance Due</h6>
+            <h2>${{ total_sales_due|floatformat:0 }}</h2>
             <small class="text-muted"
-              >${{ total_pending_amount|floatformat:2 }}</small
+              >{{ pending_sales }} draft sales</small
             >
           </div>
           <div class="align-self-center">
-            <i class="fas fa-money-bill-wave fa-3x text-danger"></i>
+            <i class="fas fa-file-invoice-dollar fa-3x text-danger"></i>
           </div>
         </div>
       </div>
@@ -146,8 +146,8 @@
   <div class="col-md-4">
     <div class="card">
       <div class="card-body text-center">
-        <h6 class="text-muted">Overdue Payments</h6>
-        <h3 class="text-danger">{{ overdue_payments }}</h3>
+        <h6 class="text-muted">Pending Bill Claims</h6>
+        <h3 class="text-warning">{{ pending_bill_claims }}</h3>
       </div>
     </div>
   </div>
@@ -197,36 +197,42 @@
   <div class="col-md-6">
     <div class="card">
       <div class="card-header">
-        <i class="fas fa-money-bill-wave"></i> Recent Payments
+        <i class="fas fa-shopping-cart"></i> Recent Sales
       </div>
       <div class="card-body">
-        {% if recent_payments %}
+        {% if recent_sales %}
         <div class="table-responsive">
           <table class="table table-sm">
             <thead>
               <tr>
-                <th>Invoice</th>
+                <th>Sale #</th>
                 <th>Customer</th>
+                <th>Amount</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {% for payment in recent_payments %}
+              {% for sale in recent_sales %}
               <tr>
-                <td>{{ payment.invoice_number }}</td>
-                <td>{{ payment.customer.name }}</td>
+                <td><a href="{% url 'sale_detail' sale.pk %}">{{ sale.sale_number }}</a></td>
+                <td>{{ sale.customer.name }}</td>
+                <td>${{ sale.total_amount|floatformat:2 }}</td>
                 <td>
-                  {% if payment.status == 'completed' %}
+                  {% if sale.status == 'finalized' %}
                   <span class="badge bg-success"
-                    >{{ payment.get_status_display }}</span
+                    >{{ sale.get_status_display }}</span
                   >
-                  {% elif payment.status == 'pending' %}
+                  {% elif sale.status == 'draft' %}
                   <span class="badge bg-warning"
-                    >{{ payment.get_status_display }}</span
+                    >{{ sale.get_status_display }}</span
+                  >
+                  {% elif sale.status == 'quote' %}
+                  <span class="badge bg-info"
+                    >{{ sale.get_status_display }}</span
                   >
                   {% else %}
-                  <span class="badge bg-danger"
-                    >{{ payment.get_status_display }}</span
+                  <span class="badge bg-secondary"
+                    >{{ sale.get_status_display }}</span
                   >
                   {% endif %}
                 </td>
@@ -235,16 +241,13 @@
             </tbody>
           </table>
         </div>
-        {# DEPRECATED: Link to legacy Payments list - replaced by SalePayment #}
-        {% comment %}
         <a
-          href="{% url 'payment_list' %}"
+          href="{% url 'sale_list' %}"
           class="btn btn-sm btn-outline-primary"
           >View All</a
         >
-        {% endcomment %}
         {% else %}
-        <p class="text-muted">No recent payments</p>
+        <p class="text-muted">No recent sales</p>
         {% endif %}
       </div>
     </div>
