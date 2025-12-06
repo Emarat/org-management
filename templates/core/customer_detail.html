@@ -126,6 +126,35 @@
               </tbody>
             </table>
           </div>
+          {% if page_obj and page_obj.paginator.num_pages > 1 %}
+          <nav aria-label="Order history pagination" class="mt-3">
+            <ul class="pagination pagination-sm justify-content-center">
+              {% if page_obj.has_previous %}
+                <li class="page-item">
+                  <a class="page-link" href="?page=1#orders">&laquo; First</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}#orders">Previous</a>
+                </li>
+              {% endif %}
+              
+              <li class="page-item active">
+                <span class="page-link">
+                  Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+              </li>
+              
+              {% if page_obj.has_next %}
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}#orders">Next</a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}#orders">Last &raquo;</a>
+                </li>
+              {% endif %}
+            </ul>
+          </nav>
+          {% endif %}
         {% else %}
           <div class="text-center py-5">
             <i class="fas fa-shopping-cart fa-4x text-muted mb-3"></i>

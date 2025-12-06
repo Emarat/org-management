@@ -48,19 +48,19 @@ def dashboard(request):
                 )
             )
         )['total'] or 0,
-        'pending_payments': Payment.objects.filter(status='pending').count(),
-        'overdue_payments': Payment.objects.filter(status='overdue').count(),
-        'total_pending_amount': Payment.objects.filter(
-            status__in=['pending', 'overdue']
-        ).aggregate(
-            total=Sum(F('total_amount') - F('paid_amount'))
-        )['total'] or 0,
+        # Sale metrics (replacing legacy Payment metrics)
+        'pending_sales': Sale.objects.filter(status='draft').count(),
+        'finalized_sales': Sale.objects.filter(status='finalized').count(),
+        'total_sales_due': Sale.objects.filter(status='finalized').annotate(
+            balance=F('total_amount') - Coalesce(Sum('payments__amount'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)))
+        ).aggregate(total=Sum('balance'))['total'] or 0,
         'monthly_expenses': Expense.objects.filter(
             date__month=datetime.now().month,
             date__year=datetime.now().year
         ).aggregate(total=Sum('amount'))['total'] or 0,
         'recent_expenses': Expense.objects.all()[:5],
-        'recent_payments': Payment.objects.all()[:5],
+        'recent_sales': Sale.objects.select_related('customer').all()[:5],
+        'pending_bill_claims': BillClaim.objects.filter(status='pending').count(),
         'low_stock_alerts': InventoryItem.objects.filter(
             quantity__lte=F('minimum_stock')
         )[:5],
@@ -133,10 +133,13 @@ def customer_delete(request, pk):
 @login_required
 def customer_detail(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
-    sales = customer.sales.filter(status='finalized').select_related().prefetch_related('items__inventory_item', 'payments').order_by('-created_at')
+    sales_qs = customer.sales.filter(status='finalized').select_related().prefetch_related('items__inventory_item', 'payments').order_by('-created_at')
+    paginator = Paginator(sales_qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
     context = {
         'customer': customer,
-        'sales': sales,
+        'sales': page_obj.object_list,
+        'page_obj': page_obj,
     }
     return render(request, 'core/customer_detail.html', context)
 
@@ -345,77 +348,80 @@ def expense_detail(request, pk):
     return render(request, 'core/expense_detail.html', context)
 
 
-# Payment Views
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def payment_list(request):
-    query = request.GET.get('q', '')
-    status_filter = request.GET.get('status', '')
-    payment_type = request.GET.get('payment_type', '')
-    qs = Payment.objects.all()
-    if query:
-        qs = qs.filter(
-            Q(invoice_number__icontains=query) |
-            Q(customer__name__icontains=query) |
-            Q(customer__customer_id__icontains=query)
-        )
-    if status_filter:
-        qs = qs.filter(status=status_filter)
-    if payment_type:
-        qs = qs.filter(payment_type=payment_type)
-    total_pending = qs.filter(status__in=['pending', 'overdue']).aggregate(
-        total=Sum(F('total_amount') - F('paid_amount'))
-    )['total'] or 0
-    paginator = Paginator(qs, 10)
-    page_obj = paginator.get_page(request.GET.get('page'))
-    return render(request, 'core/payment_list.html', {
-        'payments': page_obj.object_list,
-        'page_obj': page_obj,
-        'query': query,
-        'status_filter': status_filter,
-        'payment_type': payment_type,
-        'total_pending': total_pending
-    })
+# Payment Views - DEPRECATED: Legacy payment tracking system, replaced by SalePayment
+# All payment processing now goes through SalePayment which is directly linked to Sales
+# Keeping code commented for reference and potential data migration needs
+
+# @login_required
+# @user_passes_test(lambda u: u.is_superuser)
+# def payment_list(request):
+#     query = request.GET.get('q', '')
+#     status_filter = request.GET.get('status', '')
+#     payment_type = request.GET.get('payment_type', '')
+#     qs = Payment.objects.all()
+#     if query:
+#         qs = qs.filter(
+#             Q(invoice_number__icontains=query) |
+#             Q(customer__name__icontains=query) |
+#             Q(customer__customer_id__icontains=query)
+#         )
+#     if status_filter:
+#         qs = qs.filter(status=status_filter)
+#     if payment_type:
+#         qs = qs.filter(payment_type=payment_type)
+#     total_pending = qs.filter(status__in=['pending', 'overdue']).aggregate(
+#         total=Sum(F('total_amount') - F('paid_amount'))
+#     )['total'] or 0
+#     paginator = Paginator(qs, 10)
+#     page_obj = paginator.get_page(request.GET.get('page'))
+#     return render(request, 'core/payment_list.html', {
+#         'payments': page_obj.object_list,
+#         'page_obj': page_obj,
+#         'query': query,
+#         'status_filter': status_filter,
+#         'payment_type': payment_type,
+#         'total_pending': total_pending
+#     })
 
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def payment_add(request):
-    if request.method == 'POST':
-        form = PaymentForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Payment added successfully!')
-            return redirect('payment_list')
-    else:
-        form = PaymentForm()
-    return render(request, 'core/payment_form.html', {'form': form, 'title': 'Add Payment'})
+# @login_required
+# @user_passes_test(lambda u: u.is_superuser)
+# def payment_add(request):
+#     if request.method == 'POST':
+#         form = PaymentForm(request.POST)
+#         if form.is_valid():
+#             form.save()
+#             messages.success(request, 'Payment added successfully!')
+#             return redirect('payment_list')
+#     else:
+#         form = PaymentForm()
+#     return render(request, 'core/payment_form.html', {'form': form, 'title': 'Add Payment'})
 
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def payment_edit(request, pk):
-    payment = get_object_or_404(Payment, pk=pk)
-    if request.method == 'POST':
-        form = PaymentForm(request.POST, instance=payment)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Payment updated successfully!')
-            return redirect('payment_list')
-    else:
-        form = PaymentForm(instance=payment)
-    return render(request, 'core/payment_form.html', {'form': form, 'title': 'Edit Payment'})
+# @login_required
+# @user_passes_test(lambda u: u.is_superuser)
+# def payment_edit(request, pk):
+#     payment = get_object_or_404(Payment, pk=pk)
+#     if request.method == 'POST':
+#         form = PaymentForm(request.POST, instance=payment)
+#         if form.is_valid():
+#             form.save()
+#             messages.success(request, 'Payment updated successfully!')
+#             return redirect('payment_list')
+#     else:
+#         form = PaymentForm(instance=payment)
+#     return render(request, 'core/payment_form.html', {'form': form, 'title': 'Edit Payment'})
 
 
-@login_required
-@user_passes_test(lambda u: u.is_superuser)
-def payment_delete(request, pk):
-    payment = get_object_or_404(Payment, pk=pk)
-    if request.method == 'POST':
-        payment.delete()
-        messages.success(request, 'Payment deleted successfully!')
-        return redirect('payment_list')
-    return render(request, 'core/confirm_delete.html', {'object': payment, 'type': 'Payment'})
+# @login_required
+# @user_passes_test(lambda u: u.is_superuser)
+# def payment_delete(request, pk):
+#     payment = get_object_or_404(Payment, pk=pk)
+#     if request.method == 'POST':
+#         payment.delete()
+#         messages.success(request, 'Payment deleted successfully!')
+#         return redirect('payment_list')
+#     return render(request, 'core/confirm_delete.html', {'object': payment, 'type': 'Payment'})
 
 
 # Bill Claim Views
