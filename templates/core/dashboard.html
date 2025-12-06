@@ -53,9 +53,9 @@
 <!-- Statistics Cards -->
 <div class="row">
   <div class="col-md-3">
-    <div class="card stat-card">
+    <div class="card stat-card h-100">
       <div class="card-body">
-        <div class="d-flex justify-content-between">
+        <div class="d-flex justify-content-between align-items-start">
           <div>
             <h6 class="text-muted">Active Employees</h6>
             <h2>{{ total_employees }}</h2>
@@ -69,9 +69,9 @@
   </div>
 
   <div class="col-md-3">
-    <div class="card stat-card success">
+    <div class="card stat-card success h-100">
       <div class="card-body">
-        <div class="d-flex justify-content-between">
+        <div class="d-flex justify-content-between align-items-start">
           <div>
             <h6 class="text-muted">Active Customers</h6>
             <h2>{{ total_customers }}</h2>
@@ -85,14 +85,14 @@
   </div>
 
   <div class="col-md-3">
-    <div class="card stat-card warning">
+    <div class="card stat-card warning h-100">
       <div class="card-body">
-        <div class="d-flex justify-content-between">
+        <div class="d-flex justify-content-between align-items-start">
           <div>
             <h6 class="text-muted">Inventory Items</h6>
             <h2>{{ total_inventory_items }}</h2>
             {% if low_stock_items > 0 %}
-            <small class="text-danger">{{ low_stock_items }} low stock</small>
+            <small class="text-danger d-block">{{ low_stock_items }} low stock</small>
             {% endif %}
           </div>
           <div class="align-self-center">
@@ -104,13 +104,13 @@
   </div>
 
   <div class="col-md-3">
-    <div class="card stat-card danger">
+    <div class="card stat-card danger h-100">
       <div class="card-body">
-        <div class="d-flex justify-content-between">
+        <div class="d-flex justify-content-between align-items-start">
           <div>
             <h6 class="text-muted">Sales Balance Due</h6>
             <h2>${{ total_sales_due|floatformat:0 }}</h2>
-            <small class="text-muted"
+            <small class="text-muted d-block"
               >{{ pending_sales }} draft sales</small
             >
           </div>
@@ -126,7 +126,7 @@
 <!-- Second Row Stats -->
 <div class="row mt-3">
   <div class="col-md-4">
-    <div class="card">
+    <div class="card h-100">
       <div class="card-body text-center">
         <h6 class="text-muted">Total Inventory Value</h6>
         <h3 class="text-success">${{ total_inventory_value|floatformat:2 }}</h3>
@@ -135,7 +135,7 @@
   </div>
 
   <div class="col-md-4">
-    <div class="card">
+    <div class="card h-100">
       <div class="card-body text-center">
         <h6 class="text-muted">Monthly Expenses</h6>
         <h3 class="text-primary">${{ monthly_expenses|floatformat:2 }}</h3>
@@ -144,7 +144,7 @@
   </div>
 
   <div class="col-md-4">
-    <div class="card">
+    <div class="card h-100">
       <div class="card-body text-center">
         <h6 class="text-muted">Pending Bill Claims</h6>
         <h3 class="text-warning">{{ pending_bill_claims }}</h3>
