@@ -10,6 +10,7 @@
           <i class="fas fa-check"></i> Finalize
         </a>
       {% endif %}
+      
     {% endif %}
     {% if user.is_superuser or perms.core.view_sale %}
       <a href="{% url 'sale_invoice' sale.pk %}" target="_blank" class="btn btn-outline-primary">

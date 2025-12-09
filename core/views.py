@@ -1249,3 +1249,22 @@ def sale_payment_receipt(request, sale_pk, payment_pk):
     }
     return render(request, 'core/sale_payment_receipt.html', context)
 
+
+
+@login_required
+@permission_required('core.delete_sale', raise_exception=True)
+def sale_delete(request, pk):
+    """Delete a sale safely.
+    Policy: allow deletion only for draft sales (payments allowed).
+    """
+    sale = get_object_or_404(Sale, pk=pk)
+    if request.method == 'POST':
+        if sale.status != 'draft':
+            messages.warning(request, 'Only draft sales can be deleted.')
+            return redirect('sale_detail', pk=sale.pk)
+        sale.delete()
+        messages.success(request, 'Sale deleted successfully.')
+        return redirect('sale_list')
+    # Confirm page reuse generic confirm template
+    return render(request, 'core/confirm_delete.html', {'object': sale, 'type': 'Sale'})
+

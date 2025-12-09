@@ -83,6 +83,14 @@
             <td class="text-end">${{ sale.balance_due }}</td>
             <td class="text-end">
               <a href="{% url 'sale_detail' sale.pk %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i> View</a>
+              {% if sale.status == 'draft' %}
+                {% if user.is_superuser or perms.core.delete_sale %}
+                  <form method="post" action="{% url 'sale_delete' sale.pk %}" style="display:inline" onsubmit="return confirm('Delete this draft sale?');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="fas fa-trash"></i> Delete</button>
+                  </form>
+                {% endif %}
+              {% endif %}
             </td>
           </tr>
           {% empty %}
