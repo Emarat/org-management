@@ -59,6 +59,7 @@ urlpatterns = [
     path('sales/<int:pk>/invoice/', views.sale_invoice, name='sale_invoice'),
     path('sales/<int:pk>/add-item/', views.sale_add_item, name='sale_add_item'),
     path('sales/<int:pk>/items/<int:item_pk>/delete/', views.sale_delete_item, name='sale_delete_item'),
+    path('sales/<int:pk>/delete/', views.sale_delete, name='sale_delete'),
     path('sales/<int:pk>/finalize/', views.sale_finalize, name='sale_finalize'),
     path('sales/<int:pk>/add-payment/', views.sale_add_payment, name='sale_add_payment'),
     path('sales/<int:pk>/payments/export.csv', views.sale_payments_export, name='sale_payments_export'),
