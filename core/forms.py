@@ -103,7 +103,7 @@ class SaleItemForm(forms.ModelForm):
         queryset=InventoryItem.objects.all(), required=False,
         widget=forms.Select(attrs={'class': 'form-control'})
     )
-    description = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
+    description = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}))
 
     class Meta:
         model = SaleItem

@@ -693,6 +693,50 @@ from django.contrib.auth.decorators import permission_required
 from django.forms import formset_factory
 
 
+def _collect_form_errors(*, sale_form=None, item_formset=None, payment_form=None, limit=4):
+    parts = []
+
+    def _flatten_errors(errors_dict):
+        msgs = []
+        for field, errs in errors_dict.items():
+            if field == '__all__':
+                label = 'General'
+            else:
+                label = str(field).replace('_', ' ').title()
+            for e in errs:
+                msgs.append(f"{label}: {e}")
+        return msgs
+
+    if sale_form is not None and getattr(sale_form, 'errors', None):
+        msgs = _flatten_errors(sale_form.errors)
+        if msgs:
+            parts.append("Customer - " + "; ".join(msgs[:limit]))
+
+    if item_formset is not None:
+        msgs = []
+        try:
+            non_form = list(item_formset.non_form_errors())
+            msgs.extend(non_form)
+        except Exception:
+            pass
+        for i, f in enumerate(getattr(item_formset, 'forms', []) or []):
+            if getattr(f, 'errors', None):
+                row_msgs = _flatten_errors(f.errors)
+                for m in row_msgs:
+                    msgs.append(f"Item {i + 1} - {m}")
+            if len(msgs) >= limit:
+                break
+        if msgs:
+            parts.append("Items - " + "; ".join(msgs[:limit]))
+
+    if payment_form is not None and getattr(payment_form, 'errors', None):
+        msgs = _flatten_errors(payment_form.errors)
+        if msgs:
+            parts.append("Payment - " + "; ".join(msgs[:limit]))
+
+    return parts
+
+
 @login_required
 @permission_required('core.view_sale', raise_exception=True)
 def sale_list(request):
@@ -740,53 +784,143 @@ def sale_create_unified(request):
     """Unified sale creation: customer + multiple items + optional initial payment.
     Steps 1-6 implementation (no finalize toggle yet).
     """
+    with open('/tmp/sale_debug.txt', 'a') as f:
+        f.write(f"\n=== FUNCTION CALLED: method={request.method} ===\n")
+    
     SaleItemFormSet = formset_factory(SaleItemForm, extra=1, can_delete=True)
     if request.method == 'POST':
-        sale_form = SaleForm(request.POST)
-        item_formset = SaleItemFormSet(request.POST, prefix='items')
+        # Preprocess: copy machine quantity/unit price into hidden fields; description already bound in template
+        post_data = request.POST.copy()
+        try:
+            total_forms = int(post_data.get('items-TOTAL_FORMS', '0'))
+        except ValueError:
+            total_forms = 0
+        
+        for i in range(total_forms):
+            t = post_data.get(f'items-{i}-item_type')
+            
+            if t == 'non_inventory':
+                desc_key = f'items-{i}-description'
+                qty_key = f'items-{i}-quantity'
+                qty_machine_key = f'items-{i}-quantity_machine'
+                price_key = f'items-{i}-unit_price'
+                price_machine_key = f'items-{i}-unit_price_machine'
+                
+                # Description already posted via textarea bound to formset
+                
+                # Copy machine quantity
+                qty_val = post_data.get(qty_key, '').strip()
+                qty_machine_val = post_data.get(qty_machine_key, '').strip()
+                if not qty_val and qty_machine_val:
+                    post_data[qty_key] = qty_machine_val
+                
+                # Copy machine price
+                price_val = post_data.get(price_key, '').strip()
+                price_machine_val = post_data.get(price_machine_key, '').strip()
+                if not price_val and price_machine_val:
+                    post_data[price_key] = price_machine_val
+
+        sale_form = SaleForm(post_data)
+        item_formset = SaleItemFormSet(post_data, prefix='items')
         payment_form = SalePaymentForm(request.POST, prefix='pay')
+        
         valid = True
         if not sale_form.is_valid():
             valid = False
-        if not item_formset.is_valid():
-            valid = False
+        # Note: We build items directly from POST, not from formset
         if payment_form.is_valid():
             pass
         else:
             # Allow empty payment section (all fields blank) -> treat as no payment
-            # If user entered amount but form invalid, block
+            # If user entered amount but form invalid, block with a specific message
             amt_raw = request.POST.get('pay-amount')
             if amt_raw:
+                payment_form.add_error('amount', 'Enter a valid payment amount.')
                 valid = False
-        # Basic item presence validation
+        # Basic item presence validation - build items directly from POST data
         cleaned_items = []
-        if item_formset.is_valid():
-            for f in item_formset.forms:
-                if f.cleaned_data.get('DELETE'):
-                    continue
-                cd = f.cleaned_data
-                # Skip rows where all key fields blank
-                if not cd.get('item_type') and not cd.get('inventory_item') and not cd.get('description'):
-                    continue
-                # Require item_type
-                if not cd.get('item_type'):
-                    f.add_error('item_type', 'Select type')
+        
+        # Write debug to file
+        import sys
+        with open('/tmp/sale_debug.txt', 'a') as f:
+            f.write(f"\n=== NEW SUBMISSION ===\n")
+            f.write(f"total_forms={total_forms}\n")
+            f.write(f"All POST keys with 'items': {[k for k in post_data.keys() if 'items' in k]}\n")
+        
+        for idx in range(total_forms):
+            item_type = post_data.get(f'items-{idx}-item_type', '').strip()
+            with open('/tmp/sale_debug.txt', 'a') as f:
+                f.write(f"Form {idx} type='{item_type}'\n")
+            
+            # Skip completely blank rows
+            if not item_type:
+                with open('/tmp/sale_debug.txt', 'a') as f:
+                    f.write(f"Skipping form {idx} - no type\n")
+                continue
+                
+            if item_type == 'inventory':
+                inv_id = post_data.get(f'items-{idx}-inventory_item')
+                qty = post_data.get(f'items-{idx}-quantity', post_data.get(f'items-{idx}-quantity_inv', '1'))
+                price = post_data.get(f'items-{idx}-unit_price', post_data.get(f'items-{idx}-unit_price_inv', '0'))
+                
+                if not inv_id:
+                    messages.error(request, 'Inventory item must be selected')
                     valid = False
                     continue
-                # For non-inventory ensure description present
-                if cd.get('item_type') == 'non_inventory' and not cd.get('description'):
-                    f.add_error('description', 'Description required')
+                    
+                try:
+                    inv_item = InventoryItem.objects.get(pk=inv_id)
+                    cleaned_items.append({
+                        'item_type': 'inventory',
+                        'inventory_item': inv_item,
+                        'description': inv_item.name,
+                        'quantity': int(qty) if qty else 1,
+                        'unit_price': float(price) if price else inv_item.unit_price
+                    })
+                except (InventoryItem.DoesNotExist, ValueError):
+                    messages.error(request, 'Invalid inventory item')
+                    valid = False
+                    
+            elif item_type == 'non_inventory':
+                machine_desc = post_data.get(f'items-{idx}-description', '').strip()
+                qty = post_data.get(f'items-{idx}-quantity', post_data.get(f'items-{idx}-quantity_machine', '1'))
+                price = post_data.get(f'items-{idx}-unit_price', post_data.get(f'items-{idx}-unit_price_machine', '0'))
+                
+                with open('/tmp/sale_debug.txt', 'a') as f:
+                    f.write(f"Machine desc='{machine_desc[:50] if machine_desc else 'EMPTY'}', qty='{qty}', price='{price}'\n")
+                
+                if not machine_desc:
+                    messages.error(request, 'Machine details are required')
                     valid = False
                     continue
-                # For inventory ensure inventory_item selected
-                if cd.get('item_type') == 'inventory' and not cd.get('inventory_item'):
-                    f.add_error('inventory_item', 'Choose inventory item')
+                
+                try:
+                    item_dict = {
+                        'item_type': 'non_inventory',
+                        'inventory_item': None,
+                        'description': machine_desc,
+                        'quantity': int(qty) if qty else 1,
+                        'unit_price': float(price) if price else 0
+                    }
+                    cleaned_items.append(item_dict)
+                    with open('/tmp/sale_debug.txt', 'a') as f:
+                        f.write(f"Added machine item: {item_dict}\n")
+                except ValueError as e:
+                    with open('/tmp/sale_debug.txt', 'a') as f:
+                        f.write(f'ERROR: Invalid quantity or price: {e}\n')
                     valid = False
-                    continue
-                cleaned_items.append(cd)
+        with open('/tmp/sale_debug.txt', 'a') as f:
+            f.write(f"cleaned_items count = {len(cleaned_items)}\n")
+            f.write(f"cleaned_items = {cleaned_items}\n")
+        
         if not cleaned_items:
+            with open('/tmp/sale_debug.txt', 'a') as f:
+                f.write("No items found - showing error\n")
             valid = False
             messages.error(request, 'Add at least one valid item.')
+        else:
+            with open('/tmp/sale_debug.txt', 'a') as f:
+                f.write(f"Found {len(cleaned_items)} items\n")
         # Compute total from items (unit_price fallback to inventory price if missing)
         total_amount = 0
         if cleaned_items:
@@ -801,7 +935,10 @@ def sale_create_unified(request):
         payment_amount = None
         if payment_form.is_valid():
             payment_amount = payment_form.cleaned_data.get('amount')
-            if payment_amount and payment_amount > 0:
+            if payment_amount is not None and payment_amount < 0:
+                payment_form.add_error('amount', 'Payment cannot be negative.')
+                valid = False
+            elif payment_amount and payment_amount > 0:
                 if payment_amount > total_amount:
                     payment_form.add_error('amount', 'Payment exceeds total.')
                     valid = False
@@ -837,7 +974,8 @@ def sale_create_unified(request):
                     messages.success(request, f'Payment recorded (Receipt {payment.receipt_number}).')
                 return redirect('sale_detail', pk=sale.pk)
         else:
-            messages.error(request, 'Please correct the errors below.')
+            parts = _collect_form_errors(sale_form=sale_form, payment_form=payment_form)
+            messages.error(request, " | ".join(parts) if parts else 'Please correct the highlighted fields.')
     else:
         sale_form = SaleForm()
         item_formset = formset_factory(SaleItemForm, extra=1, can_delete=True)(prefix='items')
@@ -870,6 +1008,7 @@ def sale_create(request):
         if not payment_form.is_valid():
             amt_raw = request.POST.get('pay-amount')
             if amt_raw:
+                payment_form.add_error('amount', 'Enter a valid payment amount.')
                 valid = False
         cleaned_items = []
         if item_formset.is_valid():
@@ -897,7 +1036,9 @@ def sale_create(request):
         payment_amount = None
         if payment_form.is_valid():
             payment_amount = payment_form.cleaned_data.get('amount')
-            if payment_amount and payment_amount > total_amount:
+            if payment_amount is not None and payment_amount < 0:
+                payment_form.add_error('amount', 'Payment cannot be negative.'); valid = False
+            elif payment_amount and payment_amount > total_amount:
                 payment_form.add_error('amount', 'Payment exceeds total.'); valid = False
         if valid:
             from django.db import transaction
@@ -930,7 +1071,8 @@ def sale_create(request):
                     messages.success(request, f'Payment recorded (Receipt {payment.receipt_number}).')
                 return redirect('sale_detail', pk=sale.pk)
         else:
-            messages.error(request, 'Please correct the errors below.')
+            parts = _collect_form_errors(sale_form=sale_form, item_formset=item_formset, payment_form=payment_form)
+            messages.error(request, " | ".join(parts) if parts else 'Please correct the highlighted fields.')
     else:
         sale_form = SaleForm()
         item_formset = formset_factory(SaleItemForm, extra=1, can_delete=True)(prefix='items')
@@ -960,7 +1102,9 @@ def sale_quote_create(request):
         if not sale_form.is_valid(): valid = False
         if not item_formset.is_valid(): valid = False
         if not payment_form.is_valid():
-            if request.POST.get('pay-amount'): valid = False
+            if request.POST.get('pay-amount'):
+                payment_form.add_error('amount', 'Enter a valid payment amount.')
+                valid = False
         cleaned_items = []
         if item_formset.is_valid():
             for f in item_formset.forms:
@@ -986,7 +1130,9 @@ def sale_quote_create(request):
         payment_amount = None
         if payment_form.is_valid():
             payment_amount = payment_form.cleaned_data.get('amount')
-            if payment_amount and payment_amount > total_amount:
+            if payment_amount is not None and payment_amount < 0:
+                payment_form.add_error('amount', 'Payment cannot be negative.'); valid = False
+            elif payment_amount and payment_amount > total_amount:
                 payment_form.add_error('amount', 'Payment exceeds total.'); valid = False
         if valid:
             from django.db import transaction
@@ -1021,7 +1167,8 @@ def sale_quote_create(request):
                     messages.success(request, f'Payment recorded (Receipt {payment.receipt_number}).')
                 return redirect('sale_detail', pk=sale.pk)
         else:
-            messages.error(request, 'Please correct the errors below.')
+            parts = _collect_form_errors(sale_form=sale_form, item_formset=item_formset, payment_form=payment_form)
+            messages.error(request, " | ".join(parts) if parts else 'Please correct the highlighted fields.')
     else:
         sale_form = SaleForm()
         item_formset = formset_factory(SaleItemForm, extra=1, can_delete=True)(prefix='items')

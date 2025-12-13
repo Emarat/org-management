@@ -294,7 +294,7 @@ class SaleItem(models.Model):
     sale = models.ForeignKey('Sale', on_delete=models.CASCADE, related_name='items')
     item_type = models.CharField(max_length=20, choices=ITEM_TYPE_CHOICES)
     inventory_item = models.ForeignKey('InventoryItem', on_delete=models.PROTECT, null=True, blank=True, related_name='sale_items')
-    description = models.CharField(max_length=255, blank=True, help_text="Required for non-inventory items")
+    description = models.TextField(blank=True, help_text="Required for non-inventory items")
     quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)], default=1)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     line_total = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], default=0)
