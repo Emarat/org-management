@@ -76,7 +76,14 @@
   <div class="tab-pane fade" id="orders" role="tabpanel" aria-labelledby="orders-tab">
     <div class="card mt-3">
       <div class="card-header">
-        <h5>Order History</h5>
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Order History</h5>
+          {% if user.is_superuser or perms.core.view_sale %}
+            <a href="{% url 'sales_export_pdf' %}?customer_id={{ customer.pk }}" class="btn btn-sm btn-outline-secondary">
+              <i class="fas fa-file-pdf"></i> Download Orders (PDF)
+            </a>
+          {% endif %}
+        </div>
       </div>
       <div class="card-body">
         {% if sales %}
@@ -89,6 +96,7 @@
                   <th>Items</th>
                   <th>Total</th>
                   <th>Paid</th>
+                  <th>Due</th>
                   <th>Status</th>
                   <th>Actions</th>
                 </tr>
@@ -96,7 +104,7 @@
               <tbody>
                 {% for sale in sales %}
                 <tr>
-                  <td><a href="{% url 'sale_detail' sale.pk %}">{{ sale.sale_number }}</a></td>
+                  <td><a href="{% url 'sale_detail' sale.pk %}?return_to={% url 'customer_detail' customer.pk %}%23orders">{{ sale.sale_number }}</a></td>
                   <td>{{ sale.created_at|date:"M d, Y" }}</td>
                   <td>
                     <ul class="list-unstyled mb-0">
@@ -107,6 +115,7 @@
                   </td>
                   <td>${{ sale.total_amount }}</td>
                   <td>${{ sale.total_paid }}</td>
+                  <td>${{ sale.balance_due }}</td>
                   <td>
                     {% if sale.balance_due == 0 %}
                       <span class="badge bg-success">Paid</span>
@@ -117,7 +126,7 @@
                     {% endif %}
                   </td>
                   <td>
-                    <a href="{% url 'sale_detail' sale.pk %}" class="btn btn-sm btn-outline-primary">
+                    <a href="{% url 'sale_detail' sale.pk %}?return_to={% url 'customer_detail' customer.pk %}%23orders" class="btn btn-sm btn-outline-primary">
                       <i class="fas fa-eye"></i> View
                     </a>
                   </td>
@@ -165,4 +174,20 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Activate the correct tab based on URL hash on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    const hash = window.location.hash;
+    if (hash === '#orders') {
+      const ordersTab = document.getElementById('orders-tab');
+      if (ordersTab) {
+        const tab = new bootstrap.Tab(ordersTab);
+        tab.show();
+      }
+    }
+  });
+</script>
 {% endblock %}

@@ -6,6 +6,7 @@ from functools import wraps
 from django.contrib import messages
 from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce
+from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
@@ -140,6 +141,7 @@ def customer_detail(request, pk):
         'customer': customer,
         'sales': page_obj.object_list,
         'page_obj': page_obj,
+        'title': 'Customer Details',
     }
     return render(request, 'core/customer_detail.html', context)
 
@@ -1248,6 +1250,261 @@ def sale_payment_receipt(request, sale_pk, payment_pk):
         'payment': payment,
     }
     return render(request, 'core/sale_payment_receipt.html', context)
+
+
+@login_required
+@permission_required('core.view_sale', raise_exception=True)
+def sales_export_csv(request):
+    """Export sales/orders history as CSV, limited to Orders tab semantics (finalized only)."""
+    import csv
+    from django.utils.encoding import smart_str
+    # Optional filters similar to sale_list
+    query = request.GET.get('q', '')
+    status = request.GET.get('status', '')
+    item_type = request.GET.get('item_type', '')
+    qs = Sale.objects.select_related('customer').filter(status='finalized').order_by('-created_at')
+    if query:
+        qs = qs.filter(Q(sale_number__icontains=query) | Q(customer__name__icontains=query))
+    if status:
+        qs = qs.filter(status=status)
+    if item_type:
+        qs = qs.filter(items__item_type=item_type).distinct()
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="sales_export.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Sale Number', 'Customer', 'Status', 'Created At', 'Total', 'Paid', 'Due'])
+    for s in qs:
+        writer.writerow([
+            smart_str(s.sale_number),
+            smart_str(getattr(s.customer, 'name', '')),
+            smart_str(s.status),
+            s.created_at,
+            f"{s.total_amount}",
+            f"{s.total_paid}",
+            f"{s.balance_due}",
+        ])
+    return response
+
+
+@login_required
+@permission_required('core.view_sale', raise_exception=True)
+def sales_export_pdf(request):
+    """Export orders (finalized sales) as a professional PDF built from HTML.
+    Uses a dedicated template with branding, layout, and typography.
+    """
+
+    query = request.GET.get('q', '')
+    status = 'finalized'  # enforce Orders tab semantics
+    item_type = request.GET.get('item_type', '')
+    customer_id = request.GET.get('customer_id')
+
+    qs = Sale.objects.select_related('customer').filter(status=status).order_by('-created_at')
+    if customer_id:
+        qs = qs.filter(customer_id=customer_id)
+    if query:
+        qs = qs.filter(Q(sale_number__icontains=query) | Q(customer__name__icontains=query))
+    if item_type:
+        qs = qs.filter(items__item_type=item_type).distinct()
+
+    # Compute totals
+    total_total = sum([(float(s.total_amount or 0)) for s in qs])
+    total_paid = sum([(float(s.total_paid or 0)) for s in qs])
+    total_due = sum([(float(s.balance_due or 0)) for s in qs])
+
+    # Build Executive/Financial Report style PDF
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm, mm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    from io import BytesIO
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*cm, bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm)
+    styles = getSampleStyleSheet()
+    
+    # Executive report styles with serif fonts
+    styles.add(ParagraphStyle(
+        name='CompanyHeader', 
+        fontSize=10, 
+        textColor=colors.HexColor('#334155'),
+        fontName='Times-Roman',
+        spaceAfter=2,
+        alignment=TA_LEFT
+    ))
+    styles.add(ParagraphStyle(
+        name='ReportTitle', 
+        fontSize=24, 
+        textColor=colors.HexColor('#1E293B'), 
+        fontName='Times-Bold', 
+        spaceAfter=8,
+        leading=28,
+        alignment=TA_LEFT,
+        leftIndent=0
+    ))
+    styles.add(ParagraphStyle(
+        name='ReportSubtitle', 
+        fontSize=11, 
+        textColor=colors.HexColor('#64748B'),
+        fontName='Times-Roman',
+        spaceAfter=2
+    ))
+    styles.add(ParagraphStyle(
+        name='SummaryLabel', 
+        fontSize=10, 
+        textColor=colors.HexColor('#64748B'),
+        fontName='Helvetica',
+        leading=12
+    ))
+    styles.add(ParagraphStyle(
+        name='SummaryValue', 
+        fontSize=26, 
+        textColor=colors.HexColor('#0F172A'), 
+        fontName='Helvetica-Bold',
+        leading=30
+    ))
+
+    elements = []
+
+    def fmt_currency(val):
+        return f"${float(val):,.2f}"
+
+    # Professional header with company area
+    customer_obj = Customer.objects.filter(pk=customer_id).first() if customer_id else None
+    
+    # Header box with company info
+    from django.utils import timezone as django_tz
+    local_now = django_tz.localtime(django_tz.now())
+    header_data = [[
+        Paragraph("<b>ORG MANAGEMENT SYSTEM</b><br/><font size=8>Financial Report</font>", styles['CompanyHeader']),
+        Paragraph(f"<font size=8>Report Date: {local_now.strftime('%B %d, %Y')}<br/>Generated: {local_now.strftime('%I:%M %p')}</font>", 
+                 ParagraphStyle(name='HeaderRight', parent=styles['CompanyHeader'], alignment=TA_RIGHT))
+    ]]
+    header_table = Table(header_data, colWidths=[10*cm, 7*cm])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 0.3*cm))
+    
+    # Title section
+    elements.append(Paragraph("Customer Orders Report", styles['ReportTitle']))
+    subtitle_parts = ["Finalized Sales"]
+    if customer_obj:
+        subtitle_parts.append(f"Customer: {customer_obj.name}")
+    elements.append(Paragraph(" | ".join(subtitle_parts), styles['ReportSubtitle']))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    # Horizontal line separator
+    line_table = Table([['']], colWidths=[17*cm])
+    line_table.setStyle(TableStyle([
+        ('LINEABOVE', (0,0), (-1,0), 2, colors.HexColor('#CBD5E1')),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+    elements.append(line_table)
+    elements.append(Spacer(1, 0.6*cm))
+
+    # Professional data table with thick borders
+    table_data = [['Sale Number', 'Customer Name', 'Date', 'Total', 'Paid', 'Balance Due']]
+    for s in qs:
+        table_data.append([
+            s.sale_number,
+            getattr(s.customer, 'name', ''),
+            s.created_at.strftime('%Y-%m-%d'),
+            fmt_currency(s.total_amount),
+            fmt_currency(s.total_paid),
+            fmt_currency(s.balance_due)
+        ])
+
+    if len(table_data) == 1:
+        table_data.append(['', '', 'No orders found', '', '', ''])
+
+    data_table = Table(table_data, colWidths=[3.5*cm, 4.2*cm, 2.3*cm, 2.3*cm, 2.2*cm, 2.9*cm], repeatRows=1)
+    data_table.setStyle(TableStyle([
+        # Header styling
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#334155')),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (2,-1), 'LEFT'),
+        ('ALIGN', (3,0), (-1,-1), 'RIGHT'),
+        ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
+        ('FONTSIZE', (0,0), (-1,0), 9),
+        ('FONTSIZE', (0,1), (-1,-1), 9),
+        
+        # Thick borders
+        ('BOX', (0,0), (-1,-1), 2, colors.HexColor('#334155')),
+        ('LINEBELOW', (0,0), (-1,0), 2, colors.white),
+        ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
+        
+        # Row backgrounds
+        ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
+        
+        # Padding
+        ('TOPPADDING', (0,0), (-1,0), 12),
+        ('BOTTOMPADDING', (0,0), (-1,0), 12),
+        ('TOPPADDING', (0,1), (-1,-1), 10),
+        ('BOTTOMPADDING', (0,1), (-1,-1), 10),
+        ('LEFTPADDING', (0,0), (-1,-1), 10),
+        ('RIGHTPADDING', (0,0), (-1,-1), 10),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+    elements.append(data_table)
+
+    # Professional footer with confidentiality notice
+    elements.append(Spacer(1, 1.2*cm))
+    
+    # Footer line
+    footer_line = Table([['']], colWidths=[17*cm])
+    footer_line.setStyle(TableStyle([
+        ('LINEABOVE', (0,0), (-1,0), 1, colors.HexColor('#E2E8F0')),
+        ('TOPPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 0),
+    ]))
+    elements.append(footer_line)
+    elements.append(Spacer(1, 0.3*cm))
+    
+    footer_style = ParagraphStyle(
+        name='Footer', 
+        fontSize=8, 
+        textColor=colors.HexColor('#94A3B8'), 
+        alignment=TA_CENTER,
+        fontName='Times-Italic'
+    )
+    footer_text = f"<b>CONFIDENTIAL</b> · This report contains proprietary information · Org Management System © {timezone.now().year}"
+    elements.append(Paragraph(footer_text, footer_style))
+    
+    # Page number placeholder
+    page_num_style = ParagraphStyle(
+        name='PageNum', 
+        fontSize=8, 
+        textColor=colors.HexColor('#CBD5E1'), 
+        alignment=TA_CENTER,
+        fontName='Helvetica'
+    )
+    elements.append(Spacer(1, 0.2*cm))
+    elements.append(Paragraph("Page 1", page_num_style))
+
+    doc.build(elements)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    # Generate filename with customer name if available
+    if customer_obj:
+        safe_customer_name = customer_obj.name.replace(' ', '_').replace('/', '_')
+        filename = f"orders_report_{safe_customer_name}.pdf"
+    else:
+        filename = "orders_report.pdf"
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    response.write(pdf_bytes)
+    return response
 
 
 

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Orders Report</title>
+  <style>
+    @font-face { font-family: 'Inter'; src: local('Inter'); }
+    body { font-family: Inter, Helvetica, Arial, sans-serif; color: #111827; }
+    .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+    .title { font-size: 22px; font-weight: 700; color: #1F2937; }
+    .subtitle { font-size: 12px; color: #6B7280; }
+    .summary { display: flex; gap: 24px; margin: 8px 0 16px; }
+    .summary .card { background: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 6px; padding: 10px 12px; }
+    .summary .label { font-size: 11px; color: #6B7280; }
+    .summary .value { font-size: 14px; font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th { background: #F3F4F6; color: #111827; font-weight: 700; font-size: 12px; text-align: left; padding: 8px; border: 1px solid #E5E7EB; }
+    tbody td { font-size: 12px; padding: 8px; border: 1px solid #E5E7EB; }
+    tbody tr:nth-child(even) { background: #FAFAFA; }
+    .text-right { text-align: right; }
+    .footer { margin-top: 12px; font-size: 11px; color: #6B7280; }
+  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="title">Orders Report</div>
+      <div class="subtitle">Finalized Sales{% if customer %} · {{ customer.name }}{% endif %}</div>
+    </div>
+    <div class="subtitle">Generated: {{ generated_at|date:"Y-m-d H:i" }}</div>
+  </div>
+
+  <div class="summary">
+    <div class="card"><div class="label">Total</div><div class="value">${{ total_total|floatformat:2 }}</div></div>
+    <div class="card"><div class="label">Paid</div><div class="value">${{ total_paid|floatformat:2 }}</div></div>
+    <div class="card"><div class="label">Due</div><div class="value">${{ total_due|floatformat:2 }}</div></div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 25%">Sale #</th>
+        <th style="width: 25%">Customer</th>
+        <th style="width: 15%">Date</th>
+        <th class="text-right" style="width: 12%">Total</th>
+        <th class="text-right" style="width: 12%">Paid</th>
+        <th class="text-right" style="width: 11%">Due</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in sales %}
+      <tr>
+        <td>{{ s.sale_number }}</td>
+        <td>{{ s.customer.name }}</td>
+        <td>{{ s.created_at|date:"Y-m-d" }}</td>
+        <td class="text-right">${{ s.total_amount|floatformat:2 }}</td>
+        <td class="text-right">${{ s.total_paid|floatformat:2 }}</td>
+        <td class="text-right">${{ s.balance_due|floatformat:2 }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="6" style="text-align:center; color:#6B7280">No orders found.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="footer">Report powered by OrgMS · {{ generated_at|date:"Y" }}</div>
+</body>
+</html>

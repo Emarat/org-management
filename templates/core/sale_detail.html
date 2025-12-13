@@ -17,7 +17,7 @@
         <i class="fas fa-print"></i> Print Invoice
       </a>
     {% endif %}
-    <a href="{% url 'sale_list' %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back</a>
+    <a href="{% if request.GET.return_to %}{{ request.GET.return_to }}{% else %}{% url 'sale_list' %}{% endif %}" class="btn btn-outline-secondary"><i class="fas fa-arrow-left"></i> Back</a>
   </div>
 </div>
 

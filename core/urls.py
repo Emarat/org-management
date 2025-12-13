@@ -64,4 +64,6 @@ urlpatterns = [
     path('sales/<int:pk>/add-payment/', views.sale_add_payment, name='sale_add_payment'),
     path('sales/<int:pk>/payments/export.csv', views.sale_payments_export, name='sale_payments_export'),
     path('sales/<int:sale_pk>/payments/<int:payment_pk>/receipt/', views.sale_payment_receipt, name='sale_payment_receipt'),
+    path('sales/export.csv', views.sales_export_csv, name='sales_export_csv'),
+    path('sales/export.pdf', views.sales_export_pdf, name='sales_export_pdf'),
 ]
