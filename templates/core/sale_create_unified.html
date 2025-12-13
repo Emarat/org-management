@@ -480,9 +480,27 @@
   var mainForm = document.getElementById('saleBuilderForm');
   if(mainForm){
     mainForm.addEventListener('submit', function(e){
+      function unlockGlobalSubmitLock(){
+        try {
+          delete mainForm.dataset.submitted;
+        } catch(_e) {
+          mainForm.dataset.submitted = '';
+          mainForm.removeAttribute('data-submitted');
+        }
+        var buttons = mainForm.querySelectorAll('button[type="submit"], input[type="submit"]');
+        buttons.forEach(function(btn){
+          if(btn.dataset && btn.dataset.originalText){
+            btn.innerHTML = btn.dataset.originalText;
+            delete btn.dataset.originalText;
+          }
+          btn.disabled = false;
+        });
+      }
+
       // Block submit if payment is invalid (form has novalidate)
       if(!validatePaymentAmount()){
         e.preventDefault();
+        unlockGlobalSubmitLock();
         try { paymentAmountInput.reportValidity(); } catch(_e) {}
         return;
       }
