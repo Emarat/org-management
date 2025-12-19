@@ -3,9 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>{% block title %}
-      Organization Management System
-    {% endblock %}</title>
+    <title>{% block title %}{{ brand.name|default:'Fashion Express' }}{% endblock %}</title>
 
   {% load static %}
   <!-- Bootstrap CSS -->
@@ -183,7 +181,7 @@
         <nav class="sidebar px-0">
           <div class="position-sticky">
             <a href="{% url 'dashboard' %}" class="brand-logo">
-              <i class="fas fa-building"></i> OrgMS
+              <i class="fas fa-building"></i> {{ brand.name|default:'Fashion Express' }}
             </a>
             <ul class="nav flex-column">
               <li class="nav-item">

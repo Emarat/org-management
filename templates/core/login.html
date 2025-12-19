@@ -7,7 +7,7 @@
       <div class="card shadow-lg">
         <div class="card-header text-center py-4">
           <h3>
-            <i class="fas fa-building"></i> Organization Management System
+            <i class="fas fa-building"></i> {{ brand.name|default:'Fashion Express' }}
           </h3>
         </div>
         <div class="card-body p-5">
@@ -47,7 +47,7 @@
         </div>
         <div class="card-footer text-center">
           <small class="text-muted"
-            >© 2025 Organization Management System</small
+            >© 2025 {{ brand.name|default:'Fashion Express' }}</small
           >
         </div>
       </div>

@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}{{ title|default:'Create Sale' }} - OrgMS{% endblock %}
+{% block title %}{{ title|default:'Create Sale' }} - {{ brand.name|default:'Fashion Express' }}{% endblock %}
 {% block content %}
 <form method="post" novalidate id="saleBuilderForm" autocomplete="off">
   {% csrf_token %}

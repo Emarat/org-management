@@ -193,8 +193,8 @@ LOGOUT_REDIRECT_URL = 'login'
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
-# Branding (used in printable documents)
-BRAND_NAME = os.getenv('BRAND_NAME', 'OrgMS')
+# Branding (used in UI + printable documents)
+BRAND_NAME = os.getenv('BRAND_NAME', 'Fashion Express')
 # Path under static/ e.g., 'logo.png' (optional)
 BRAND_LOGO_FILE = os.getenv('BRAND_LOGO_FILE', '')
 BRAND_ADDRESS = os.getenv('BRAND_ADDRESS', '')
