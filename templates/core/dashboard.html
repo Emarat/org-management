@@ -321,7 +321,7 @@
       <div class="card-header d-flex justify-content-between align-items-center">
         <div>
           <i class="fas fa-chart-bar"></i> Top Selling Products
-          <small class="text-muted d-block">All time · By Quantity</small>
+          <small class="text-muted d-block">All Time · By Quantity</small>
         </div>
         <span class="badge bg-light text-dark">Top 10</span>
       </div>
@@ -343,9 +343,16 @@
                         {% endif %}
                       </div>
                       <div class="progress mt-2" style="height: 8px; max-width: 520px;">
-                        <div class="progress-bar bg-primary" role="progressbar"
-                             style="width: {% if top_products_max_qty %}{% widthratio p.total_qty top_products_max_qty 100 %}{% else %}0{% endif %}%"
-                             aria-valuenow="{{ p.total_qty }}" aria-valuemin="0" aria-valuemax="{{ top_products_max_qty }}"></div>
+                        {% if top_products_max_qty %}
+                          {% widthratio p.total_qty top_products_max_qty 100 as bar_width %}
+                          <div class="progress-bar bg-primary" role="progressbar"
+                               style="width: {{ bar_width }}%"
+                               aria-valuenow="{{ p.total_qty }}" aria-valuemin="0" aria-valuemax="{{ top_products_max_qty }}"></div>
+                        {% else %}
+                          <div class="progress-bar bg-primary" role="progressbar"
+                               style="width: 0%"
+                               aria-valuenow="{{ p.total_qty }}" aria-valuemin="0" aria-valuemax="{{ top_products_max_qty }}"></div>
+                        {% endif %}
                       </div>
                     </div>
                   </div>
