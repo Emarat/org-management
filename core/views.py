@@ -35,6 +35,54 @@ def manager_required(view_func):
 @login_required
 def dashboard(request):
     """Dashboard with key metrics"""
+    today = timezone.localdate()
+
+    def _machine_label_from_description(text: str) -> str:
+        # Common patterns in this project: free-text, "Machine: <name> - <details>", or multi-line.
+        if not text:
+            return ''
+        label = str(text).strip().splitlines()[0].strip()
+        # Strip common prefixes
+        for prefix in ('machine:', 'Machine:', 'MACHINE:'):
+            if label.startswith(prefix):
+                label = label[len(prefix):].strip()
+                break
+        # If it looks like "Name - details" or "Name — details", keep only the name.
+        for sep in (' - ', ' — ', ' – '):
+            if sep in label:
+                label = label.split(sep, 1)[0].strip()
+                break
+        return label
+
+    # Top selling products (all time) by quantity, across inventory + machine items
+    inventory_top = (
+        SaleItem.objects.filter(sale__status='finalized', item_type='inventory', inventory_item__isnull=False)
+        .values('inventory_item__part_name')
+        .annotate(total_qty=Sum('quantity'))
+    )
+
+    machine_qty_by_label = {}
+    for desc, qty in (
+        SaleItem.objects.filter(sale__status='finalized', item_type='non_inventory')
+        .exclude(description='')
+        .values_list('description', 'quantity')
+    ):
+        label = _machine_label_from_description(desc)
+        if not label:
+            continue
+        machine_qty_by_label[label] = (machine_qty_by_label.get(label) or 0) + (qty or 0)
+
+    top_products = [
+        {'label': row['inventory_item__part_name'], 'item_type': 'inventory', 'total_qty': row['total_qty'] or 0}
+        for row in inventory_top
+        if row.get('inventory_item__part_name')
+    ] + [
+        {'label': label, 'item_type': 'machine', 'total_qty': total_qty}
+        for label, total_qty in machine_qty_by_label.items()
+    ]
+    top_products = sorted(top_products, key=lambda r: r['total_qty'], reverse=True)[:10]
+    top_products_max_qty = max([p['total_qty'] for p in top_products], default=0)
+
     context = {
         'total_employees': CustomUser.objects.filter(status='active').count(),
         'total_customers': Customer.objects.filter(status='active').count(),
@@ -52,6 +100,11 @@ def dashboard(request):
         # Sale metrics (replacing legacy Payment metrics)
         'pending_sales': Sale.objects.filter(status='draft').count(),
         'finalized_sales': Sale.objects.filter(status='finalized').count(),
+        'today_sales_total': Sale.objects.filter(status='finalized', finalized_at__date=today).aggregate(
+            total=Sum('total_amount')
+        )['total'] or 0,
+        'top_products': top_products,
+        'top_products_max_qty': top_products_max_qty,
         'total_sales_due': Sale.objects.filter(status='finalized').annotate(
             balance=F('total_amount') - Coalesce(Sum('payments__amount'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)))
         ).aggregate(total=Sum('balance'))['total'] or 0,
