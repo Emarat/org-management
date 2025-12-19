@@ -1,3 +1,6 @@
+import os
+DEBUG = os.getenv("DJANGO_DEBUG","false").strip().lower() in ("1","true","yes","on")
+
 """
 Django settings for org_management project.
 """
@@ -27,7 +30,6 @@ SECRET_KEY = os.getenv('SECRET_KEY') or os.getenv('DJANGO_SECRET_KEY', 'django-i
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Toggleable via env; defaults to True for local dev
-DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
 
 _env_allowed_hosts = os.getenv('ALLOWED_HOSTS', '') or os.getenv('DJANGO_ALLOWED_HOSTS', '')
 if _env_allowed_hosts.strip():
@@ -64,6 +66,7 @@ elif DEBUG:
         'http://0.0.0.0:8000',
         'http://0.0.0.0:8001',
         'http://0.0.0.0:8002',
+	'https://erp.fashionexpresss.com'
     ]
 
 
@@ -200,3 +203,15 @@ BRAND_LOGO_FILE = os.getenv('BRAND_LOGO_FILE', '')
 BRAND_ADDRESS = os.getenv('BRAND_ADDRESS', '')
 BRAND_PHONE = os.getenv('BRAND_PHONE', '')
 BRAND_EMAIL = os.getenv('BRAND_EMAIL', '')
+
+
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
+
+CSRF_TRUSTED_ORIGINS = ["https://erp.fashionexpresss.com"]
+DEBUG = False
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 31536000300
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = False
