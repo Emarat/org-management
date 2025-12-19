@@ -24,7 +24,7 @@ class InventoryItemForm(forms.ModelForm):
     class Meta:
         model = InventoryItem
         fields = ['part_name', 'part_code', 'description', 'category', 'quantity', 
-                  'unit', 'unit_price', 'location', 'minimum_stock', 'supplier', 'notes']
+                  'unit', 'purchase_price', 'unit_price', 'location', 'minimum_stock', 'supplier']
         widgets = {
             'part_name': forms.TextInput(attrs={'class': 'form-control'}),
             'part_code': forms.TextInput(attrs={'class': 'form-control'}),
@@ -32,11 +32,11 @@ class InventoryItemForm(forms.ModelForm):
             'category': forms.TextInput(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
             'unit': forms.Select(attrs={'class': 'form-control'}),
+            'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'location': forms.TextInput(attrs={'class': 'form-control'}),
             'minimum_stock': forms.NumberInput(attrs={'class': 'form-control'}),
             'supplier': forms.TextInput(attrs={'class': 'form-control'}),
-            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
         }
 
 

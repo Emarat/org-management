@@ -59,6 +59,7 @@
             <th>Category</th>
             <th>Quantity</th>
             <th>Unit</th>
+            <th>Purchase Price</th>
             <th>Unit Price</th>
             <th>Total Value</th>
             <th>Location</th>
@@ -74,6 +75,7 @@
             <td>{{ item.category|default:"-" }}</td>
             <td><strong>{{ item.quantity }}</strong></td>
             <td>{{ item.get_unit_display }}</td>
+            <td>{% if item.purchase_price is not None %}${{ item.purchase_price }}{% else %}-{% endif %}</td>
             <td>${{ item.unit_price }}</td>
             <td>${{ item.total_value|floatformat:2 }}</td>
             <td>{{ item.location|default:"-" }}</td>
