@@ -146,10 +146,22 @@
         color: white;
         text-decoration: none;
         padding: 20px;
-        display: block;
-        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.5rem;
+        text-align: left;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         margin-bottom: 20px;
+      }
+
+      .brand-logo i {
+        flex: 0 0 auto;
+      }
+
+      .brand-logo .brand-name {
+        white-space: normal;
+        line-height: 1.2;
       }
 
       .brand-logo:hover {
@@ -181,7 +193,8 @@
         <nav class="sidebar px-0">
           <div class="position-sticky">
             <a href="{% url 'dashboard' %}" class="brand-logo">
-              <i class="fas fa-building"></i> {{ brand.name|default:'Fashion Express' }}
+              <i class="fas fa-building"></i>
+              <span class="brand-name">{{ brand.name|default:'Fashion Express' }}</span>
             </a>
             <ul class="nav flex-column">
               <li class="nav-item">
