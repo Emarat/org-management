@@ -3,98 +3,331 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Invoice {{ sale.sale_number }} - {{ brand.name|default:'Fashion Express' }}</title>
+  <title>Invoice {{ sale.invoice_number|default:sale.sale_number }} - {{ brand.name|default:'Fashion Express' }}</title>
   <style>
-    :root { --text:#111; --muted:#666; --border:#ddd; --accent:#2c3e50; }
-    html, body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif; color:var(--text); margin:0; padding:0; background:#fff; }
-    .page { max-width: 900px; margin: 16px auto; padding: 16px 20px; }
-    .header { display:flex; align-items:center; justify-content:space-between; }
-    .title { font-size: 22px; font-weight: 700; }
+    :root {
+      --text: #111;
+      --muted: #666;
+      --border: #e5e7eb;
+      --soft: #f5f7fb;
+      --accent: #2c3e50;
+    }
+
+    html, body {
+      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      margin: 0;
+      padding: 0;
+      background: #fff;
+    }
+
+    .page {
+      max-width: 920px;
+      margin: 18px auto;
+      padding: 18px 22px;
+    }
+
+    .row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: nowrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .brand img { height: 52px; width: auto; }
+
+    .brand-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      line-height: 1.15;
+      overflow-wrap: anywhere;
+    }
+
     .muted { color: var(--muted); }
-    .grid { display:grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-top: 10px; }
-    .label { color: var(--muted); font-size: 12px; }
-    .value { font-weight: 600; }
-    hr { border:0; border-top:1px solid var(--border); margin: 16px 0; }
-    .actions { text-align:right; margin: 8px 0; }
-    .btn { border:1px solid var(--border); background:#f7f7f7; color:var(--text); padding:6px 10px; border-radius:6px; cursor:pointer; }
-    table { width:100%; border-collapse: collapse; }
-    th, td { border-bottom: 1px solid var(--border); text-align:left; padding:8px; font-size: 14px; }
-    th { background:#fafafa; }
-    .text-end { text-align:right; }
-    .totals { display:flex; gap:16px; justify-content:flex-end; margin-top: 8px; }
-    .totals .box { border:1px solid var(--border); border-radius:8px; padding:8px 12px; min-width: 180px; }
-    .badge { display:inline-block; border:1px solid var(--border); border-radius: 999px; padding:2px 8px; font-size: 12px; }
-    .badge.finalized { border-color: #27ae60; color: #27ae60; }
-    .badge.draft { border-color: #f39c12; color: #f39c12; }
-    .badge.cancelled { border-color: #e74c3c; color: #e74c3c; }
-    @media print { .actions { display:none !important; } @page { size: A4; margin: 12mm; } .page { margin:0; padding:0; } }
+
+    .meta {
+      text-align: right;
+      min-width: 240px;
+      flex: 0 1 260px;
+    }
+
+    .doc-title {
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--accent);
+      letter-spacing: 0.6px;
+    }
+
+    .doc-no {
+      font-size: 12px;
+      margin-top: 4px;
+    }
+
+    .pill {
+      display: inline-block;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .pill.finalized { border-color: #27ae60; color: #27ae60; }
+    .pill.draft { border-color: #f39c12; color: #f39c12; }
+    .pill.cancelled { border-color: #e74c3c; color: #e74c3c; }
+
+    hr {
+      border: 0;
+      border-top: 1px solid var(--border);
+      margin: 16px 0;
+    }
+
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin: 10px 0 0;
+    }
+
+    .btn {
+      border: 1px solid var(--border);
+      background: #f7f7f7;
+      color: var(--text);
+      padding: 7px 11px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 18px;
+      margin-top: 12px;
+    }
+
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: #fff;
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 110px 1fr;
+      gap: 6px 10px;
+      font-size: 13px;
+    }
+
+    .k { color: var(--muted); }
+    .v { font-weight: 600; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+
+    thead th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      background: var(--soft);
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 8px;
+    }
+
+    tbody td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px 8px;
+      font-size: 14px;
+      vertical-align: top;
+    }
+
+    .text-end { text-align: right; }
+
+    .totals {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
+    .totals-box {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      min-width: 260px;
+      background: #fff;
+    }
+
+    .totals-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 6px 2px;
+      font-size: 14px;
+    }
+
+    .totals-row strong { font-weight: 900; }
+    .totals-row.total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 10px; }
+
+    .signatures {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      margin-top: 36px;
+    }
+
+    .sig {
+      width: 45%;
+    }
+
+    .sig .line {
+      height: 56px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sig .label {
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    @media print {
+      html, body {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .actions { display: none !important; }
+      @page { size: A4; margin: 12mm; }
+      /* Avoid fixed mm widths; browser print scaling differs across engines. */
+      .page { margin: 0; padding: 0; max-width: none; width: auto; }
+
+      /* Flex/grid can reflow unpredictably in print; use table layout for the header */
+      .row { display: table; width: 100%; table-layout: fixed; }
+      .brand, .meta { display: table-cell; vertical-align: top; }
+      /* Fixed right column width keeps INVOICE aligned */
+      .meta { width: 240px; text-align: right; }
+      .meta, .meta * { white-space: nowrap; }
+      .brand { width: auto; }
+
+      .brand img { height: 44px; }
+      .brand-title { font-size: 17px; }
+
+      /* Tighten vertical rhythm for print */
+      /* Use table layout for the two cards as well (grid/flex can break in print) */
+      .two-col { display: table; width: 100%; table-layout: fixed; margin-top: 10px; border-collapse: separate; border-spacing: 16px 0; }
+      .two-col .card { display: table-cell; width: 50%; }
+      table { margin-top: 10px; }
+      .totals { margin-top: 10px; }
+      .signatures { margin-top: 20px; }
+      .card { padding: 10px 12px; }
+      tbody td { padding: 8px 8px; }
+
+      thead { display: table-header-group; }
+      tfoot { display: table-footer-group; }
+      tr, .card, .totals-box, .sig { page-break-inside: avoid; }
+    }
+
+    @media (max-width: 720px) {
+      .two-col { grid-template-columns: 1fr; }
+      .meta { text-align: left; min-width: 0; }
+      .row { flex-direction: column; }
+      .signatures { flex-direction: column; }
+      .sig { width: 100%; }
+    }
   </style>
-  <script>
-    window.addEventListener('load', function(){ window.print(); });
-  </script>
 </head>
 <body>
   <div class="page">
-    <div class="header">
-      <div style="display:flex; align-items:center; gap:12px;">
+    <div class="row">
+      <div class="brand">
         {% if brand.logo_url %}
-          <img src="{{ brand.logo_url }}" alt="Logo" style="height:48px; width:auto;"/>
+          <img src="{{ brand.logo_url }}" alt="Logo" />
         {% endif %}
-        <div>
-          <div class="title">{{ brand.name|default:'Invoice' }}</div>
-          <div class="muted" style="font-size:12px;">Invoice {{ sale.sale_number }}</div>
+        <div style="min-width:0;">
+          <div class="brand-title">{{ brand.name|default:'Fashion Express' }}</div>
+          {% if brand.address or brand.phone or brand.email %}
+            <div class="muted" style="font-size:12px; margin-top:6px;">
+              {% if brand.address %}<div>{{ brand.address }}</div>{% endif %}
+              {% if brand.phone %}<div>Phone: {{ brand.phone }}</div>{% endif %}
+              {% if brand.email %}<div>Email: {{ brand.email }}</div>{% endif %}
+            </div>
+          {% endif %}
         </div>
       </div>
-      <div class="actions"><button class="btn" onclick="window.print()">Print</button></div>
-    </div>
-    {% if brand.address or brand.phone or brand.email %}
-    <div class="muted" style="font-size:12px; margin-top:6px;">
-      {% if brand.address %}<div>{{ brand.address }}</div>{% endif %}
-      {% if brand.phone %}<div>Phone: {{ brand.phone }}</div>{% endif %}
-      {% if brand.email %}<div>Email: {{ brand.email }}</div>{% endif %}
-    </div>
-    {% endif %}
-    <div class="grid">
-      <div>
-        <div class="label">Customer</div>
-        <div class="value">{{ sale.customer.name }}</div>
-        {% if sale.customer.company %}
-          <div class="muted">{{ sale.customer.company }}</div>
-        {% endif %}
-        {% if sale.customer.address or sale.customer.city %}
-          <div class="muted">{{ sale.customer.address }}{% if sale.customer.city %}, {{ sale.customer.city }}{% endif %}</div>
-        {% endif %}
-        {% if sale.customer.phone %}
-          <div class="muted">Phone: {{ sale.customer.phone }}</div>
-        {% endif %}
-        {% if sale.customer.email %}
-          <div class="muted">Email: {{ sale.customer.email }}</div>
-        {% endif %}
-      </div>
-      <div>
-        <div class="label">Status</div>
-        <div>
-          <span class="badge {% if sale.status == 'finalized' %}finalized{% elif sale.status == 'cancelled' %}cancelled{% else %}draft{% endif %}">{{ sale.status|title }}</span>
+
+      <div class="meta">
+        <div class="doc-title">INVOICE</div>
+        <div class="doc-no muted">
+          No: <strong>{{ sale.invoice_number|default:sale.sale_number }}</strong>
+        </div>
+        <div style="margin-top:10px;">
+          <span class="pill {% if sale.status == 'finalized' %}finalized{% elif sale.status == 'cancelled' %}cancelled{% else %}draft{% endif %}">{{ sale.status|title }}</span>
         </div>
       </div>
-      <div>
-        <div class="label">Created</div>
-        <div class="value">{{ sale.created_at }}</div>
-      </div>
-      {% if sale.finalized_at %}
-      <div>
-        <div class="label">Finalized</div>
-        <div class="value">{{ sale.finalized_at }}</div>
-      </div>
-      {% endif %}
     </div>
 
-    <hr />
+    <div class="actions">
+      <button class="btn" onclick="window.print()">Print</button>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Bill To</div>
+        <div style="font-weight:800;">{{ sale.customer.name }}</div>
+        {% if sale.customer.company %}<div class="muted" style="margin-top:2px;">{{ sale.customer.company }}</div>{% endif %}
+        {% if sale.customer.address or sale.customer.city %}
+          <div class="muted" style="margin-top:6px;">{{ sale.customer.address }}{% if sale.customer.city %}, {{ sale.customer.city }}{% endif %}</div>
+        {% endif %}
+        {% if sale.customer.phone %}<div class="muted" style="margin-top:6px;">Phone: {{ sale.customer.phone }}</div>{% endif %}
+        {% if sale.customer.email %}<div class="muted">Email: {{ sale.customer.email }}</div>{% endif %}
+      </div>
+
+      <div class="card">
+        <div class="card-title">Invoice Details</div>
+        <div class="kv">
+          <div class="k">Created</div>
+          <div class="v">{{ sale.created_at|date:"Y-m-d" }}</div>
+          {% if sale.finalized_at %}
+            <div class="k">Finalized</div>
+            <div class="v">{{ sale.finalized_at|date:"Y-m-d" }}</div>
+          {% endif %}
+          <div class="k">Sale No</div>
+          <div class="v">{{ sale.sale_number }}</div>
+        </div>
+      </div>
+    </div>
+
     <table>
       <thead>
         <tr>
-          <th style="width: 15%">Type</th>
-          <th>Name</th>
+          <th style="width: 14%">Type</th>
+          <th>Description</th>
           <th class="text-end" style="width: 10%">Qty</th>
           <th class="text-end" style="width: 15%">Unit Price</th>
           <th class="text-end" style="width: 15%">Total</th>
@@ -122,29 +355,22 @@
     </table>
 
     <div class="totals">
-      <div class="box">
-        <div class="label">Total</div>
-        <div class="value">${{ sale.total_amount }}</div>
-      </div>
-      <div class="box">
-        <div class="label">Paid</div>
-        <div class="value">${{ sale.total_paid }}</div>
-      </div>
-      <div class="box">
-        <div class="label">Due</div>
-        <div class="value">${{ sale.balance_due }}</div>
+      <div class="totals-box">
+        <div class="totals-row"><span class="muted">Paid</span><span><strong>${{ sale.total_paid }}</strong></span></div>
+        <div class="totals-row"><span class="muted">Due</span><span><strong>${{ sale.balance_due }}</strong></span></div>
+        <div class="totals-row total"><span>Total</span><span><strong>${{ sale.total_amount }}</strong></span></div>
       </div>
     </div>
-  </div>
-  <hr />
-  <div style="display:flex; justify-content:space-between; margin-top: 40px;">
-    <div style="width:45%;">
-      <div class="label">Customer Signature</div>
-      <div style="height:60px; border-bottom:1px solid var(--border);"></div>
-    </div>
-    <div style="width:45%; text-align:right;">
-      <div class="label">Authorized Signature</div>
-      <div style="height:60px; border-bottom:1px solid var(--border);"></div>
+
+    <div class="signatures">
+      <div class="sig">
+        <div class="line"></div>
+        <div class="label">Customer Signature</div>
+      </div>
+      <div class="sig" style="text-align:right;">
+        <div class="line"></div>
+        <div class="label">Authorized Signature</div>
+      </div>
     </div>
   </div>
 </body>
