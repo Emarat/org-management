@@ -1498,7 +1498,7 @@ def sales_export_pdf(request):
     item_type = request.GET.get('item_type', '')
     customer_id = request.GET.get('customer_id')
 
-    qs = Sale.objects.select_related('customer').filter(status=status).order_by('-created_at')
+    qs = Sale.objects.select_related('customer').prefetch_related('items__inventory_item').filter(status=status).order_by('-created_at')
     if customer_id:
         qs = qs.filter(customer_id=customer_id)
     if query:
@@ -1506,10 +1506,13 @@ def sales_export_pdf(request):
     if item_type:
         qs = qs.filter(items__item_type=item_type).distinct()
 
+    sales = list(qs)
+    has_orders = len(sales) > 0
+
     # Compute totals
-    total_total = sum([(float(s.total_amount or 0)) for s in qs])
-    total_paid = sum([(float(s.total_paid or 0)) for s in qs])
-    total_due = sum([(float(s.balance_due or 0)) for s in qs])
+    total_total = sum((float(s.total_amount or 0) for s in sales), start=0.0)
+    total_paid = sum((float(s.total_paid or 0) for s in sales), start=0.0)
+    total_due = sum((float(s.balance_due or 0) for s in sales), start=0.0)
 
     # Build Executive/Financial Report style PDF
     from reportlab.lib.pagesizes import A4
@@ -1519,6 +1522,7 @@ def sales_export_pdf(request):
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
     from io import BytesIO
+    from xml.sax.saxutils import escape as xml_escape
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*cm, bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm)
@@ -1570,6 +1574,46 @@ def sales_export_pdf(request):
     def fmt_currency(val):
         return f"${float(val):,.2f}"
 
+    product_cell_style = ParagraphStyle(
+        name='ProductCell',
+        fontSize=9,
+        leading=11,
+        fontName='Helvetica',
+        alignment=TA_LEFT,
+    )
+
+    def sale_product_names(sale: 'Sale') -> str:
+        labels = []
+        for item in sale.items.all():
+            if item.item_type == 'inventory' and item.inventory_item:
+                label = (item.inventory_item.part_name or '').strip()
+            else:
+                label = (item.description or '').strip()
+            if label:
+                labels.append(label)
+
+        if not labels:
+            return ''
+
+        seen = set()
+        uniq = []
+        for label in labels:
+            if label not in seen:
+                seen.add(label)
+                uniq.append(label)
+
+        joined = ", ".join(uniq)
+        # Add wrap opportunities for strings that may have no spaces (e.g., "...item.Add...")
+        joined = joined.replace(".", ". ")
+        max_len = 55
+        if len(joined) > max_len:
+            return joined[: max_len - 3] + "..."
+        return joined
+
+    def product_cell(sale: 'Sale') -> Paragraph:
+        text = sale_product_names(sale)
+        return Paragraph(xml_escape(text or ""), product_cell_style)
+
     # Professional header with company area
     customer_obj = Customer.objects.filter(pk=customer_id).first() if customer_id else None
     
@@ -1611,11 +1655,11 @@ def sales_export_pdf(request):
     elements.append(Spacer(1, 0.6*cm))
 
     # Professional data table with thick borders
-    table_data = [['Sale Number', 'Customer Name', 'Date', 'Total', 'Paid', 'Balance Due']]
-    for s in qs:
+    table_data = [['Sale Number', 'Product Name', 'Date', 'Total', 'Paid', 'Balance Due']]
+    for s in sales:
         table_data.append([
             s.sale_number,
-            getattr(s.customer, 'name', ''),
+            product_cell(s),
             s.created_at.strftime('%Y-%m-%d'),
             fmt_currency(s.total_amount),
             fmt_currency(s.total_paid),
@@ -1625,7 +1669,13 @@ def sales_export_pdf(request):
     if len(table_data) == 1:
         table_data.append(['', '', 'No orders found', '', '', ''])
 
-    data_table = Table(table_data, colWidths=[3.5*cm, 4.2*cm, 2.3*cm, 2.3*cm, 2.2*cm, 2.9*cm], repeatRows=1)
+    total_row_idx = None
+    if has_orders:
+        table_data.append(['TOTAL', '', '', fmt_currency(total_total), fmt_currency(total_paid), fmt_currency(total_due)])
+        total_row_idx = len(table_data) - 1
+
+    # Column widths tuned for A4 so long sale numbers and the Paid header fit without clipping.
+    data_table = Table(table_data, colWidths=[4.0*cm, 4.2*cm, 2.2*cm, 2.1*cm, 2.2*cm, 2.3*cm], repeatRows=1)
     data_table.setStyle(TableStyle([
         # Header styling
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#334155')),
@@ -1645,15 +1695,24 @@ def sales_export_pdf(request):
         # Row backgrounds
         ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
         
-        # Padding
-        ('TOPPADDING', (0,0), (-1,0), 12),
-        ('BOTTOMPADDING', (0,0), (-1,0), 12),
-        ('TOPPADDING', (0,1), (-1,-1), 10),
-        ('BOTTOMPADDING', (0,1), (-1,-1), 10),
-        ('LEFTPADDING', (0,0), (-1,-1), 10),
-        ('RIGHTPADDING', (0,0), (-1,-1), 10),
+        # Padding (keep tighter so narrow columns don't clip text)
+        ('TOPPADDING', (0,0), (-1,0), 10),
+        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        ('TOPPADDING', (0,1), (-1,-1), 8),
+        ('BOTTOMPADDING', (0,1), (-1,-1), 8),
+        ('LEFTPADDING', (0,0), (-1,-1), 6),
+        ('RIGHTPADDING', (0,0), (-1,-1), 6),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
+
+    if total_row_idx is not None:
+        data_table.setStyle(TableStyle([
+            ('SPAN', (0, total_row_idx), (2, total_row_idx)),
+            ('ALIGN', (0, total_row_idx), (2, total_row_idx), 'RIGHT'),
+            ('FONTNAME', (0, total_row_idx), (-1, total_row_idx), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, total_row_idx), (-1, total_row_idx), colors.HexColor('#E2E8F0')),
+            ('LINEABOVE', (0, total_row_idx), (-1, total_row_idx), 1, colors.HexColor('#334155')),
+        ]))
     elements.append(data_table)
 
     # Professional footer with confidentiality notice
