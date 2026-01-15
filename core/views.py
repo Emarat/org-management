@@ -1574,13 +1574,43 @@ def sales_export_pdf(request):
     def fmt_currency(val):
         return f"${float(val):,.2f}"
 
+    sale_cell_style = ParagraphStyle(
+        name='SaleCell',
+        fontSize=9,
+        leading=11,
+        fontName='Helvetica',
+        alignment=TA_LEFT,
+        wordWrap='CJK',
+    )
+
     product_cell_style = ParagraphStyle(
         name='ProductCell',
         fontSize=9,
         leading=11,
         fontName='Helvetica',
         alignment=TA_LEFT,
+        wordWrap='CJK',
     )
+
+    money_cell_style = ParagraphStyle(
+        name='MoneyCell',
+        fontSize=8,
+        leading=10,
+        fontName='Helvetica',
+        alignment=TA_RIGHT,
+        wordWrap='CJK',
+    )
+
+    def sale_number_cell(sale: 'Sale') -> Paragraph:
+        # Allow wrapping at any character to avoid clipping long IDs.
+        return Paragraph(xml_escape(getattr(sale, 'sale_number', '') or ''), sale_cell_style)
+
+    def money_cell(value) -> Paragraph:
+        # Very large values can overflow narrow columns; allow safe wrapping.
+        text = fmt_currency(value)
+        # Add wrap opportunities without changing the visible number meaning.
+        text = text.replace(",", ", ")
+        return Paragraph(xml_escape(text), money_cell_style)
 
     def sale_product_names(sale: 'Sale') -> str:
         labels = []
@@ -1658,12 +1688,12 @@ def sales_export_pdf(request):
     table_data = [['Sale Number', 'Product Name', 'Date', 'Total', 'Paid', 'Balance Due']]
     for s in sales:
         table_data.append([
-            s.sale_number,
+            sale_number_cell(s),
             product_cell(s),
             s.created_at.strftime('%Y-%m-%d'),
-            fmt_currency(s.total_amount),
-            fmt_currency(s.total_paid),
-            fmt_currency(s.balance_due)
+            money_cell(s.total_amount),
+            money_cell(s.total_paid),
+            money_cell(s.balance_due)
         ])
 
     if len(table_data) == 1:
@@ -1671,7 +1701,7 @@ def sales_export_pdf(request):
 
     total_row_idx = None
     if has_orders:
-        table_data.append(['TOTAL', '', '', fmt_currency(total_total), fmt_currency(total_paid), fmt_currency(total_due)])
+        table_data.append(['TOTAL', '', '', money_cell(total_total), money_cell(total_paid), money_cell(total_due)])
         total_row_idx = len(table_data) - 1
 
     # Column widths tuned for A4 so long sale numbers and the Paid header fit without clipping.
@@ -1684,7 +1714,7 @@ def sales_export_pdf(request):
         ('ALIGN', (3,0), (-1,-1), 'RIGHT'),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,0), (-1,0), 9),
+        ('FONTSIZE', (0,0), (-1,0), 8),
         ('FONTSIZE', (0,1), (-1,-1), 9),
         
         # Thick borders
@@ -1695,13 +1725,15 @@ def sales_export_pdf(request):
         # Row backgrounds
         ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
         
-        # Padding (keep tighter so narrow columns don't clip text)
-        ('TOPPADDING', (0,0), (-1,0), 10),
-        ('BOTTOMPADDING', (0,0), (-1,0), 10),
+        # Padding (tighter header so labels don't clip)
+        ('TOPPADDING', (0,0), (-1,0), 8),
+        ('BOTTOMPADDING', (0,0), (-1,0), 8),
+        ('LEFTPADDING', (0,0), (-1,0), 4),
+        ('RIGHTPADDING', (0,0), (-1,0), 4),
         ('TOPPADDING', (0,1), (-1,-1), 8),
         ('BOTTOMPADDING', (0,1), (-1,-1), 8),
-        ('LEFTPADDING', (0,0), (-1,-1), 6),
-        ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ('LEFTPADDING', (0,1), (-1,-1), 6),
+        ('RIGHTPADDING', (0,1), (-1,-1), 6),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
 
