@@ -1595,10 +1595,11 @@ def sales_export_pdf(request):
     money_cell_style = ParagraphStyle(
         name='MoneyCell',
         fontSize=8,
-        leading=10,
+        leading=9,
         fontName='Helvetica',
         alignment=TA_RIGHT,
-        wordWrap='CJK',
+        # Do not wrap numbers; prefer single-line values.
+        splitLongWords=False,
     )
 
     def sale_number_cell(sale: 'Sale') -> Paragraph:
@@ -1606,11 +1607,7 @@ def sales_export_pdf(request):
         return Paragraph(xml_escape(getattr(sale, 'sale_number', '') or ''), sale_cell_style)
 
     def money_cell(value) -> Paragraph:
-        # Very large values can overflow narrow columns; allow safe wrapping.
-        text = fmt_currency(value)
-        # Add wrap opportunities without changing the visible number meaning.
-        text = text.replace(",", ", ")
-        return Paragraph(xml_escape(text), money_cell_style)
+        return Paragraph(xml_escape(fmt_currency(value)), money_cell_style)
 
     def sale_product_names(sale: 'Sale') -> str:
         labels = []
@@ -1704,8 +1701,8 @@ def sales_export_pdf(request):
         table_data.append(['TOTAL', '', '', money_cell(total_total), money_cell(total_paid), money_cell(total_due)])
         total_row_idx = len(table_data) - 1
 
-    # Column widths tuned for A4 so long sale numbers and the Paid header fit without clipping.
-    data_table = Table(table_data, colWidths=[4.0*cm, 4.2*cm, 2.2*cm, 2.1*cm, 2.2*cm, 2.3*cm], repeatRows=1)
+    # Column widths tuned for A4 so currency values stay on one line.
+    data_table = Table(table_data, colWidths=[4.0*cm, 3.9*cm, 2.1*cm, 2.3*cm, 2.35*cm, 2.35*cm], repeatRows=1)
     data_table.setStyle(TableStyle([
         # Header styling
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#334155')),
