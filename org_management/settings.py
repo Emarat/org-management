@@ -49,7 +49,11 @@ if _is_debug and '0.0.0.0' not in ALLOWED_HOSTS:
 # CSRF trusted origins
 # In development, trust common local origins to avoid CSRF failures when accessing via IP/host variants.
 # In production, set CSRF_TRUSTED_ORIGINS via env as a comma-separated list of full origins (scheme://host[:port]).
-_env_csrf_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '').strip()
+_env_csrf_origins = (
+    os.getenv('CSRF_TRUSTED_ORIGINS')
+    or os.getenv('DJANGO_CSRF_TRUSTED_ORIGINS')
+    or ''
+)
 if _env_csrf_origins:
     CSRF_TRUSTED_ORIGINS = [o.strip() for o in _env_csrf_origins.split(',') if o.strip()]
 elif DEBUG:
@@ -66,7 +70,7 @@ elif DEBUG:
         'http://0.0.0.0:8000',
         'http://0.0.0.0:8001',
         'http://0.0.0.0:8002',
-	'https://erp.fashionexpresss.com'
+	'http://fashionexpress.ciphertextlabs.com'
     ]
 
 
@@ -208,8 +212,8 @@ BRAND_EMAIL = os.getenv('BRAND_EMAIL', '')
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
+USE_X_FORWARDED_HOST = True
 
-CSRF_TRUSTED_ORIGINS = ["https://erp.fashionexpresss.com"]
 DEBUG = False
 SECURE_SSL_REDIRECT = True
 SECURE_HSTS_SECONDS = 31536000300

@@ -1,7 +1,6 @@
 services:
   web:
-    ports:
-      - "127.0.0.1:8000:8000"
     environment:
-      DJANGO_ALLOWED_HOSTS: "erp.fashionexpresss.com,localhost,127.0.0.1"
-      DJANGO_CSRF_TRUSTED_ORIGINS: "https://erp.fashionexpresss.com"
+      DJANGO_ALLOWED_HOSTS: "fashionexpress.ciphertextlabs.com,.ciphertextlabs.com,localhost,127.0.0.1"
+      DJANGO_CSRF_TRUSTED_ORIGINS: "https://fashionexpress.ciphertextlabs.com,https://*.ciphertextlabs.com"
+

@@ -11,6 +11,7 @@ venv/
 ENV/
 build/
 develop-eggs/
+postgres_data/
 dist/
 downloads/
 eggs/
@@ -47,3 +48,4 @@ Thumbs.db
 # Environment variables
 .env
 .env.local
+*.sql
