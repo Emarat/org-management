@@ -102,6 +102,13 @@
         </div>
       </div>
 
+      {% if payment.notes %}
+      <div style="margin-top: 12px;">
+        <div class="label">Payment Details</div>
+        <div class="value" style="font-weight: normal;">{{ payment.notes }}</div>
+      </div>
+      {% endif %}
+
       <hr />
       <div class="grid">
         <div>

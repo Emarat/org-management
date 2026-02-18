@@ -113,6 +113,10 @@
             <label class="form-label">Payment Method</label>
             {{ payment_form.method }}
           </div>
+          <div class="mb-2" id="payment-notes-wrapper">
+            <label class="form-label">Details <small class="text-muted">(optional)</small></label>
+            {{ payment_form.notes }}
+          </div>
           <div class="mb-2">
             <label class="form-label">Payment Date</label>
             {{ payment_form.payment_date }}
@@ -566,6 +570,27 @@
       }
       console.log('=================================');
     });
+  }
+
+  // Payment notes placeholder based on method
+  var methodSelect = document.getElementById('payment-method-select') || document.querySelector('[name="method"]');
+  var notesField = document.getElementById('payment-notes') || document.querySelector('[name="notes"]');
+  
+  function updateNotesPlaceholder() {
+    if (!methodSelect || !notesField) return;
+    var placeholders = {
+      'cash': 'Payment details (optional)',
+      'bank_transfer': 'Bank name, account details, reference number...',
+      'card': 'Card type, last 4 digits, approval code...',
+      'cheque': 'Cheque number, bank name, date...',
+      'other': 'Describe the payment method...'
+    };
+    notesField.placeholder = placeholders[methodSelect.value] || 'Payment details (optional)';
+  }
+  
+  if (methodSelect) {
+    methodSelect.addEventListener('change', updateNotesPlaceholder);
+    updateNotesPlaceholder();
   }
 
   recalc();

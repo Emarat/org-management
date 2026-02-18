@@ -157,9 +157,10 @@ class CombinedSaleItemForm(forms.Form):
 class SalePaymentForm(forms.ModelForm):
     class Meta:
         model = SalePayment
-        fields = ['amount', 'payment_date', 'method']
+        fields = ['amount', 'payment_date', 'method', 'notes']
         widgets = {
             'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
             'payment_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'method': forms.Select(attrs={'class': 'form-control'}),
+            'method': forms.Select(attrs={'class': 'form-control', 'id': 'payment-method-select'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': '2', 'placeholder': 'Payment details (optional)', 'id': 'payment-notes'}),
         }

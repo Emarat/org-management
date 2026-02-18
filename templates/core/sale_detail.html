@@ -59,6 +59,7 @@
                 <th>Receipt</th>
                 <th>Date</th>
                 <th>Method</th>
+                <th>Details</th>
                 <th class="text-end">Amount</th>
                 <th></th>
               </tr>
@@ -69,6 +70,7 @@
                 <td>{{ p.receipt_number }}</td>
                 <td>{{ p.payment_date }}</td>
                 <td>{{ p.get_method_display }}</td>
+                <td>{% if p.notes %}<small class="text-muted">{{ p.notes|truncatewords:10 }}</small>{% else %}<span class="text-muted">-</span>{% endif %}</td>
                 <td class="text-end">${{ p.amount }}</td>
                 <td class="text-end">
                   {% if user.is_superuser or perms.core.view_salepayment %}
@@ -79,7 +81,7 @@
                 </td>
               </tr>
               {% empty %}
-              <tr><td colspan="5" class="text-center">No payments recorded.</td></tr>
+              <tr><td colspan="6" class="text-center">No payments recorded.</td></tr>
               {% endfor %}
             </tbody>
           </table>
@@ -92,6 +94,12 @@
               <div class="col-md-4">{{ add_payment_form.amount.label_tag }} {{ add_payment_form.amount }}</div>
               <div class="col-md-4">{{ add_payment_form.payment_date.label_tag }} {{ add_payment_form.payment_date }}</div>
               <div class="col-md-4">{{ add_payment_form.method.label_tag }} {{ add_payment_form.method }}</div>
+            </div>
+            <div class="row g-2 mt-2">
+              <div class="col-12">
+                <label class="form-label">Details <small class="text-muted">(optional)</small></label>
+                {{ add_payment_form.notes }}
+              </div>
             </div>
             <div class="mt-2">
               <button type="submit" class="btn btn-primary btn-sm"><i class="fas fa-check"></i> Save Payment</button>
