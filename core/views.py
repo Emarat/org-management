@@ -1400,6 +1400,329 @@ def sale_payments_export(request, pk):
 
 
 @login_required
+@permission_required('core.view_salepayment', raise_exception=True)
+def sale_payments_export_pdf(request, pk):
+    """Export payment history for a sale as a professional PDF statement."""
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import cm, mm
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+    from io import BytesIO
+    from xml.sax.saxutils import escape as xml_escape
+    from django.conf import settings
+    from django.utils import timezone
+
+    sale = get_object_or_404(Sale, pk=pk)
+    payments = sale.payments.all().order_by('payment_date', 'created_at')
+
+    # Brand info from settings
+    brand_name = getattr(settings, 'BRAND_NAME', 'Organization')
+    brand_address = getattr(settings, 'BRAND_ADDRESS', '')
+    brand_phone = getattr(settings, 'BRAND_PHONE', '')
+    brand_email = getattr(settings, 'BRAND_EMAIL', '')
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, 
+        pagesize=A4, 
+        topMargin=2*cm, 
+        bottomMargin=2*cm, 
+        leftMargin=2*cm, 
+        rightMargin=2*cm
+    )
+    
+    page_width = A4[0] - 4*cm  # Available width
+    styles = getSampleStyleSheet()
+
+    # Color palette - elegant dark gray/charcoal theme
+    primary_color = colors.HexColor('#374151')  # Charcoal gray
+    secondary_color = colors.HexColor('#4B5563')  # Medium gray
+    text_dark = colors.HexColor('#1F2937')
+    text_muted = colors.HexColor('#6B7280')
+    bg_light = colors.HexColor('#F9FAFB')
+    bg_header = colors.HexColor('#F3F4F6')
+    border_color = colors.HexColor('#D1D5DB')
+    success_color = colors.HexColor('#059669')
+    warning_color = colors.HexColor('#DC2626')
+
+    # Custom styles
+    styles.add(ParagraphStyle(
+        name='CompanyName',
+        fontSize=22,
+        textColor=primary_color,
+        fontName='Helvetica-Bold',
+        spaceAfter=2,
+        alignment=TA_LEFT
+    ))
+    styles.add(ParagraphStyle(
+        name='CompanyInfo',
+        fontSize=9,
+        textColor=text_muted,
+        fontName='Helvetica',
+        leading=12,
+        alignment=TA_LEFT
+    ))
+    styles.add(ParagraphStyle(
+        name='DocumentTitle',
+        fontSize=16,
+        textColor=text_dark,
+        fontName='Helvetica-Bold',
+        spaceAfter=4,
+        alignment=TA_RIGHT
+    ))
+    styles.add(ParagraphStyle(
+        name='DocumentNumber',
+        fontSize=10,
+        textColor=text_muted,
+        fontName='Helvetica',
+        alignment=TA_RIGHT
+    ))
+    styles.add(ParagraphStyle(
+        name='SectionTitle',
+        fontSize=11,
+        textColor=primary_color,
+        fontName='Helvetica-Bold',
+        spaceBefore=16,
+        spaceAfter=8
+    ))
+    styles.add(ParagraphStyle(
+        name='LabelText',
+        fontSize=9,
+        textColor=text_muted,
+        fontName='Helvetica',
+        leading=12
+    ))
+    styles.add(ParagraphStyle(
+        name='ValueText',
+        fontSize=10,
+        textColor=text_dark,
+        fontName='Helvetica-Bold',
+        leading=14
+    ))
+    styles.add(ParagraphStyle(
+        name='FooterText',
+        fontSize=8,
+        textColor=text_muted,
+        fontName='Helvetica',
+        alignment=TA_CENTER,
+        leading=12
+    ))
+    styles.add(ParagraphStyle(
+        name='ThankYou',
+        fontSize=12,
+        textColor=primary_color,
+        fontName='Helvetica-Bold',
+        alignment=TA_CENTER,
+        spaceBefore=20
+    ))
+
+    elements = []
+
+    def fmt_currency(val):
+        return f"${float(val):,.2f}"
+
+    # ============== HEADER SECTION ==============
+    # Company info on left, document title on right
+    company_info = []
+    company_info.append(Paragraph(xml_escape(brand_name), styles['CompanyName']))
+    if brand_address:
+        company_info.append(Paragraph(xml_escape(brand_address), styles['CompanyInfo']))
+    contact_parts = []
+    if brand_phone:
+        contact_parts.append(f"Tel: {brand_phone}")
+    if brand_email:
+        contact_parts.append(f"Email: {brand_email}")
+    if contact_parts:
+        company_info.append(Paragraph(xml_escape(" | ".join(contact_parts)), styles['CompanyInfo']))
+
+    doc_info = []
+    doc_info.append(Paragraph("PAYMENT STATEMENT", styles['DocumentTitle']))
+    doc_info.append(Paragraph(f"Statement #{sale.sale_number}", styles['DocumentNumber']))
+    doc_info.append(Paragraph(f"Date: {timezone.now().strftime('%B %d, %Y')}", styles['DocumentNumber']))
+
+    # Create header table
+    header_table = Table([
+        [company_info, doc_info]
+    ], colWidths=[page_width * 0.6, page_width * 0.4])
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+    ]))
+    elements.append(header_table)
+    elements.append(Spacer(1, 0.5*cm))
+    elements.append(HRFlowable(width="100%", thickness=2, color=primary_color, spaceAfter=0.5*cm))
+
+    # ============== BILLING INFO SECTION ==============
+    elements.append(Paragraph("BILL TO", styles['SectionTitle']))
+    
+    customer_name = sale.customer.name if sale.customer else 'N/A'
+    customer_phone = getattr(sale.customer, 'phone', '') if sale.customer else ''
+    customer_address = getattr(sale.customer, 'address', '') if sale.customer else ''
+    
+    billing_info = [[
+        Paragraph(xml_escape(customer_name), styles['ValueText']),
+    ]]
+    if customer_phone:
+        billing_info.append([Paragraph(f"Phone: {customer_phone}", styles['LabelText'])])
+    if customer_address:
+        billing_info.append([Paragraph(xml_escape(customer_address), styles['LabelText'])])
+
+    billing_table = Table(billing_info, colWidths=[page_width * 0.5])
+    billing_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), bg_light),
+        ('BOX', (0, 0), (-1, -1), 0.5, border_color),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, -1), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(billing_table)
+
+    # ============== ORDER SUMMARY ==============
+    elements.append(Paragraph("ORDER SUMMARY", styles['SectionTitle']))
+    
+    summary_data = [
+        [
+            Paragraph("Sale Number", styles['LabelText']),
+            Paragraph("Order Date", styles['LabelText']),
+            Paragraph("Status", styles['LabelText']),
+            Paragraph("Total Amount", styles['LabelText']),
+        ],
+        [
+            Paragraph(sale.sale_number, styles['ValueText']),
+            Paragraph(str(sale.created_at.strftime('%Y-%m-%d') if sale.created_at else '-'), styles['ValueText']),
+            Paragraph(sale.get_status_display(), styles['ValueText']),
+            Paragraph(fmt_currency(sale.total_amount), styles['ValueText']),
+        ],
+    ]
+    
+    summary_table = Table(summary_data, colWidths=[page_width * 0.25] * 4)
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), bg_header),
+        ('BACKGROUND', (0, 1), (-1, 1), colors.white),
+        ('BOX', (0, 0), (-1, -1), 0.5, border_color),
+        ('LINEBELOW', (0, 0), (-1, 0), 0.5, border_color),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+    ]))
+    elements.append(summary_table)
+
+    # ============== PAYMENT HISTORY TABLE ==============
+    elements.append(Paragraph("PAYMENT HISTORY", styles['SectionTitle']))
+
+    if payments.exists():
+        # Table header
+        table_data = [[
+            Paragraph("<b>Receipt #</b>", styles['LabelText']),
+            Paragraph("<b>Date</b>", styles['LabelText']),
+            Paragraph("<b>Method</b>", styles['LabelText']),
+            Paragraph("<b>Notes</b>", styles['LabelText']),
+            Paragraph("<b>Amount</b>", styles['LabelText']),
+        ]]
+        
+        for i, p in enumerate(payments):
+            notes_text = (p.notes[:40] + '...' if len(p.notes) > 40 else p.notes) if p.notes else '-'
+            table_data.append([
+                Paragraph(p.receipt_number, styles['LabelText']),
+                Paragraph(str(p.payment_date), styles['LabelText']),
+                Paragraph(p.get_method_display(), styles['LabelText']),
+                Paragraph(xml_escape(notes_text), styles['LabelText']),
+                Paragraph(f"<b>{fmt_currency(p.amount)}</b>", styles['LabelText']),
+            ])
+
+        payments_table = Table(
+            table_data, 
+            colWidths=[page_width * 0.22, page_width * 0.15, page_width * 0.15, page_width * 0.3, page_width * 0.18]
+        )
+        
+        # Alternating row colors
+        table_style = [
+            ('BACKGROUND', (0, 0), (-1, 0), primary_color),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('ALIGN', (4, 0), (4, -1), 'RIGHT'),
+            ('TOPPADDING', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('BOX', (0, 0), (-1, -1), 0.5, border_color),
+            ('LINEBELOW', (0, 0), (-1, -2), 0.5, border_color),
+        ]
+        
+        # Add alternating row backgrounds
+        for i in range(1, len(table_data)):
+            if i % 2 == 0:
+                table_style.append(('BACKGROUND', (0, i), (-1, i), bg_light))
+        
+        payments_table.setStyle(TableStyle(table_style))
+        elements.append(payments_table)
+    else:
+        elements.append(Paragraph("No payments recorded for this sale.", styles['LabelText']))
+
+    elements.append(Spacer(1, 0.5*cm))
+
+    # ============== TOTALS SUMMARY BOX ==============
+    balance_style = styles['ValueText']
+    balance_color = warning_color if sale.balance_due > 0 else success_color
+    
+    totals_data = [
+        [
+            Paragraph("Total Amount:", styles['LabelText']),
+            Paragraph(fmt_currency(sale.total_amount), styles['ValueText']),
+        ],
+        [
+            Paragraph("Total Paid:", styles['LabelText']),
+            Paragraph(f'<font color="#059669">{fmt_currency(sale.total_paid)}</font>', styles['ValueText']),
+        ],
+        [
+            Paragraph("<b>Balance Due:</b>", styles['ValueText']),
+            Paragraph(
+                f'<font color="{"#DC2626" if sale.balance_due > 0 else "#059669"}"><b>{fmt_currency(sale.balance_due)}</b></font>', 
+                styles['ValueText']
+            ),
+        ],
+    ]
+    
+    # Right-align the totals box
+    totals_table = Table(totals_data, colWidths=[page_width * 0.15, page_width * 0.15])
+    totals_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LINEABOVE', (0, -1), (-1, -1), 1.5, text_dark),
+        ('BACKGROUND', (0, -1), (-1, -1), bg_header),
+    ]))
+    
+    # Wrap in another table to right-align
+    wrapper = Table([[None, totals_table]], colWidths=[page_width * 0.7, page_width * 0.3])
+    wrapper.setStyle(TableStyle([('ALIGN', (1, 0), (1, 0), 'RIGHT')]))
+    elements.append(wrapper)
+
+    # ============== THANK YOU MESSAGE ==============
+    elements.append(Spacer(1, 1*cm))
+    elements.append(HRFlowable(width="100%", thickness=0.5, color=border_color, spaceBefore=0.3*cm, spaceAfter=0.3*cm))
+    elements.append(Paragraph("Thank you for your business!", styles['ThankYou']))
+    
+    # ============== FOOTER ==============
+    elements.append(Spacer(1, 0.5*cm))
+    footer_text = f"This is a computer-generated document. Generated on {timezone.now().strftime('%B %d, %Y at %H:%M')}"
+    elements.append(Paragraph(xml_escape(footer_text), styles['FooterText']))
+    elements.append(Paragraph("Please retain this statement for your records.", styles['FooterText']))
+
+    doc.build(elements)
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{sale.sale_number}_payment_statement.pdf"'
+    return response
+
+
+@login_required
 @permission_required('core.add_salepayment', raise_exception=True)
 def sale_add_payment(request, pk):
     sale = get_object_or_404(Sale, pk=pk)

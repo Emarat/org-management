@@ -46,8 +46,8 @@
           {% endif %}
         {% endif %}
         {% if user.is_superuser or perms.core.view_salepayment %}
-          <a class="btn btn-sm btn-outline-secondary" href="{% url 'sale_payments_export' sale.pk %}">
-            <i class="fas fa-file-csv"></i> Export CSV
+          <a class="btn btn-sm btn-outline-danger" href="{% url 'sale_payments_export_pdf' sale.pk %}">
+            <i class="fas fa-file-pdf"></i> Download PDF
           </a>
         {% endif %}
       </div>
