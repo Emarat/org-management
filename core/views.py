@@ -1453,8 +1453,8 @@ def sale_payments_export_pdf(request, pk):
         fontSize=18,
         textColor=primary_color,
         fontName='Helvetica-Bold',
-        leading=22,
-        spaceAfter=4,
+        leading=24,
+        spaceAfter=8,
         alignment=TA_LEFT
     ))
     styles.add(ParagraphStyle(
@@ -1526,47 +1526,34 @@ def sale_payments_export_pdf(request, pk):
 
     # ============== HEADER SECTION ==============
     # Company info on left, document title on right
-    # Build company info as a sub-table to ensure each line displays properly
-    company_rows = []
-    company_rows.append([Paragraph(xml_escape(brand_name), styles['CompanyName'])])
+    # Build company info as flowables stacked vertically
+    company_flowables = []
+    company_flowables.append(Paragraph(xml_escape(brand_name), styles['CompanyName']))
     if brand_address:
-        company_rows.append([Paragraph(xml_escape(brand_address), styles['CompanyInfo'])])
+        company_flowables.append(Paragraph(xml_escape(brand_address), styles['CompanyInfo']))
     contact_parts = []
     if brand_phone:
         contact_parts.append(f"Tel: {brand_phone}")
     if brand_email:
         contact_parts.append(f"Email: {brand_email}")
     if contact_parts:
-        company_rows.append([Paragraph(xml_escape(" | ".join(contact_parts)), styles['CompanyInfo'])])
-    
-    company_info_table = Table(company_rows, colWidths=[page_width * 0.50], rowHeights=None)
-    company_info_table.setStyle(TableStyle([
-        ('TOPPADDING', (0, 0), (-1, -1), 3),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
+        company_flowables.append(Paragraph(xml_escape(" | ".join(contact_parts)), styles['CompanyInfo']))
 
-    doc_rows = []
-    doc_rows.append([Paragraph("PAYMENT&nbsp;STATEMENT", styles['DocumentTitle'])])
-    doc_rows.append([Paragraph(f"Statement #{sale.sale_number}", styles['DocumentNumber'])])
-    doc_rows.append([Paragraph(f"Date: {timezone.now().strftime('%B %d, %Y')}", styles['DocumentNumber'])])
-    
-    doc_info_table = Table(doc_rows, colWidths=[page_width * 0.45])
-    doc_info_table.setStyle(TableStyle([
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (0, 0), 8),  # Extra space after title
-        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-    ]))
+    doc_flowables = []
+    doc_flowables.append(Paragraph("PAYMENT&nbsp;STATEMENT", styles['DocumentTitle']))
+    doc_flowables.append(Spacer(1, 4))
+    doc_flowables.append(Paragraph(f"Statement #{sale.sale_number}", styles['DocumentNumber']))
+    doc_flowables.append(Paragraph(f"Date: {timezone.now().strftime('%B %d, %Y')}", styles['DocumentNumber']))
 
-    # Create header table with sub-tables for proper layout
+    # Create header table with flowables in each cell
     header_table = Table([
-        [company_info_table, doc_info_table]
+        [company_flowables, doc_flowables]
     ], colWidths=[page_width * 0.50, page_width * 0.50])
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+        ('LEFTPADDING', (0, 0), (0, 0), 0),
+        ('RIGHTPADDING', (1, 0), (1, 0), 0),
     ]))
     elements.append(header_table)
     elements.append(Spacer(1, 0.3*cm))
