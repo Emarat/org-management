@@ -23,17 +23,17 @@
                     <div class="row mb-3">
                         <div class="col-md-4">
                             <div class="alert alert-warning">
-                                <strong>Pending:</strong> ${{ total_pending|floatformat:2 }}
+                                <strong>Pending:</strong> BDT&nbsp;{{ total_pending|floatformat:2 }}
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="alert alert-success">
-                                <strong>Approved:</strong> ${{ total_approved|floatformat:2 }}
+                                <strong>Approved:</strong> BDT&nbsp;{{ total_approved|floatformat:2 }}
                             </div>
                         </div>
                         <div class="col-md-4">
                             <div class="alert alert-danger">
-                                <strong>Rejected:</strong> ${{ total_rejected|floatformat:2 }}
+                                <strong>Rejected:</strong> BDT&nbsp;{{ total_rejected|floatformat:2 }}
                             </div>
                         </div>
                     </div>
@@ -92,7 +92,7 @@
                                     <td>{{ claim.submitter.get_full_name }}</td>
                                     {% endif %}
                                     <td>{{ claim.bill_date }}</td>
-                                    <td>${{ claim.amount|floatformat:2 }}</td>
+                                    <td>BDT&nbsp;{{ claim.amount|floatformat:2 }}</td>
                                     <td>{{ claim.description|truncatewords:10 }}</td>
                                     <td>
                                         {% if claim.status == 'pending' %}

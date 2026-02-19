@@ -165,7 +165,7 @@
       vertical-align: top;
     }
 
-    .text-end { text-align: right; }
+    .text-end { text-align: right; white-space: nowrap; }
 
     .totals {
       display: flex;
@@ -326,11 +326,11 @@
     <table>
       <thead>
         <tr>
-          <th style="width: 14%">Type</th>
+          <th style="width: 12%">Type</th>
           <th>Description</th>
-          <th class="text-end" style="width: 10%">Qty</th>
-          <th class="text-end" style="width: 15%">Unit Price</th>
-          <th class="text-end" style="width: 15%">Total</th>
+          <th class="text-end" style="width: 8%">Qty</th>
+          <th class="text-end" style="width: 18%">Unit Price</th>
+          <th class="text-end" style="width: 18%">Total</th>
         </tr>
       </thead>
       <tbody>
@@ -345,8 +345,8 @@
             {% endif %}
           </td>
           <td class="text-end">{{ item.quantity }}</td>
-          <td class="text-end">${{ item.unit_price }}</td>
-          <td class="text-end">${{ item.line_total }}</td>
+          <td class="text-end">BDT&nbsp;{{ item.unit_price }}</td>
+          <td class="text-end">BDT&nbsp;{{ item.line_total }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="5" class="text-end">No items.</td></tr>
@@ -356,9 +356,9 @@
 
     <div class="totals">
       <div class="totals-box">
-        <div class="totals-row"><span class="muted">Paid</span><span><strong>${{ sale.total_paid }}</strong></span></div>
-        <div class="totals-row"><span class="muted">Due</span><span><strong>${{ sale.balance_due }}</strong></span></div>
-        <div class="totals-row total"><span>Total</span><span><strong>${{ sale.total_amount }}</strong></span></div>
+        <div class="totals-row"><span class="muted">Paid</span><span><strong>BDT&nbsp;{{ sale.total_paid }}</strong></span></div>
+        <div class="totals-row"><span class="muted">Due</span><span><strong>BDT&nbsp;{{ sale.balance_due }}</strong></span></div>
+        <div class="totals-row total"><span>Total</span><span><strong>BDT&nbsp;{{ sale.total_amount }}</strong></span></div>
       </div>
     </div>
 

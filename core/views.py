@@ -589,7 +589,7 @@ def approve_bill_claim(request, pk):
         bill_claim.expense = expense
         bill_claim.save()
         
-        messages.success(request, f'Bill claim approved and expense created! Amount: ${bill_claim.amount}')
+        messages.success(request, f'Bill claim approved and expense created! Amount: BDT {bill_claim.amount}')
         return redirect('list_bill_claims')
 
     context = {
@@ -1521,7 +1521,7 @@ def sale_payments_export_pdf(request, pk):
     elements = []
 
     def fmt_currency(val):
-        return f"${float(val):,.2f}"
+        return f"BDT\u00A0{float(val):,.2f}"
 
     # ============== HEADER SECTION ==============
     # Company info on left, document title on right
@@ -1895,7 +1895,7 @@ def sales_export_pdf(request):
     elements = []
 
     def fmt_currency(val):
-        return f"${float(val):,.2f}"
+        return f"BDT\u00A0{float(val):,.2f}"
 
     sale_cell_style = ParagraphStyle(
         name='SaleCell',

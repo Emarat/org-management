@@ -28,8 +28,8 @@
       <div class="card-body">
         <p><strong>Customer:</strong> {{ sale.customer.name }}</p>
         <p><strong>Status:</strong> {{ sale.status|title }}</p>
-        <p><strong>Total:</strong> ${{ sale.total_amount }}</p>
-        <p><strong>Paid:</strong> ${{ sale.total_paid }} &nbsp; <strong>Due:</strong> ${{ sale.balance_due }}</p>
+        <p><strong>Total:</strong> BDT&nbsp;{{ sale.total_amount }}</p>
+        <p><strong>Paid:</strong> BDT&nbsp;{{ sale.total_paid }} &nbsp; <strong>Due:</strong> BDT&nbsp;{{ sale.balance_due }}</p>
         {% if sale.finalized_at %}
           <p><strong>Finalized:</strong> {{ sale.finalized_at }} by {{ sale.finalized_by }}</p>
         {% endif %}
@@ -71,7 +71,7 @@
                 <td>{{ p.payment_date }}</td>
                 <td>{{ p.get_method_display }}</td>
                 <td>{% if p.notes %}<small class="text-muted">{{ p.notes|truncatewords:10 }}</small>{% else %}<span class="text-muted">-</span>{% endif %}</td>
-                <td class="text-end">${{ p.amount }}</td>
+                <td class="text-end">BDT&nbsp;{{ p.amount }}</td>
                 <td class="text-end">
                   {% if user.is_superuser or perms.core.view_salepayment %}
                     <a class="btn btn-sm btn-outline-secondary" href="{% url 'sale_payment_receipt' sale.pk p.pk %}" target="_blank">
@@ -125,11 +125,11 @@
           <table class="table table-sm align-middle">
             <thead>
               <tr>
-                <th>Type</th>
+                <th style="width: 12%">Type</th>
                 <th>Name</th>
-                <th class="text-end">Qty</th>
-                <th class="text-end">Unit Price</th>
-                <th class="text-end">Total</th>
+                <th class="text-end" style="width: 8%">Qty</th>
+                <th class="text-end" style="width: 15%">Unit Price</th>
+                <th class="text-end" style="width: 15%">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -144,8 +144,8 @@
                   {% endif %}
                 </td>
                 <td class="text-end">{{ item.quantity }}</td>
-                <td class="text-end">${{ item.unit_price }}</td>
-                <td class="text-end">${{ item.line_total }}</td>
+                <td class="text-end">BDT&nbsp;{{ item.unit_price }}</td>
+                <td class="text-end">BDT&nbsp;{{ item.line_total }}</td>
               </tr>
               {% empty %}
               <tr><td colspan="5" class="text-center">No items yet.</td></tr>

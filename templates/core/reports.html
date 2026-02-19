@@ -10,7 +10,7 @@
       <p class="text-muted">View and export business data</p>
     </div>
     <div class="text-end">
-      <div class="mb-2">Current Balance: <strong>${{ balance|default:0|floatformat:2 }}</strong></div>
+      <div class="mb-2">Current Balance: <strong>BDT&nbsp;{{ balance|default:0|floatformat:2 }}</strong></div>
       <div class="d-flex gap-2 justify-content-end">
         <a href="{% url 'ledger' %}" class="btn btn-outline-primary">
           <i class="fas fa-book"></i> View Ledger
@@ -43,7 +43,7 @@
             <tr>
               <td>{{ expense.category|title }}</td>
               <td class="text-danger">
-                <strong>${{ expense.total|floatformat:2 }}</strong>
+                <strong>BDT&nbsp;{{ expense.total|floatformat:2 }}</strong>
               </td>
             </tr>
             {% endfor %}
