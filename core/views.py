@@ -1525,27 +1525,43 @@ def sale_payments_export_pdf(request, pk):
 
     # ============== HEADER SECTION ==============
     # Company info on left, document title on right
-    company_info = []
-    company_info.append(Paragraph(xml_escape(brand_name), styles['CompanyName']))
+    # Build company info as a sub-table to ensure each line displays properly
+    company_rows = []
+    company_rows.append([Paragraph(xml_escape(brand_name), styles['CompanyName'])])
     if brand_address:
-        company_info.append(Paragraph(xml_escape(brand_address), styles['CompanyInfo']))
+        company_rows.append([Paragraph(xml_escape(brand_address), styles['CompanyInfo'])])
     contact_parts = []
     if brand_phone:
         contact_parts.append(f"Tel: {brand_phone}")
     if brand_email:
         contact_parts.append(f"Email: {brand_email}")
     if contact_parts:
-        company_info.append(Paragraph(xml_escape(" | ".join(contact_parts)), styles['CompanyInfo']))
+        company_rows.append([Paragraph(xml_escape(" | ".join(contact_parts)), styles['CompanyInfo'])])
+    
+    company_info_table = Table(company_rows, colWidths=[page_width * 0.50])
+    company_info_table.setStyle(TableStyle([
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+    ]))
 
-    doc_info = []
-    doc_info.append(Paragraph("PAYMENT STATEMENT", styles['DocumentTitle']))
-    doc_info.append(Paragraph(f"Statement #{sale.sale_number}", styles['DocumentNumber']))
-    doc_info.append(Paragraph(f"Date: {timezone.now().strftime('%B %d, %Y')}", styles['DocumentNumber']))
+    doc_rows = []
+    doc_rows.append([Paragraph("PAYMENT&nbsp;STATEMENT", styles['DocumentTitle'])])
+    doc_rows.append([Paragraph(f"Statement #{sale.sale_number}", styles['DocumentNumber'])])
+    doc_rows.append([Paragraph(f"Date: {timezone.now().strftime('%B %d, %Y')}", styles['DocumentNumber'])])
+    
+    doc_info_table = Table(doc_rows, colWidths=[page_width * 0.45])
+    doc_info_table.setStyle(TableStyle([
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (0, 0), 8),  # Extra space after title
+        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+    ]))
 
-    # Create header table
+    # Create header table with sub-tables for proper layout
     header_table = Table([
-        [company_info, doc_info]
-    ], colWidths=[page_width * 0.6, page_width * 0.4])
+        [company_info_table, doc_info_table]
+    ], colWidths=[page_width * 0.50, page_width * 0.50])
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
@@ -1608,7 +1624,7 @@ def sale_payments_export_pdf(request, pk):
         ],
     ]
     
-    summary_table = Table(summary_data, colWidths=[page_width * 0.35, page_width * 0.20, page_width * 0.20, page_width * 0.25])
+    summary_table = Table(summary_data, colWidths=[page_width * 0.30, page_width * 0.18, page_width * 0.18, page_width * 0.34])
     summary_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), bg_header),
         ('BACKGROUND', (0, 1), (-1, 1), colors.white),
@@ -1645,7 +1661,7 @@ def sale_payments_export_pdf(request, pk):
 
         payments_table = Table(
             table_data, 
-            colWidths=[page_width * 0.22, page_width * 0.15, page_width * 0.15, page_width * 0.3, page_width * 0.18]
+            colWidths=[page_width * 0.20, page_width * 0.14, page_width * 0.14, page_width * 0.26, page_width * 0.26]
         )
         
         # Alternating row colors
@@ -1696,8 +1712,8 @@ def sale_payments_export_pdf(request, pk):
         ],
     ]
     
-    # Right-align the totals box
-    totals_table = Table(totals_data, colWidths=[page_width * 0.15, page_width * 0.15])
+    # Right-align the totals box - wider columns to prevent BDT wrapping
+    totals_table = Table(totals_data, colWidths=[page_width * 0.18, page_width * 0.22])
     totals_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
@@ -1708,7 +1724,7 @@ def sale_payments_export_pdf(request, pk):
     ]))
     
     # Wrap in another table to right-align
-    wrapper = Table([[None, totals_table]], colWidths=[page_width * 0.7, page_width * 0.3])
+    wrapper = Table([[None, totals_table]], colWidths=[page_width * 0.6, page_width * 0.4])
     wrapper.setStyle(TableStyle([('ALIGN', (1, 0), (1, 0), 'RIGHT')]))
     elements.append(wrapper)
 
