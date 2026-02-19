@@ -1583,22 +1583,32 @@ def sale_payments_export_pdf(request, pk):
     # ============== ORDER SUMMARY ==============
     elements.append(Paragraph("ORDER SUMMARY", styles['SectionTitle']))
     
+    # Get product names from sale items
+    sale_items = sale.items.all()
+    product_names = []
+    for item in sale_items:
+        if item.item_type == 'inventory' and item.inventory_item:
+            product_names.append(f"{item.inventory_item.part_name}")
+        elif item.description:
+            product_names.append(item.description[:50])
+    product_name_str = ", ".join(product_names) if product_names else "N/A"
+    
     summary_data = [
         [
-            Paragraph("Sale Number", styles['LabelText']),
+            Paragraph("Product Name", styles['LabelText']),
             Paragraph("Order Date", styles['LabelText']),
             Paragraph("Status", styles['LabelText']),
             Paragraph("Total Amount", styles['LabelText']),
         ],
         [
-            Paragraph(sale.sale_number, styles['ValueText']),
+            Paragraph(xml_escape(product_name_str), styles['ValueText']),
             Paragraph(str(sale.created_at.strftime('%Y-%m-%d') if sale.created_at else '-'), styles['ValueText']),
             Paragraph(sale.get_status_display(), styles['ValueText']),
             Paragraph(fmt_currency(sale.total_amount), styles['ValueText']),
         ],
     ]
     
-    summary_table = Table(summary_data, colWidths=[page_width * 0.25] * 4)
+    summary_table = Table(summary_data, colWidths=[page_width * 0.35, page_width * 0.20, page_width * 0.20, page_width * 0.25])
     summary_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), bg_header),
         ('BACKGROUND', (0, 1), (-1, 1), colors.white),
