@@ -1526,34 +1526,55 @@ def sale_payments_export_pdf(request, pk):
 
     # ============== HEADER SECTION ==============
     # Company info on left, document title on right
-    # Build company info as flowables stacked vertically
-    company_flowables = []
-    company_flowables.append(Paragraph(xml_escape(brand_name), styles['CompanyName']))
+    # Build company info as a nested table for proper row height calculation
+    company_rows = []
+    company_rows.append([Paragraph(xml_escape(brand_name), styles['CompanyName'])])
     if brand_address:
-        company_flowables.append(Paragraph(xml_escape(brand_address), styles['CompanyInfo']))
+        company_rows.append([Paragraph(xml_escape(brand_address), styles['CompanyInfo'])])
     contact_parts = []
     if brand_phone:
         contact_parts.append(f"Tel: {brand_phone}")
     if brand_email:
         contact_parts.append(f"Email: {brand_email}")
     if contact_parts:
-        company_flowables.append(Paragraph(xml_escape(" | ".join(contact_parts)), styles['CompanyInfo']))
+        company_rows.append([Paragraph(xml_escape(" | ".join(contact_parts)), styles['CompanyInfo'])])
+    
+    company_table = Table(company_rows, colWidths=[page_width * 0.48])
+    company_table.setStyle(TableStyle([
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (0, 0), 6),  # Space after company name
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
 
-    doc_flowables = []
-    doc_flowables.append(Paragraph("PAYMENT&nbsp;STATEMENT", styles['DocumentTitle']))
-    doc_flowables.append(Spacer(1, 4))
-    doc_flowables.append(Paragraph(f"Statement #{sale.sale_number}", styles['DocumentNumber']))
-    doc_flowables.append(Paragraph(f"Date: {timezone.now().strftime('%B %d, %Y')}", styles['DocumentNumber']))
+    doc_rows = []
+    doc_rows.append([Paragraph("PAYMENT&nbsp;STATEMENT", styles['DocumentTitle'])])
+    doc_rows.append([Paragraph(f"Statement #{sale.sale_number}", styles['DocumentNumber'])])
+    doc_rows.append([Paragraph(f"Date: {timezone.now().strftime('%B %d, %Y')}", styles['DocumentNumber'])])
+    
+    doc_table = Table(doc_rows, colWidths=[page_width * 0.48])
+    doc_table.setStyle(TableStyle([
+        ('TOPPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
+        ('BOTTOMPADDING', (0, 0), (0, 0), 4),  # Space after title
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+    ]))
 
-    # Create header table with flowables in each cell
+    # Create header table with nested tables in each cell
     header_table = Table([
-        [company_flowables, doc_flowables]
+        [company_table, doc_table]
     ], colWidths=[page_width * 0.50, page_width * 0.50])
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
-        ('LEFTPADDING', (0, 0), (0, 0), 0),
-        ('RIGHTPADDING', (1, 0), (1, 0), 0),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
     elements.append(header_table)
     elements.append(Spacer(1, 0.3*cm))
@@ -1574,14 +1595,16 @@ def sale_payments_export_pdf(request, pk):
     if customer_address:
         billing_info.append([Paragraph(xml_escape(customer_address), styles['LabelText'])])
 
-    billing_table = Table(billing_info, colWidths=[page_width * 0.5])
+    billing_table = Table(billing_info, colWidths=[page_width * 0.4])
     billing_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), bg_light),
         ('BOX', (0, 0), (-1, -1), 0.5, border_color),
         ('LEFTPADDING', (0, 0), (-1, -1), 8),
         ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 5),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 2),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (0, 0), 6),  # Extra top padding for first row
+        ('BOTTOMPADDING', (0, -1), (0, -1), 6),  # Extra bottom padding for last row
     ]))
     elements.append(billing_table)
 
