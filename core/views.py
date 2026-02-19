@@ -1450,11 +1450,11 @@ def sale_payments_export_pdf(request, pk):
     # Custom styles
     styles.add(ParagraphStyle(
         name='CompanyName',
-        fontSize=18,
+        fontSize=16,
         textColor=primary_color,
         fontName='Helvetica-Bold',
-        leading=24,
-        spaceAfter=8,
+        leading=20,
+        spaceAfter=6,
         alignment=TA_LEFT
     ))
     styles.add(ParagraphStyle(
@@ -1725,7 +1725,7 @@ def sale_payments_export_pdf(request, pk):
     ]
     
     # Right-align the totals box - wider columns to prevent BDT wrapping
-    totals_table = Table(totals_data, colWidths=[page_width * 0.18, page_width * 0.22])
+    totals_table = Table(totals_data, colWidths=[page_width * 0.15, page_width * 0.30])
     totals_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
@@ -1735,9 +1735,9 @@ def sale_payments_export_pdf(request, pk):
         ('BACKGROUND', (0, -1), (-1, -1), bg_header),
     ]))
     
-    # Wrap in another table to right-align
-    wrapper = Table([[None, totals_table]], colWidths=[page_width * 0.6, page_width * 0.4])
-    wrapper.setStyle(TableStyle([('ALIGN', (1, 0), (1, 0), 'RIGHT')]))
+    # Wrap in another table - left-aligned
+    wrapper = Table([[totals_table, None]], colWidths=[page_width * 0.45, page_width * 0.55])
+    wrapper.setStyle(TableStyle([('ALIGN', (0, 0), (0, 0), 'LEFT')]))
     elements.append(wrapper)
 
     # ============== THANK YOU MESSAGE & FOOTER ==============
