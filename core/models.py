@@ -374,7 +374,7 @@ class LedgerEntry(models.Model):
     def __str__(self):
         sign = '+' if self.amount >= 0 else '-'
         label = self.entry_type
-        return f"{label} {sign}${abs(self.amount)}"
+        return f"{label} {sign}BDT {abs(self.amount)}"
 
 
 class BillClaim(models.Model):
