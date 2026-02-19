@@ -3,21 +3,23 @@ set -e
 
 echo "Starting docker entrypoint..."
 
+# Wait for Postgres if configured
 if [ -n "$POSTGRES_HOST" ]; then
   echo "Waiting for Postgres at $POSTGRES_HOST:${POSTGRES_PORT:-5432}..."
-  until pg_isready -h "$POSTGRES_HOST" -p "${POSTGRES_PORT:-5432}" >/dev/null 2>&1; do
-    sleep 1
-  done
+  if command -v pg_isready >/dev/null 2>&1; then
+    until pg_isready -h "$POSTGRES_HOST" -p "${POSTGRES_PORT:-5432}" >/dev/null 2>&1; do
+      sleep 1
+    done
+  else
+    sleep 3
+  fi
 fi
 
-# Run one-time tasks
 echo "Running migrations..."
 python manage.py migrate --noinput
 
 echo "Collecting static files..."
-python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput || true
 
-echo "Starting Gunicorn..."
-exec gunicorn org_management.wsgi:application \
-  --bind 0.0.0.0:8000 \
-  --workers 3
+echo "Executing command: $@"
+exec "$@"
