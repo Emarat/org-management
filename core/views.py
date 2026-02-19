@@ -1406,7 +1406,7 @@ def sale_payments_export_pdf(request, pk):
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import cm, mm
     from reportlab.lib import colors
-    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, KeepTogether
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
     from io import BytesIO
@@ -1427,13 +1427,13 @@ def sale_payments_export_pdf(request, pk):
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=A4, 
-        topMargin=2*cm, 
-        bottomMargin=2*cm, 
-        leftMargin=2*cm, 
-        rightMargin=2*cm
+        topMargin=1.5*cm, 
+        bottomMargin=1.5*cm, 
+        leftMargin=1.5*cm, 
+        rightMargin=1.5*cm
     )
     
-    page_width = A4[0] - 4*cm  # Available width
+    page_width = A4[0] - 3*cm  # Available width
     styles = getSampleStyleSheet()
 
     # Color palette - elegant dark gray/charcoal theme
@@ -1450,10 +1450,11 @@ def sale_payments_export_pdf(request, pk):
     # Custom styles
     styles.add(ParagraphStyle(
         name='CompanyName',
-        fontSize=22,
+        fontSize=18,
         textColor=primary_color,
         fontName='Helvetica-Bold',
-        spaceAfter=2,
+        leading=22,
+        spaceAfter=4,
         alignment=TA_LEFT
     ))
     styles.add(ParagraphStyle(
@@ -1466,7 +1467,7 @@ def sale_payments_export_pdf(request, pk):
     ))
     styles.add(ParagraphStyle(
         name='DocumentTitle',
-        fontSize=16,
+        fontSize=14,
         textColor=text_dark,
         fontName='Helvetica-Bold',
         spaceAfter=4,
@@ -1481,11 +1482,11 @@ def sale_payments_export_pdf(request, pk):
     ))
     styles.add(ParagraphStyle(
         name='SectionTitle',
-        fontSize=11,
+        fontSize=10,
         textColor=primary_color,
         fontName='Helvetica-Bold',
-        spaceBefore=16,
-        spaceAfter=8
+        spaceBefore=10,
+        spaceAfter=5
     ))
     styles.add(ParagraphStyle(
         name='LabelText',
@@ -1511,11 +1512,11 @@ def sale_payments_export_pdf(request, pk):
     ))
     styles.add(ParagraphStyle(
         name='ThankYou',
-        fontSize=12,
+        fontSize=11,
         textColor=primary_color,
         fontName='Helvetica-Bold',
         alignment=TA_CENTER,
-        spaceBefore=20
+        spaceBefore=10
     ))
 
     elements = []
@@ -1538,11 +1539,12 @@ def sale_payments_export_pdf(request, pk):
     if contact_parts:
         company_rows.append([Paragraph(xml_escape(" | ".join(contact_parts)), styles['CompanyInfo'])])
     
-    company_info_table = Table(company_rows, colWidths=[page_width * 0.50])
+    company_info_table = Table(company_rows, colWidths=[page_width * 0.50], rowHeights=None)
     company_info_table.setStyle(TableStyle([
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ]))
 
     doc_rows = []
@@ -1567,8 +1569,8 @@ def sale_payments_export_pdf(request, pk):
         ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
     ]))
     elements.append(header_table)
-    elements.append(Spacer(1, 0.5*cm))
-    elements.append(HRFlowable(width="100%", thickness=2, color=primary_color, spaceAfter=0.5*cm))
+    elements.append(Spacer(1, 0.3*cm))
+    elements.append(HRFlowable(width="100%", thickness=2, color=primary_color, spaceAfter=0.3*cm))
 
     # ============== BILLING INFO SECTION ==============
     elements.append(Paragraph("BILL TO", styles['SectionTitle']))
@@ -1589,10 +1591,10 @@ def sale_payments_export_pdf(request, pk):
     billing_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, -1), bg_light),
         ('BOX', (0, 0), (-1, -1), 0.5, border_color),
-        ('LEFTPADDING', (0, 0), (-1, -1), 10),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
-        ('TOPPADDING', (0, 0), (-1, -1), 8),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
     ]))
     elements.append(billing_table)
 
@@ -1630,9 +1632,9 @@ def sale_payments_export_pdf(request, pk):
         ('BACKGROUND', (0, 1), (-1, 1), colors.white),
         ('BOX', (0, 0), (-1, -1), 0.5, border_color),
         ('LINEBELOW', (0, 0), (-1, 0), 0.5, border_color),
-        ('TOPPADDING', (0, 0), (-1, -1), 10),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
     ]))
     elements.append(summary_table)
 
@@ -1671,9 +1673,9 @@ def sale_payments_export_pdf(request, pk):
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 9),
             ('ALIGN', (4, 0), (4, -1), 'RIGHT'),
-            ('TOPPADDING', (0, 0), (-1, -1), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
-            ('LEFTPADDING', (0, 0), (-1, -1), 8),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
             ('BOX', (0, 0), (-1, -1), 0.5, border_color),
             ('LINEBELOW', (0, 0), (-1, -2), 0.5, border_color),
         ]
@@ -1688,7 +1690,7 @@ def sale_payments_export_pdf(request, pk):
     else:
         elements.append(Paragraph("No payments recorded for this sale.", styles['LabelText']))
 
-    elements.append(Spacer(1, 0.5*cm))
+    elements.append(Spacer(1, 0.3*cm))
 
     # ============== TOTALS SUMMARY BOX ==============
     balance_style = styles['ValueText']
@@ -1728,16 +1730,18 @@ def sale_payments_export_pdf(request, pk):
     wrapper.setStyle(TableStyle([('ALIGN', (1, 0), (1, 0), 'RIGHT')]))
     elements.append(wrapper)
 
-    # ============== THANK YOU MESSAGE ==============
-    elements.append(Spacer(1, 1*cm))
-    elements.append(HRFlowable(width="100%", thickness=0.5, color=border_color, spaceBefore=0.3*cm, spaceAfter=0.3*cm))
-    elements.append(Paragraph("Thank you for your business!", styles['ThankYou']))
-    
-    # ============== FOOTER ==============
-    elements.append(Spacer(1, 0.5*cm))
+    # ============== THANK YOU MESSAGE & FOOTER ==============
+    # Keep footer elements together to prevent page break splitting
+    footer_elements = []
+    footer_elements.append(Spacer(1, 0.3*cm))
+    footer_elements.append(HRFlowable(width="100%", thickness=0.5, color=border_color, spaceBefore=0.2*cm, spaceAfter=0.2*cm))
+    footer_elements.append(Paragraph("Thank you for your business!", styles['ThankYou']))
+    footer_elements.append(Spacer(1, 0.2*cm))
     footer_text = f"This is a computer-generated document. Generated on {timezone.now().strftime('%B %d, %Y at %H:%M')}"
-    elements.append(Paragraph(xml_escape(footer_text), styles['FooterText']))
-    elements.append(Paragraph("Please retain this statement for your records.", styles['FooterText']))
+    footer_elements.append(Paragraph(xml_escape(footer_text), styles['FooterText']))
+    footer_elements.append(Paragraph("Please retain this statement for your records.", styles['FooterText']))
+    
+    elements.append(KeepTogether(footer_elements))
 
     doc.build(elements)
     pdf_bytes = buffer.getvalue()
