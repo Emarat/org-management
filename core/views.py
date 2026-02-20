@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry, StockHistory
 from django.core.paginator import Paginator
 from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm
 import openpyxl
@@ -232,7 +232,17 @@ def inventory_add(request):
     if request.method == 'POST':
         form = InventoryItemForm(request.POST)
         if form.is_valid():
-            form.save()
+            item = form.save()
+            if item.quantity > 0:
+                StockHistory.objects.create(
+                    item=item,
+                    transaction_type='in',
+                    quantity=item.quantity,
+                    previous_quantity=0,
+                    new_quantity=item.quantity,
+                    reason='Initial stock',
+                    created_by=request.user.username,
+                )
             messages.success(request, 'Inventory item added successfully!')
             return redirect('inventory_list')
     else:
@@ -243,10 +253,29 @@ def inventory_add(request):
 @login_required
 def inventory_edit(request, pk):
     item = get_object_or_404(InventoryItem, pk=pk)
+    previous_quantity = item.quantity
     if request.method == 'POST':
         form = InventoryItemForm(request.POST, instance=item)
         if form.is_valid():
-            form.save()
+            item = form.save()
+            new_quantity = item.quantity
+            if new_quantity != previous_quantity:
+                diff = new_quantity - previous_quantity
+                if diff > 0:
+                    tx_type = 'in'
+                    reason = 'Stock added via edit'
+                else:
+                    tx_type = 'adjustment'
+                    reason = 'Stock adjusted via edit'
+                StockHistory.objects.create(
+                    item=item,
+                    transaction_type=tx_type,
+                    quantity=abs(diff),
+                    previous_quantity=previous_quantity,
+                    new_quantity=new_quantity,
+                    reason=reason,
+                    created_by=request.user.username,
+                )
             messages.success(request, 'Inventory item updated successfully!')
             return redirect('inventory_list')
     else:
@@ -262,6 +291,19 @@ def inventory_delete(request, pk):
         messages.success(request, 'Inventory item deleted successfully!')
         return redirect('inventory_list')
     return render(request, 'core/confirm_delete.html', {'object': item, 'type': 'Inventory Item'})
+
+
+@login_required
+def inventory_stock_history(request, pk):
+    item = get_object_or_404(InventoryItem, pk=pk)
+    history = item.stock_history.select_related().all()
+    paginator = Paginator(history, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'core/inventory_stock_history.html', {
+        'item': item,
+        'history': page_obj.object_list,
+        'page_obj': page_obj,
+    })
 
 
 # Expense Views

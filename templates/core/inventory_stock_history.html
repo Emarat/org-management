@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+
+{% block title %}Stock History - {{ item.part_name }}{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h1><i class="fas fa-history"></i> Stock History</h1>
+      <p class="text-muted">
+        <strong>{{ item.part_name }}</strong> ({{ item.part_code }}) &mdash;
+        Current stock: <strong>{{ item.quantity }} {{ item.get_unit_display }}</strong>
+      </p>
+    </div>
+    <a href="{% url 'inventory_list' %}" class="btn btn-outline-secondary">
+      <i class="fas fa-arrow-left"></i> Back to Inventory
+    </a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    {% if history %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead class="table-dark">
+          <tr>
+            <th>Date &amp; Time</th>
+            <th>Type</th>
+            <th>Quantity</th>
+            <th>Previous Stock</th>
+            <th>New Stock</th>
+            <th>Reason</th>
+            <th>By</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for entry in history %}
+          <tr>
+            <td>{{ entry.created_at|date:"d M Y, H:i" }}</td>
+            <td>
+              {% if entry.transaction_type == 'in' %}
+                <span class="badge bg-success">Stock In</span>
+              {% elif entry.transaction_type == 'out' %}
+                <span class="badge bg-danger">Stock Out</span>
+              {% else %}
+                <span class="badge bg-info">Adjustment</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if entry.transaction_type == 'in' %}
+                <span class="text-success">+{{ entry.quantity }}</span>
+              {% elif entry.transaction_type == 'out' %}
+                <span class="text-danger">-{{ entry.quantity }}</span>
+              {% else %}
+                {{ entry.quantity }}
+              {% endif %}
+            </td>
+            <td>{{ entry.previous_quantity }}</td>
+            <td><strong>{{ entry.new_quantity }}</strong></td>
+            <td>{{ entry.reason|default:"-" }}</td>
+            <td>{{ entry.created_by|default:"-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'partials/pagination.html' %}
+    {% else %}
+    <div class="text-center py-5">
+      <i class="fas fa-history fa-4x text-muted mb-3"></i>
+      <p class="text-muted">No stock history recorded for this item yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

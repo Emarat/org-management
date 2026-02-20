@@ -87,16 +87,24 @@
               {% endif %}
             </td>
             <td>
-              <a
-                href="{% url 'inventory_edit' item.pk %}"
-                class="btn btn-sm btn-warning"
-                ><i class="fas fa-edit"></i
-              ></a>
-              <a
-                href="{% url 'inventory_delete' item.pk %}"
-                class="btn btn-sm btn-danger"
-                ><i class="fas fa-trash"></i
-              ></a>
+              <div class="d-flex flex-nowrap gap-1">
+                <a
+                  href="{% url 'inventory_stock_history' item.pk %}"
+                  class="btn btn-sm btn-info"
+                  title="Stock History"
+                  ><i class="fas fa-history"></i
+                ></a>
+                <a
+                  href="{% url 'inventory_edit' item.pk %}"
+                  class="btn btn-sm btn-warning"
+                  ><i class="fas fa-edit"></i
+                ></a>
+                <a
+                  href="{% url 'inventory_delete' item.pk %}"
+                  class="btn btn-sm btn-danger"
+                  ><i class="fas fa-trash"></i
+                ></a>
+              </div>
             </td>
           </tr>
           {% endfor %}

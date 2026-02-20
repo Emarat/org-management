@@ -23,6 +23,7 @@ urlpatterns = [
     path('inventory/add/', views.inventory_add, name='inventory_add'),
     path('inventory/<int:pk>/edit/', views.inventory_edit, name='inventory_edit'),
     path('inventory/<int:pk>/delete/', views.inventory_delete, name='inventory_delete'),
+    path('inventory/<int:pk>/history/', views.inventory_stock_history, name='inventory_stock_history'),
     
     # Expense URLs
     path('expenses/', views.expense_list, name='expense_list'),
