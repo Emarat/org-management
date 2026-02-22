@@ -1,5 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.http import require_POST
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.views import redirect_to_login
 from functools import wraps
@@ -1385,6 +1386,7 @@ def sale_add_item(request, pk):
 
 @login_required
 @permission_required('core.finalize_sale', raise_exception=True)
+@require_POST
 def sale_finalize(request, pk):
     sale = get_object_or_404(Sale, pk=pk)
     if sale.status == 'finalized':
