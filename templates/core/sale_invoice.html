@@ -344,7 +344,7 @@
               {{ item.description }}
             {% endif %}
           </td>
-          <td class="text-end">{{ item.quantity }}</td>
+          <td class="text-end">{{ item.quantity }}{% if item.item_type == 'inventory' and item.inventory_item %} <small>{{ item.inventory_item.get_unit_display }}</small>{% endif %}</td>
           <td class="text-end">৳&nbsp;{{ item.unit_price }}</td>
           <td class="text-end">৳&nbsp;{{ item.line_total }}</td>
         </tr>

@@ -47,7 +47,7 @@
                       {{ form.inventory_item }}
                     </div>
                     <div class="col-md-3">
-                      <label class="form-label small fw-semibold">Quantity <span class="text-danger">*</span></label>
+                      <label class="form-label small fw-semibold">Quantity <span class="text-muted unit-label"></span> <span class="text-danger">*</span></label>
                       <input type="number" min="1" name="items-{{ forloop.counter0 }}-quantity_inv" value="1" class="form-control form-control-sm quantity-inv">
                     </div>
                     <div class="col-md-4">
@@ -136,7 +136,7 @@
 {% endif %}
 {% if inventory_items %}
 <script id="inv_items_data" type="application/json">
-[{% for item in inventory_items %}{"id":"{{ item.id }}","name":"{{ item.part_name|escapejs }} ({{ item.part_code|escapejs }})"}{% if not forloop.last %},{% endif %}{% endfor %}]
+[{% for item in inventory_items %}{"id":"{{ item.id }}","name":"{{ item.part_name|escapejs }} ({{ item.part_code|escapejs }})","unit":"{{ item.get_unit_display|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
 </script>
 {% endif %}
 
@@ -201,13 +201,17 @@
   }
   var INVENTORY_PRICES = {};
   var INVENTORY_ITEMS = [];
+  var INVENTORY_UNITS = {};
   try { 
     var el = document.getElementById('inv_prices_data'); 
     if (el) INVENTORY_PRICES = JSON.parse(el.textContent); 
   } catch(e){}
   try { 
     var el = document.getElementById('inv_items_data'); 
-    if (el) INVENTORY_ITEMS = JSON.parse(el.textContent); 
+    if (el) {
+      INVENTORY_ITEMS = JSON.parse(el.textContent);
+      INVENTORY_ITEMS.forEach(function(item){ INVENTORY_UNITS[item.id] = item.unit || ''; });
+    }
   } catch(e){}
   var paymentAmountInput = document.getElementById('id_pay-amount');
   var customerSelect = document.getElementById('id_customer');
@@ -324,6 +328,11 @@
           if(hiddenPrice) hiddenPrice.value = invPriceInput.value;
         }
       }
+      // Update unit label
+      var unitLabel = card.querySelector('.unit-label');
+      if(unitLabel){
+        unitLabel.textContent = (invSel && invSel.value && INVENTORY_UNITS[invSel.value]) ? '(' + INVENTORY_UNITS[invSel.value] + ')' : '';
+      }
       recalc();
     }
 
@@ -384,7 +393,7 @@
         + '<select name="items-'+index+'-inventory_item" class="form-select form-select-sm"></select>'
         + '</div>'
         + '<div class="col-md-3">'
-        + '<label class="form-label small fw-semibold">Quantity <span class="text-danger">*</span></label>'
+        + '<label class="form-label small fw-semibold">Quantity <span class="text-muted unit-label"></span> <span class="text-danger">*</span></label>'
         + '<input type="number" min="1" name="items-'+index+'-quantity_inv" value="1" class="form-control form-control-sm quantity-inv">'
         + '</div>'
         + '<div class="col-md-4">'
