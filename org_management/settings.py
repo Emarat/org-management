@@ -85,6 +85,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core',  # Our main application
     'accounts', # Custom user application
+    'axes',  # Login rate limiting
 ]
 
 MIDDLEWARE = [
@@ -96,6 +97,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'core.middleware.SecurityHeadersMiddleware',
+    'axes.middleware.AxesMiddleware',
 ]
 
 # Enable WhiteNoise only when running in production (DEBUG=False) and package is installed
@@ -200,6 +202,16 @@ LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
+
+# django-axes: Login rate limiting / brute force protection
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesStandaloneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+AXES_FAILURE_LIMIT = 5          # Lock after 5 failed attempts
+AXES_COOLOFF_TIME = 1            # 1 hour cooloff
+AXES_LOCKOUT_PARAMETERS = ['username', 'ip_address']  # Lock per username + IP
+AXES_RESET_ON_SUCCESS = True     # Successful login resets the counter
 
 # Branding (used in UI + printable documents)
 BRAND_NAME = os.getenv('BRAND_NAME', 'Fashion Express')
