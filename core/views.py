@@ -1,9 +1,13 @@
+import logging
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.views.decorators.http import require_POST
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.views import redirect_to_login
 from functools import wraps
+
+logger = logging.getLogger(__name__)
 from django.contrib import messages
 from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce
@@ -338,7 +342,7 @@ def expense_list(request):
                     year = int(parts[1])
                 qs = qs.filter(date__year=year, date__month=month)
         except Exception:
-            pass
+            logger.exception('Failed to parse month_filter: %s', month_filter)
 
     # Specific date or date range filtering
     from django.utils.dateparse import parse_date
@@ -814,7 +818,7 @@ def _collect_form_errors(*, sale_form=None, item_formset=None, payment_form=None
             non_form = list(item_formset.non_form_errors())
             msgs.extend(non_form)
         except Exception:
-            pass
+            logger.exception('Error reading non_form_errors from item_formset')
         for i, f in enumerate(getattr(item_formset, 'forms', []) or []):
             if getattr(f, 'errors', None):
                 row_msgs = _flatten_errors(f.errors)
@@ -1300,6 +1304,7 @@ def sale_detail(request, pk):
         try:
             inv_qs = add_item_form.fields['inventory_item'].queryset
         except Exception:
+            logger.exception('Error retrieving inventory_item queryset')
             inv_qs = InventoryItem.objects.none()
     inventory_prices = {str(i.id): float(i.unit_price) for i in (inv_qs or [])}
     context = {
@@ -1387,8 +1392,7 @@ def sale_delete_item(request, pk, item_pk):
         try:
             sale.recalc_total(save=True)
         except Exception:
-            pass
-        messages.success(request, 'Item removed from sale.')
+            logger.exception('Failed to recalc total after deleting item from Sale pk=%s', pk)
     return redirect('sale_detail', pk=sale.pk)
 
 
@@ -1806,8 +1810,7 @@ def sale_add_payment(request, pk):
                         amount=payment.amount,
                     )
                 except Exception:
-                    # Non-blocking on ledger write failure
-                    pass
+                    logger.exception('Non-blocking ledger write failure for SalePayment receipt=%s', payment.receipt_number)
                 messages.success(request, f'Payment recorded. Receipt: {payment.receipt_number}')
                 return redirect('sale_detail', pk=sale.pk)
         else:

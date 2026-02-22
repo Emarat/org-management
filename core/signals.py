@@ -1,7 +1,11 @@
+import logging
+
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from .models import Expense, SalePayment, LedgerEntry, Payment
+
+logger = logging.getLogger(__name__)
 
 
 def _safe_create_ledger(entry_type: str, source: str, reference: str, description: str, amount):
@@ -19,8 +23,7 @@ def _safe_create_ledger(entry_type: str, source: str, reference: str, descriptio
                 amount=amount,
             )
     except Exception:
-        # Never block the main flow on ledger issues
-        pass
+        logger.exception('Failed to create ledger entry: source=%s ref=%s', source, reference)
 
 
 @receiver(post_save, sender=Expense)
@@ -42,8 +45,7 @@ def create_ledger_for_expense(sender, instance: Expense, created, **kwargs):
                 amount=instance.amount,
             )
     except Exception:
-        # Do not break Expense save
-        pass
+        logger.exception('Ledger entry failed for Expense id=%s', instance.pk)
 
 
 @receiver(post_save, sender=SalePayment)
@@ -62,7 +64,7 @@ def create_ledger_for_sale_payment(sender, instance: SalePayment, created, **kwa
                 amount=instance.amount,
             )
     except Exception:
-        pass
+        logger.exception('Ledger entry failed for SalePayment id=%s', instance.pk)
 
 
 @receiver(post_save, sender=Payment)
@@ -86,4 +88,4 @@ def create_ledger_for_payment(sender, instance: Payment, created, **kwargs):
                 amount=amount,
             )
     except Exception:
-        pass
+        logger.exception('Ledger entry failed for Payment id=%s', instance.pk)

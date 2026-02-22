@@ -1,8 +1,12 @@
+import logging
+
 from django.db import models, transaction
 from django.core.validators import MinValueValidator, FileExtensionValidator
 from django.utils import timezone
 import uuid
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 # Allowed file extensions for bill claim attachments
 ALLOWED_ATTACHMENT_EXTENSIONS = [
@@ -322,8 +326,7 @@ class SaleItem(models.Model):
             try:
                 self.sale.recalc_total(save=True)
             except Exception:
-                # Avoid breaking saves due to total recompute; can be recalculated later
-                pass
+                logger.exception('Failed to recalc total for Sale id=%s', self.sale_id)
 
 
 class SalePayment(models.Model):
