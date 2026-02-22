@@ -75,9 +75,9 @@
             <td>{{ item.category|default:"-" }}</td>
             <td><strong>{{ item.quantity }}</strong></td>
             <td>{{ item.get_unit_display }}</td>
-            <td>{% if item.purchase_price is not None %}BDT&nbsp;{{ item.purchase_price }}{% else %}-{% endif %}</td>
-            <td>BDT&nbsp;{{ item.unit_price }}</td>
-            <td>BDT&nbsp;{{ item.total_value|floatformat:2 }}</td>
+            <td>{% if item.purchase_price is not None %}৳&nbsp;{{ item.purchase_price }}{% else %}-{% endif %}</td>
+            <td>৳&nbsp;{{ item.unit_price }}</td>
+            <td>৳&nbsp;{{ item.total_value|floatformat:2 }}</td>
             <td>{{ item.location|default:"-" }}</td>
             <td>
               {% if item.is_low_stock %}

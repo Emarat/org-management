@@ -7,10 +7,10 @@
     <p class="text-muted">Credits and debits overview</p>
   </div>
   <div class="text-end">
-    <div class="mb-1">Current Balance: <strong>BDT&nbsp;{{ balance|default:0|floatformat:2 }}</strong></div>
+    <div class="mb-1">Current Balance: <strong>৳&nbsp;{{ balance|default:0|floatformat:2 }}</strong></div>
     <div class="small">
-      <span class="me-3 text-success">Total Credits: BDT&nbsp;{{ credit_total|default:0|floatformat:2 }}</span>
-      <span class="text-danger">Total Debits: BDT&nbsp;{{ debit_total|default:0|floatformat:2 }}</span>
+      <span class="me-3 text-success">Total Credits: ৳&nbsp;{{ credit_total|default:0|floatformat:2 }}</span>
+      <span class="text-danger">Total Debits: ৳&nbsp;{{ debit_total|default:0|floatformat:2 }}</span>
     </div>
   </div>
  </div>
@@ -45,9 +45,9 @@
             <td>{{ e.description|default:'-' }}</td>
             <td class="text-end">
               {% if e.entry_type == 'credit' %}
-                <span class="text-success">+BDT&nbsp;{{ e.amount|floatformat:2 }}</span>
+                <span class="text-success">+৳&nbsp;{{ e.amount|floatformat:2 }}</span>
               {% else %}
-                <span class="text-danger">-BDT&nbsp;{{ e.amount|floatformat:2 }}</span>
+                <span class="text-danger">-৳&nbsp;{{ e.amount|floatformat:2 }}</span>
               {% endif %}
             </td>
           </tr>

@@ -345,8 +345,8 @@
             {% endif %}
           </td>
           <td class="text-end">{{ item.quantity }}</td>
-          <td class="text-end">BDT&nbsp;{{ item.unit_price }}</td>
-          <td class="text-end">BDT&nbsp;{{ item.line_total }}</td>
+          <td class="text-end">৳&nbsp;{{ item.unit_price }}</td>
+          <td class="text-end">৳&nbsp;{{ item.line_total }}</td>
         </tr>
         {% empty %}
         <tr><td colspan="5" class="text-end">No items.</td></tr>
@@ -356,9 +356,9 @@
 
     <div class="totals">
       <div class="totals-box">
-        <div class="totals-row"><span class="muted">Paid</span><span><strong>BDT&nbsp;{{ sale.total_paid }}</strong></span></div>
-        <div class="totals-row"><span class="muted">Due</span><span><strong>BDT&nbsp;{{ sale.balance_due }}</strong></span></div>
-        <div class="totals-row total"><span>Total</span><span><strong>BDT&nbsp;{{ sale.total_amount }}</strong></span></div>
+        <div class="totals-row"><span class="muted">Paid</span><span><strong>৳&nbsp;{{ sale.total_paid }}</strong></span></div>
+        <div class="totals-row"><span class="muted">Due</span><span><strong>৳&nbsp;{{ sale.balance_due }}</strong></span></div>
+        <div class="totals-row total"><span>Total</span><span><strong>৳&nbsp;{{ sale.total_amount }}</strong></span></div>
       </div>
     </div>
 

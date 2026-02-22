@@ -14,19 +14,19 @@
       <div class="col-md-4">
         <div class="p-3 border rounded bg-light h-100">
           <div class="text-muted">Total Sales</div>
-          <div class="fs-4 fw-bold">BDT&nbsp;{{ total_sales_amount|floatformat:2 }}</div>
+          <div class="fs-4 fw-bold">৳&nbsp;{{ total_sales_amount|floatformat:2 }}</div>
         </div>
       </div>
       <div class="col-md-4">
         <div class="p-3 border rounded bg-light h-100">
           <div class="text-muted">Total Paid</div>
-          <div class="fs-4 fw-bold text-success">BDT&nbsp;{{ total_paid_amount|floatformat:2 }}</div>
+          <div class="fs-4 fw-bold text-success">৳&nbsp;{{ total_paid_amount|floatformat:2 }}</div>
         </div>
       </div>
       <div class="col-md-4">
         <div class="p-3 border rounded bg-light h-100">
           <div class="text-muted">Total Due</div>
-          <div class="fs-4 fw-bold text-danger">BDT&nbsp;{{ total_due_amount|floatformat:2 }}</div>
+          <div class="fs-4 fw-bold text-danger">৳&nbsp;{{ total_due_amount|floatformat:2 }}</div>
         </div>
       </div>
     </div>
@@ -78,9 +78,9 @@
                 {{ sale.status|title }}
               </span>
             </td>
-            <td class="text-end">BDT&nbsp;{{ sale.total_amount }}</td>
-            <td class="text-end">BDT&nbsp;{{ sale.total_paid }}</td>
-            <td class="text-end">BDT&nbsp;{{ sale.balance_due }}</td>
+            <td class="text-end">৳&nbsp;{{ sale.total_amount }}</td>
+            <td class="text-end">৳&nbsp;{{ sale.total_paid }}</td>
+            <td class="text-end">৳&nbsp;{{ sale.balance_due }}</td>
             <td class="text-end">
               <a href="{% url 'sale_detail' sale.pk %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-eye"></i> View</a>
               {% if sale.status == 'draft' %}
