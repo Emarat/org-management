@@ -880,9 +880,6 @@ def sale_create_unified(request):
     """Unified sale creation: customer + multiple items + optional initial payment.
     Steps 1-6 implementation (no finalize toggle yet).
     """
-    with open('/tmp/sale_debug.txt', 'a') as f:
-        f.write(f"\n=== FUNCTION CALLED: method={request.method} ===\n")
-    
     SaleItemFormSet = formset_factory(SaleItemForm, extra=1, can_delete=True)
     if request.method == 'POST':
         # Preprocess: copy machine quantity/unit price into hidden fields; description already bound in template
@@ -936,22 +933,11 @@ def sale_create_unified(request):
         # Basic item presence validation - build items directly from POST data
         cleaned_items = []
         
-        # Write debug to file
-        import sys
-        with open('/tmp/sale_debug.txt', 'a') as f:
-            f.write(f"\n=== NEW SUBMISSION ===\n")
-            f.write(f"total_forms={total_forms}\n")
-            f.write(f"All POST keys with 'items': {[k for k in post_data.keys() if 'items' in k]}\n")
-        
         for idx in range(total_forms):
             item_type = post_data.get(f'items-{idx}-item_type', '').strip()
-            with open('/tmp/sale_debug.txt', 'a') as f:
-                f.write(f"Form {idx} type='{item_type}'\n")
             
             # Skip completely blank rows
             if not item_type:
-                with open('/tmp/sale_debug.txt', 'a') as f:
-                    f.write(f"Skipping form {idx} - no type\n")
                 continue
                 
             if item_type == 'inventory':
@@ -982,9 +968,6 @@ def sale_create_unified(request):
                 qty = post_data.get(f'items-{idx}-quantity', post_data.get(f'items-{idx}-quantity_machine', '1'))
                 price = post_data.get(f'items-{idx}-unit_price', post_data.get(f'items-{idx}-unit_price_machine', '0'))
                 
-                with open('/tmp/sale_debug.txt', 'a') as f:
-                    f.write(f"Machine desc='{machine_desc[:50] if machine_desc else 'EMPTY'}', qty='{qty}', price='{price}'\n")
-                
                 if not machine_desc:
                     messages.error(request, 'Machine details are required')
                     valid = False
@@ -999,24 +982,11 @@ def sale_create_unified(request):
                         'unit_price': float(price) if price else 0
                     }
                     cleaned_items.append(item_dict)
-                    with open('/tmp/sale_debug.txt', 'a') as f:
-                        f.write(f"Added machine item: {item_dict}\n")
                 except ValueError as e:
-                    with open('/tmp/sale_debug.txt', 'a') as f:
-                        f.write(f'ERROR: Invalid quantity or price: {e}\n')
                     valid = False
-        with open('/tmp/sale_debug.txt', 'a') as f:
-            f.write(f"cleaned_items count = {len(cleaned_items)}\n")
-            f.write(f"cleaned_items = {cleaned_items}\n")
-        
         if not cleaned_items:
-            with open('/tmp/sale_debug.txt', 'a') as f:
-                f.write("No items found - showing error\n")
             valid = False
             messages.error(request, 'Add at least one valid item.')
-        else:
-            with open('/tmp/sale_debug.txt', 'a') as f:
-                f.write(f"Found {len(cleaned_items)} items\n")
         # Compute total from items (unit_price fallback to inventory price if missing)
         total_amount = 0
         if cleaned_items:
