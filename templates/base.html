@@ -47,9 +47,25 @@
       /* Keep the left menu visible when scrolling */
       .sidebar .position-sticky { top: 0; }
   /* Use a wrapper layout to ensure sidebar sticks; avoid position:sticky conflicts inside Bootstrap grid */
-  .layout-row { display: flex; min-height: 100vh; }
-  .sidebar { flex: 0 0 240px; height: 100vh; position: sticky; top: 0; overflow-y: auto; }
-  @media (max-width: 992px) { .sidebar { position: static; height: auto; flex: 0 0 100%; } }
+  .layout-row { display: flex; min-height: 100vh; overflow-x: hidden; }
+  .sidebar { width: 240px; min-width: 240px; height: 100vh; position: sticky; top: 0; overflow-y: auto; transition: margin-left 0.3s ease; z-index: 1040; }
+
+  /* Collapsed sidebar — slide out and let main fill */
+  body.sidebar-collapsed .sidebar { margin-left: -240px; }
+
+  /* Toggle button */
+  #sidebarToggle { background: none; border: none; font-size: 1.4rem; color: var(--primary-color); cursor: pointer; padding: 4px 10px; }
+  #sidebarToggle:hover { color: var(--secondary-color); }
+
+  /* Mobile: sidebar as overlay */
+  @media (max-width: 992px) {
+    .sidebar { position: fixed; height: 100vh; width: 240px; min-width: 240px; margin-left: -240px; z-index: 1050; transition: margin-left 0.3s ease; }
+    body.sidebar-open .sidebar { margin-left: 0; }
+    body.sidebar-collapsed .sidebar { margin-left: -240px; }
+    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1045; }
+    body.sidebar-open .sidebar-overlay { display: block; }
+  }
+  @media (min-width: 993px) { .sidebar-overlay { display: none !important; } }
 
       .sidebar .nav-link {
         color: rgba(255, 255, 255, 0.8);
@@ -189,6 +205,8 @@
   <body>
     {% if user.is_authenticated %}
     <div class="container-fluid layout-row">
+        <!-- Sidebar overlay (mobile) -->
+        <div class="sidebar-overlay" id="sidebarOverlay"></div>
         <!-- Sidebar -->
         <nav class="sidebar px-0">
           <div class="position-sticky">
@@ -314,7 +332,10 @@
             class="navbar navbar-expand-lg navbar-light bg-light my-3 rounded"
           >
             <div class="container-fluid">
-              <span class="navbar-brand mb-0 h1"
+              <button id="sidebarToggle" type="button" title="Toggle sidebar" aria-label="Toggle sidebar">
+                <i class="fas fa-bars"></i>
+              </button>
+              <span class="navbar-brand mb-0 h1 ms-2"
                 >Welcome, {{ user.username }}!</span
               >
               <div class="d-flex">
@@ -364,6 +385,36 @@
 
     {% block extra_js %}{% endblock %}
     <script>
+      // Sidebar toggle with localStorage persistence
+      (function() {
+        var body = document.body;
+        var KEY = 'sidebarCollapsed';
+        var toggle = document.getElementById('sidebarToggle');
+        var overlay = document.getElementById('sidebarOverlay');
+        var isMobile = function() { return window.innerWidth <= 992; };
+
+        // Restore state on desktop
+        if (!isMobile() && localStorage.getItem(KEY) === 'true') {
+          body.classList.add('sidebar-collapsed');
+        }
+
+        if (toggle) {
+          toggle.addEventListener('click', function() {
+            if (isMobile()) {
+              body.classList.toggle('sidebar-open');
+            } else {
+              body.classList.toggle('sidebar-collapsed');
+              localStorage.setItem(KEY, body.classList.contains('sidebar-collapsed'));
+            }
+          });
+        }
+        if (overlay) {
+          overlay.addEventListener('click', function() {
+            body.classList.remove('sidebar-open');
+          });
+        }
+      })();
+
       // Global form double-submit protection & button spinner feedback
       (function() {
         function lockForm(form) {
