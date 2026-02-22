@@ -205,8 +205,8 @@ AUTH_USER_MODEL = 'accounts.CustomUser'
 
 # django-axes: Login rate limiting / brute force protection
 AUTHENTICATION_BACKENDS = [
-    'axes.backends.AxesStandaloneBackend',
     'django.contrib.auth.backends.ModelBackend',
+    'axes.backends.AxesStandaloneBackend',
 ]
 AXES_FAILURE_LIMIT = 5          # Lock after 5 failed attempts
 AXES_COOLOFF_TIME = 1            # 1 hour cooloff
