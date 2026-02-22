@@ -1,8 +1,13 @@
+import logging
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.views.decorators.http import require_POST
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.views import redirect_to_login
 from functools import wraps
+
+logger = logging.getLogger(__name__)
 from django.contrib import messages
 from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce
@@ -337,7 +342,7 @@ def expense_list(request):
                     year = int(parts[1])
                 qs = qs.filter(date__year=year, date__month=month)
         except Exception:
-            pass
+            logger.exception('Failed to parse month_filter: %s', month_filter)
 
     # Specific date or date range filtering
     from django.utils.dateparse import parse_date
@@ -813,7 +818,7 @@ def _collect_form_errors(*, sale_form=None, item_formset=None, payment_form=None
             non_form = list(item_formset.non_form_errors())
             msgs.extend(non_form)
         except Exception:
-            pass
+            logger.exception('Error reading non_form_errors from item_formset')
         for i, f in enumerate(getattr(item_formset, 'forms', []) or []):
             if getattr(f, 'errors', None):
                 row_msgs = _flatten_errors(f.errors)
@@ -879,9 +884,6 @@ def sale_create_unified(request):
     """Unified sale creation: customer + multiple items + optional initial payment.
     Steps 1-6 implementation (no finalize toggle yet).
     """
-    with open('/tmp/sale_debug.txt', 'a') as f:
-        f.write(f"\n=== FUNCTION CALLED: method={request.method} ===\n")
-    
     SaleItemFormSet = formset_factory(SaleItemForm, extra=1, can_delete=True)
     if request.method == 'POST':
         # Preprocess: copy machine quantity/unit price into hidden fields; description already bound in template
@@ -935,22 +937,11 @@ def sale_create_unified(request):
         # Basic item presence validation - build items directly from POST data
         cleaned_items = []
         
-        # Write debug to file
-        import sys
-        with open('/tmp/sale_debug.txt', 'a') as f:
-            f.write(f"\n=== NEW SUBMISSION ===\n")
-            f.write(f"total_forms={total_forms}\n")
-            f.write(f"All POST keys with 'items': {[k for k in post_data.keys() if 'items' in k]}\n")
-        
         for idx in range(total_forms):
             item_type = post_data.get(f'items-{idx}-item_type', '').strip()
-            with open('/tmp/sale_debug.txt', 'a') as f:
-                f.write(f"Form {idx} type='{item_type}'\n")
             
             # Skip completely blank rows
             if not item_type:
-                with open('/tmp/sale_debug.txt', 'a') as f:
-                    f.write(f"Skipping form {idx} - no type\n")
                 continue
                 
             if item_type == 'inventory':
@@ -981,9 +972,6 @@ def sale_create_unified(request):
                 qty = post_data.get(f'items-{idx}-quantity', post_data.get(f'items-{idx}-quantity_machine', '1'))
                 price = post_data.get(f'items-{idx}-unit_price', post_data.get(f'items-{idx}-unit_price_machine', '0'))
                 
-                with open('/tmp/sale_debug.txt', 'a') as f:
-                    f.write(f"Machine desc='{machine_desc[:50] if machine_desc else 'EMPTY'}', qty='{qty}', price='{price}'\n")
-                
                 if not machine_desc:
                     messages.error(request, 'Machine details are required')
                     valid = False
@@ -998,24 +986,11 @@ def sale_create_unified(request):
                         'unit_price': float(price) if price else 0
                     }
                     cleaned_items.append(item_dict)
-                    with open('/tmp/sale_debug.txt', 'a') as f:
-                        f.write(f"Added machine item: {item_dict}\n")
                 except ValueError as e:
-                    with open('/tmp/sale_debug.txt', 'a') as f:
-                        f.write(f'ERROR: Invalid quantity or price: {e}\n')
                     valid = False
-        with open('/tmp/sale_debug.txt', 'a') as f:
-            f.write(f"cleaned_items count = {len(cleaned_items)}\n")
-            f.write(f"cleaned_items = {cleaned_items}\n")
-        
         if not cleaned_items:
-            with open('/tmp/sale_debug.txt', 'a') as f:
-                f.write("No items found - showing error\n")
             valid = False
             messages.error(request, 'Add at least one valid item.')
-        else:
-            with open('/tmp/sale_debug.txt', 'a') as f:
-                f.write(f"Found {len(cleaned_items)} items\n")
         # Compute total from items (unit_price fallback to inventory price if missing)
         total_amount = 0
         if cleaned_items:
@@ -1329,6 +1304,7 @@ def sale_detail(request, pk):
         try:
             inv_qs = add_item_form.fields['inventory_item'].queryset
         except Exception:
+            logger.exception('Error retrieving inventory_item queryset')
             inv_qs = InventoryItem.objects.none()
     inventory_prices = {str(i.id): float(i.unit_price) for i in (inv_qs or [])}
     context = {
@@ -1385,6 +1361,7 @@ def sale_add_item(request, pk):
 
 @login_required
 @permission_required('core.finalize_sale', raise_exception=True)
+@require_POST
 def sale_finalize(request, pk):
     sale = get_object_or_404(Sale, pk=pk)
     if sale.status == 'finalized':
@@ -1415,8 +1392,7 @@ def sale_delete_item(request, pk, item_pk):
         try:
             sale.recalc_total(save=True)
         except Exception:
-            pass
-        messages.success(request, 'Item removed from sale.')
+            logger.exception('Failed to recalc total after deleting item from Sale pk=%s', pk)
     return redirect('sale_detail', pk=sale.pk)
 
 
@@ -1834,8 +1810,7 @@ def sale_add_payment(request, pk):
                         amount=payment.amount,
                     )
                 except Exception:
-                    # Non-blocking on ledger write failure
-                    pass
+                    logger.exception('Non-blocking ledger write failure for SalePayment receipt=%s', payment.receipt_number)
                 messages.success(request, f'Payment recorded. Receipt: {payment.receipt_number}')
                 return redirect('sale_detail', pk=sale.pk)
         else:

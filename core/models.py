@@ -1,8 +1,18 @@
+import logging
+
 from django.db import models, transaction
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, FileExtensionValidator
 from django.utils import timezone
 import uuid
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
+
+# Allowed file extensions for bill claim attachments
+ALLOWED_ATTACHMENT_EXTENSIONS = [
+    'pdf', 'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp',
+    'doc', 'docx', 'xls', 'xlsx', 'csv', 'txt',
+]
 
 
 class CustomerIdSequence(models.Model):
@@ -316,8 +326,7 @@ class SaleItem(models.Model):
             try:
                 self.sale.recalc_total(save=True)
             except Exception:
-                # Avoid breaking saves due to total recompute; can be recalculated later
-                pass
+                logger.exception('Failed to recalc total for Sale id=%s', self.sale_id)
 
 
 class SalePayment(models.Model):
@@ -390,7 +399,13 @@ class BillClaim(models.Model):
     description = models.TextField()
     bill_date = models.DateField(default=timezone.now)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
-    attachment = models.FileField(upload_to='bill_attachments/', blank=True, null=True)
+    attachment = models.FileField(
+        upload_to='bill_attachments/',
+        blank=True,
+        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=ALLOWED_ATTACHMENT_EXTENSIONS)],
+        help_text='Allowed: PDF, images, Office documents, CSV, TXT.',
+    )
     approved_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='approved_bill_claims')
     approval_date = models.DateField(null=True, blank=True)
     expense = models.ForeignKey('Expense', on_delete=models.SET_NULL, null=True, blank=True, related_name='bill_claim')
