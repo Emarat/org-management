@@ -127,9 +127,9 @@
               <tr>
                 <th style="width: 12%">Type</th>
                 <th>Name</th>
-                <th class="text-end" style="width: 8%">Qty</th>
-                <th class="text-end" style="width: 15%">Unit Price</th>
-                <th class="text-end" style="width: 15%">Total</th>
+                <th style="width: 14%">Qty</th>
+                <th class="text-end" style="width: 14%">Unit Price</th>
+                <th class="text-end" style="width: 14%">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -143,7 +143,7 @@
                     {{ item.description }}
                   {% endif %}
                 </td>
-                <td class="text-end">{{ item.quantity }}</td>
+                <td style="white-space:nowrap">{{ item.quantity }}{% if item.item_type == 'inventory' and item.inventory_item %} <small class="text-muted">{{ item.inventory_item.get_unit_display }}</small>{% endif %}</td>
                 <td class="text-end">৳&nbsp;{{ item.unit_price }}</td>
                 <td class="text-end">৳&nbsp;{{ item.line_total }}</td>
               </tr>
