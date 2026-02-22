@@ -16,15 +16,18 @@ class SecurityHeadersMiddleware:
         response = self.get_response(request)
 
         # Content-Security-Policy — defence-in-depth against XSS
-        # Allows inline styles (needed by many Django template patterns) but blocks
-        # inline scripts and all other unsafe sources.
+        # Allows inline styles and inline scripts (needed by Django template patterns
+        # that embed <script> blocks for page-specific JS such as the sales form).
+        # Ideally inline scripts would be refactored to external files and 'unsafe-inline'
+        # removed from script-src, but that is a larger effort.
         if 'Content-Security-Policy' not in response:
             response['Content-Security-Policy'] = (
                 "default-src 'self'; "
-                "script-src 'self' https://cdn.jsdelivr.net; "
+                "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://static.cloudflareinsights.com; "
                 "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; "
                 "font-src 'self' https://cdnjs.cloudflare.com; "
                 "img-src 'self' data:; "
+                "connect-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://static.cloudflareinsights.com; "
                 "frame-ancestors 'none';"
             )
 
