@@ -28,7 +28,7 @@
                 <tr>
                   <th>Amount:</th>
                   <td>
-                    <strong>BDT&nbsp;{{ bill_claim.amount|floatformat:2 }}</strong>
+                    <strong>৳&nbsp;{{ bill_claim.amount|floatformat:2 }}</strong>
                   </td>
                 </tr>
                 <tr>
@@ -74,7 +74,7 @@
             {% if action == 'approve' %}
             <h5><i class="fas fa-check-circle"></i> Approve This Claim?</h5>
             <p>
-              This will create an expense entry for BDT&nbsp;{{
+              This will create an expense entry for ৳&nbsp;{{
               bill_claim.amount|floatformat:2 }} and mark the claim as approved.
             </p>
             {% else %}

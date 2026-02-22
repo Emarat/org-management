@@ -94,15 +94,15 @@
         <div class="card-body">
           <div class="d-flex justify-content-between mb-3">
             <span class="fw-semibold">Total Amount</span>
-            <span class="fs-4 fw-bold text-primary" id="summaryTotal">BDT&nbsp;0.00</span>
+            <span class="fs-4 fw-bold text-primary" id="summaryTotal">৳&nbsp;0.00</span>
           </div>
           <div class="d-flex justify-content-between small mb-2 text-muted">
             <span>Amount Paid</span>
-            <span id="amountPaidSummary">BDT&nbsp;0.00</span>
+            <span id="amountPaidSummary">৳&nbsp;0.00</span>
           </div>
           <div class="d-flex justify-content-between mb-3">
             <span class="fw-semibold">Balance Due</span>
-            <span class="fw-bold text-danger" id="balanceDueSummary">BDT&nbsp;0.00</span>
+            <span class="fw-bold text-danger" id="balanceDueSummary">৳&nbsp;0.00</span>
           </div>
         </div>
       </div>
@@ -268,10 +268,10 @@
     });
     
     currentTotal = total;
-    summaryTotal.textContent = 'BDT\u00A0' + total.toFixed(2);
+    summaryTotal.textContent = '৳\u00A0' + total.toFixed(2);
     var paid = parseFloat(paymentAmountInput && paymentAmountInput.value ? paymentAmountInput.value : 0);
-    amountPaidSummary.textContent = 'BDT\u00A0' + paid.toFixed(2);
-    balanceDueSummary.textContent = 'BDT\u00A0' + (total - paid).toFixed(2);
+    amountPaidSummary.textContent = '৳\u00A0' + paid.toFixed(2);
+    balanceDueSummary.textContent = '৳\u00A0' + (total - paid).toFixed(2);
 
     // Keep payment validation in sync with changing totals
     validatePaymentAmount();

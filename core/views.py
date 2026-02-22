@@ -636,7 +636,7 @@ def approve_bill_claim(request, pk):
         bill_claim.expense = expense
         bill_claim.save()
         
-        messages.success(request, f'Bill claim approved and expense created! Amount: BDT {bill_claim.amount}')
+        messages.success(request, f'Bill claim approved and expense created! Amount: ৳ {bill_claim.amount}')
         return redirect('list_bill_claims')
 
     context = {
@@ -1540,7 +1540,7 @@ def sale_payments_export_pdf(request, pk):
     elements = []
 
     def fmt_currency(val):
-        return f"BDT\u00A0{float(val):,.2f}"
+        return f"৳\u00A0{float(val):,.2f}"
 
     # ============== HEADER SECTION ==============
     # Company info on left, document title on right
@@ -1742,7 +1742,7 @@ def sale_payments_export_pdf(request, pk):
         ],
     ]
     
-    # Right-align the totals box - wider columns to prevent BDT wrapping
+    # Right-align the totals box - wider columns to prevent ৳ wrapping
     totals_table = Table(totals_data, colWidths=[page_width * 0.15, page_width * 0.30])
     totals_table.setStyle(TableStyle([
         ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
@@ -1952,7 +1952,7 @@ def sales_export_pdf(request):
     elements = []
 
     def fmt_currency(val):
-        return f"BDT\u00A0{float(val):,.2f}"
+        return f"৳\u00A0{float(val):,.2f}"
 
     sale_cell_style = ParagraphStyle(
         name='SaleCell',

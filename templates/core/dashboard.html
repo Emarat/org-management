@@ -109,7 +109,7 @@
         <div class="d-flex justify-content-between align-items-start">
           <div>
             <h6 class="text-muted">Sales Balance Due</h6>
-            <h2>BDT&nbsp;{{ total_sales_due|floatformat:0 }}</h2>
+            <h2>৳&nbsp;{{ total_sales_due|floatformat:0 }}</h2>
             <small class="text-muted d-block"
               >{{ pending_sales }} draft sales</small
             >
@@ -129,7 +129,7 @@
     <div class="card h-100">
       <div class="card-body text-center">
         <h6 class="text-muted">Total Inventory Value</h6>
-        <h3 class="text-success">BDT&nbsp;{{ total_inventory_value|floatformat:2 }}</h3>
+        <h3 class="text-success">৳&nbsp;{{ total_inventory_value|floatformat:2 }}</h3>
       </div>
     </div>
   </div>
@@ -138,7 +138,7 @@
     <div class="card h-100">
       <div class="card-body text-center">
         <h6 class="text-muted">Today's Sales (Finalized)</h6>
-        <h3 class="text-success">BDT&nbsp;{{ today_sales_total|floatformat:2 }}</h3>
+        <h3 class="text-success">৳&nbsp;{{ today_sales_total|floatformat:2 }}</h3>
       </div>
     </div>
   </div>
@@ -147,7 +147,7 @@
     <div class="card h-100">
       <div class="card-body text-center">
         <h6 class="text-muted">Monthly Expenses</h6>
-        <h3 class="text-primary">BDT&nbsp;{{ monthly_expenses|floatformat:2 }}</h3>
+        <h3 class="text-primary">৳&nbsp;{{ monthly_expenses|floatformat:2 }}</h3>
       </div>
     </div>
   </div>
@@ -186,7 +186,7 @@
               <tr>
                 <td><a href="{% url 'sale_detail' sale.pk %}">{{ sale.sale_number }}</a></td>
                 <td>{{ sale.customer.name }}</td>
-                <td>BDT&nbsp;{{ sale.total_amount|floatformat:2 }}</td>
+                <td>৳&nbsp;{{ sale.total_amount|floatformat:2 }}</td>
                 <td>
                   {% if sale.status == 'finalized' %}
                   <span class="badge bg-success"
@@ -244,7 +244,7 @@
               <tr>
                 <td>{{ expense.date }}</td>
                 <td>{{ expense.get_category_display }}</td>
-                <td class="text-danger">BDT&nbsp;{{ expense.amount }}</td>
+                <td class="text-danger">৳&nbsp;{{ expense.amount }}</td>
               </tr>
               {% endfor %}
             </tbody>
