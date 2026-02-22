@@ -6,9 +6,12 @@
   <div>
     {% if sale.status == 'draft' %}
       {% if user.is_superuser or perms.core.finalize_sale %}
-        <a href="{% url 'sale_finalize' sale.pk %}" class="btn btn-success" onclick="return confirm('Finalize this sale? This will decrease inventory.');">
-          <i class="fas fa-check"></i> Finalize
-        </a>
+        <form action="{% url 'sale_finalize' sale.pk %}" method="post" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-success" onclick="return confirm('Finalize this sale? This will decrease inventory.');">
+            <i class="fas fa-check"></i> Finalize
+          </button>
+        </form>
       {% endif %}
       
     {% endif %}
