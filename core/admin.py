@@ -3,6 +3,7 @@ from django.contrib.auth.models import Permission
 from django.conf import settings
 
 
+
 # Keep admin minimal: only Users, Groups (default) and Permissions
 admin.site.register(Permission)
 

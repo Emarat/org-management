@@ -1,5 +1,5 @@
 from django import forms
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, Product
 from django import forms
 
 
@@ -23,19 +23,15 @@ class CustomerForm(forms.ModelForm):
 class InventoryItemForm(forms.ModelForm):
     class Meta:
         model = InventoryItem
-        fields = ['part_name', 'part_code', 'description', 'category', 'quantity', 
-                  'unit', 'purchase_price', 'unit_price', 'location', 'minimum_stock', 'supplier']
+        fields = ['product', 'inventory_type', 'identifier', 'quantity', 'unit', 'purchase_price_per_unit', 'location', 'supplier']
         widgets = {
-            'part_name': forms.TextInput(attrs={'class': 'form-control'}),
-            'part_code': forms.TextInput(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
-            'category': forms.TextInput(attrs={'class': 'form-control'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'product': forms.Select(attrs={'class': 'form-control'}),
+            'inventory_type': forms.Select(attrs={'class': 'form-control'}),
+            'identifier': forms.TextInput(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'unit': forms.Select(attrs={'class': 'form-control'}),
-            'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'purchase_price_per_unit': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'location': forms.TextInput(attrs={'class': 'form-control'}),
-            'minimum_stock': forms.NumberInput(attrs={'class': 'form-control'}),
             'supplier': forms.TextInput(attrs={'class': 'form-control'}),
         }
 
@@ -99,20 +95,33 @@ class SaleForm(forms.ModelForm):
 
 
 class SaleItemForm(forms.ModelForm):
-    inventory_item = forms.ModelChoiceField(
-        queryset=InventoryItem.objects.all(), required=False,
+    product = forms.ModelChoiceField(
+        queryset=Product.objects.all(), required=False,
         widget=forms.Select(attrs={'class': 'form-control'})
     )
     description = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}))
 
     class Meta:
         model = SaleItem
-        fields = ['item_type', 'inventory_item', 'description', 'quantity', 'unit_price']
+        fields = ['item_type', 'product', 'description', 'quantity', 'unit_price']
         widgets = {
             'item_type': forms.Select(attrs={'class': 'form-control'}),
             'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'value': '1'}),
             'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'value': '0'}),
         }
+
+    def clean(self):
+        cleaned = super().clean()
+        item_type = cleaned.get('item_type')
+        product = cleaned.get('product')
+        description = cleaned.get('description')
+        if item_type == 'inventory':
+            if not product:
+                self.add_error('product', 'Select a product')
+        elif item_type == 'non_inventory':
+            if not description:
+                self.add_error('description', 'Description is required')
+        return cleaned
 
 
 class CombinedSaleItemForm(forms.Form):
@@ -134,7 +143,7 @@ class CombinedSaleItemForm(forms.Form):
     machine_name = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
     description = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
     quantity = forms.IntegerField(min_value=1, initial=1, widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1}))
-    unit_price = forms.DecimalField(min_value=0, decimal_places=2, max_digits=12, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}))
+    unit_price = forms.DecimalField(min_value=0, decimal_places=2, max_digits=12, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}))  # Only for non-inventory items
 
     def clean(self):
         cleaned = super().clean()
@@ -159,8 +168,8 @@ class SalePaymentForm(forms.ModelForm):
         model = SalePayment
         fields = ['amount', 'payment_date', 'method', 'notes']
         widgets = {
-            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0'}),
-            'payment_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
-            'method': forms.Select(attrs={'class': 'form-control', 'id': 'payment-method-select'}),
-            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': '2', 'placeholder': 'Payment details (optional)', 'id': 'payment-notes'}),
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0', 'autocomplete': 'off'}),
+            'payment_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date', 'autocomplete': 'off'}),
+            'method': forms.Select(attrs={'class': 'form-control', 'id': 'payment-method-select', 'autocomplete': 'off'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': '2', 'placeholder': 'Payment details (optional)', 'id': 'payment-notes', 'autocomplete': 'off'}),
         }

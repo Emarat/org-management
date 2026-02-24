@@ -141,13 +141,22 @@
                 <td>{{ item.get_item_type_display }}</td>
                 <td>
                   {% if item.item_type == 'inventory' and item.inventory_item %}
-                    {{ item.inventory_item.part_name }} ({{ item.inventory_item.part_code }})
+                    {{ item.inventory_item.product.name }}
                   {% else %}
                     {{ item.description }}
                   {% endif %}
                 </td>
                 <td style="white-space:nowrap">{{ item.quantity }}{% if item.item_type == 'inventory' and item.inventory_item %} <small class="text-muted">{{ item.inventory_item.get_unit_display }}</small>{% endif %}</td>
-                <td class="text-end">৳&nbsp;{{ item.unit_price }}</td>
+                <td class="text-end">৳&nbsp;
+                  {% comment %}Prefer the saved sale/unit price; fallback to inventory purchase price if unit_price is zero{% endcomment %}
+                  {% if item.unit_price|floatformat:2 != "0.00" %}
+                    {{ item.unit_price }}
+                  {% elif item.item_type == 'inventory' and item.inventory_item %}
+                    {{ item.inventory_item.purchase_price_per_unit }}
+                  {% else %}
+                    {{ item.unit_price }}
+                  {% endif %}
+                </td>
                 <td class="text-end">৳&nbsp;{{ item.line_total }}</td>
               </tr>
               {% empty %}

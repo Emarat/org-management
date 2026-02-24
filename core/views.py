@@ -1,3 +1,46 @@
+# Product management views
+from .models import Product
+from django import forms
+from django.forms import ModelForm
+
+class ProductForm(ModelForm):
+    class Meta:
+        model = Product
+        fields = ['name', 'sale_unit', 'sale_price', 'description']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'sale_unit': forms.Select(attrs={'class': 'form-control'}),
+            'sale_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+        }
+
+from django.urls import reverse
+from django.shortcuts import redirect
+
+def product_list(request):
+    products = Product.objects.all().order_by('name')
+    return render(request, 'core/product_list.html', {'products': products, 'title': 'Products'})
+
+def product_add(request):
+    if request.method == 'POST':
+        form = ProductForm(request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('product_list')
+    else:
+        form = ProductForm()
+    return render(request, 'core/product_form.html', {'form': form, 'title': 'Add Product'})
+
+def product_edit(request, pk):
+    product = Product.objects.get(pk=pk)
+    if request.method == 'POST':
+        form = ProductForm(request.POST, instance=product)
+        if form.is_valid():
+            form.save()
+            return redirect('product_list')
+    else:
+        form = ProductForm(instance=product)
+    return render(request, 'core/product_form.html', {'form': form, 'title': 'Edit Product'})
 import logging
 
 from django.shortcuts import render, redirect, get_object_or_404
@@ -62,7 +105,7 @@ def dashboard(request):
     # Top selling products (all time) by quantity, across inventory + machine items
     inventory_top = (
         SaleItem.objects.filter(sale__status='finalized', item_type='inventory', inventory_item__isnull=False)
-        .values('inventory_item__part_name')
+        .values('inventory_item__product__name')
         .annotate(total_qty=Sum('quantity'))
     )
 
@@ -78,9 +121,9 @@ def dashboard(request):
         machine_qty_by_label[label] = (machine_qty_by_label.get(label) or 0) + (qty or 0)
 
     top_products = [
-        {'label': row['inventory_item__part_name'], 'item_type': 'inventory', 'total_qty': row['total_qty'] or 0}
+        {'label': row['inventory_item__product__name'], 'item_type': 'inventory', 'total_qty': row['total_qty'] or 0}
         for row in inventory_top
-        if row.get('inventory_item__part_name')
+        if row.get('inventory_item__product__name')
     ] + [
         {'label': label, 'item_type': 'machine', 'total_qty': total_qty}
         for label, total_qty in machine_qty_by_label.items()
@@ -92,12 +135,12 @@ def dashboard(request):
         'total_employees': CustomUser.objects.filter(status='active').count(),
         'total_customers': Customer.objects.filter(status='active').count(),
         'total_inventory_items': InventoryItem.objects.count(),
-        'low_stock_items': InventoryItem.objects.filter(quantity__lte=F('minimum_stock')).count(),
+        'low_stock_items': InventoryItem.objects.filter(remaining_quantity__lte=0.1 * F('quantity')).count(),
         # Ensure mixed int/decimal multiplication resolves to decimal via ExpressionWrapper
         'total_inventory_value': InventoryItem.objects.aggregate(
             total=Sum(
                 ExpressionWrapper(
-                    F('quantity') * Coalesce(F('unit_price'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))),
+                    F('quantity') * Coalesce(F('purchase_price_per_unit'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))),
                     output_field=DecimalField(max_digits=12, decimal_places=2)
                 )
             )
@@ -121,7 +164,7 @@ def dashboard(request):
         'recent_sales': Sale.objects.select_related('customer').all()[:5],
         'pending_bill_claims': BillClaim.objects.filter(status='pending').count(),
         'low_stock_alerts': InventoryItem.objects.filter(
-            quantity__lte=F('minimum_stock')
+            remaining_quantity__lte=0.1 * F('quantity')
         )[:5],
     }
     return render(request, 'core/dashboard.html', context)
@@ -213,7 +256,7 @@ def inventory_list(request):
     qs = InventoryItem.objects.all()
     if query:
         qs = qs.filter(
-            Q(part_name__icontains=query) |
+            Q(product__name__icontains=query) |
             Q(part_code__icontains=query) |
             Q(category__icontains=query)
         )
@@ -755,7 +798,7 @@ def export_excel(request):
     ws_inventory.append(['Part Code', 'Part Name', 'Category', 'Quantity', 'Unit Price', 'Total Value'])
     for item in InventoryItem.objects.all():
         ws_inventory.append([
-            item.part_code, item.part_name, item.category, item.quantity,
+            item.identifier, item.product.name, item.inventory_type, item.quantity,
             float(item.unit_price or 0), float(item.total_value)
         ])
     
@@ -1028,7 +1071,7 @@ def sale_create_unified(request):
                         item_type=cd['item_type'],
                         inventory_item=cd.get('inventory_item') if cd['item_type'] == 'inventory' else None,
                         description=(cd.get('description') or '') if cd['item_type'] != 'inventory' else (
-                            f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
+                            f"{cd['inventory_item'].product.name} [{cd['inventory_item'].identifier}]" if cd.get('inventory_item') else ''
                         ),
                         quantity=cd.get('quantity') or 0,
                         unit_price=unit_price,
@@ -1050,13 +1093,17 @@ def sale_create_unified(request):
         sale_form = SaleForm()
         item_formset = formset_factory(SaleItemForm, extra=1, can_delete=True)(prefix='items')
         payment_form = SalePaymentForm(prefix='pay')
-    # Inventory price data for JS
-    inv_prices = {str(i.id): float(i.unit_price or 0) for i in InventoryItem.objects.all()}
+    # Product price data for JS (for autofill)
+    product_prices = {str(p.id): float(p.sale_price or 0) for p in Product.objects.all()}
+    # InventoryItem to product sale price mapping
+    inventory_items = InventoryItem.objects.select_related('product').all()
+    inventoryitem_to_price = {str(i.id): float(i.product.sale_price or 0) for i in inventory_items if i.product}
     return render(request, 'core/sale_create_unified.html', {
         'sale_form': sale_form,
         'item_formset': item_formset,
         'payment_form': payment_form,
-        'inventory_prices': inv_prices,
+        'product_prices': product_prices,
+        'inventoryitem_to_price': inventoryitem_to_price,
         'title': 'Create Sale'
     })
 
@@ -1085,22 +1132,22 @@ def sale_create(request):
             for f in item_formset.forms:
                 if f.cleaned_data.get('DELETE'): continue
                 cd = f.cleaned_data
-                if not cd.get('item_type') and not cd.get('inventory_item') and not cd.get('description'):
+                if not cd.get('item_type') and not cd.get('product') and not cd.get('description'):
                     continue
                 if not cd.get('item_type'):
                     f.add_error('item_type', 'Select type'); valid = False; continue
                 if cd.get('item_type') == 'non_inventory' and not cd.get('description'):
                     f.add_error('description', 'Description required'); valid = False; continue
-                if cd.get('item_type') == 'inventory' and not cd.get('inventory_item'):
-                    f.add_error('inventory_item', 'Choose inventory item'); valid = False; continue
+                if cd.get('item_type') == 'inventory' and not cd.get('product'):
+                    f.add_error('product', 'Choose product'); valid = False; continue
                 cleaned_items.append(cd)
         if not cleaned_items:
             messages.error(request, 'Add at least one valid item.'); valid = False
         total_amount = 0
         for cd in cleaned_items:
             unit_price = cd.get('unit_price') or 0
-            if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                unit_price = cd['inventory_item'].unit_price or 0
+            if cd.get('item_type') == 'inventory' and cd.get('product') and (unit_price is None or unit_price <= 0):
+                unit_price = cd['product'].sale_price or 0
             qty = cd.get('quantity') or 0
             total_amount += unit_price * qty
         payment_amount = None
@@ -1118,14 +1165,22 @@ def sale_create(request):
                 sale.save()
                 for cd in cleaned_items:
                     unit_price = cd.get('unit_price') or 0
-                    if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                        unit_price = cd['inventory_item'].unit_price or 0
+                    if cd.get('item_type') == 'inventory' and cd.get('product') and (unit_price is None or unit_price <= 0):
+                        unit_price = cd['product'].sale_price or 0
+                    # If product-level selection was used (no specific InventoryItem),
+                    # try to associate a real InventoryItem so finalize() can decrement stock.
+                    inv_item = None
+                    if cd.get('item_type') == 'inventory':
+                        inv_item = cd.get('inventory_item') if cd.get('inventory_item') else None
+                        if not inv_item and cd.get('product'):
+                            inv_item = InventoryItem.objects.filter(product=cd['product'], quantity__gt=0).order_by('created_at').first()
+
                     SaleItem.objects.create(
                         sale=sale,
                         item_type=cd['item_type'],
-                        inventory_item=cd.get('inventory_item') if cd['item_type'] == 'inventory' else None,
+                        inventory_item=inv_item if cd['item_type'] == 'inventory' else None,
                         description=(cd.get('description') or '') if cd['item_type'] != 'inventory' else (
-                            f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
+                            f"{inv_item.product.name}" if inv_item else (f"{cd['product'].name}" if cd.get('product') else '')
                         ),
                         quantity=cd.get('quantity') or 0,
                         unit_price=unit_price,
@@ -1148,13 +1203,19 @@ def sale_create(request):
         item_formset = formset_factory(SaleItemForm, extra=1, can_delete=True)(prefix='items')
         payment_form = SalePaymentForm(prefix='pay')
     inventory_items = InventoryItem.objects.all()
-    inv_prices = {str(i.id): float(i.unit_price or 0) for i in inventory_items}
+    inv_prices = {str(i.id): float(i.purchase_price_per_unit or 0) for i in inventory_items}
+    # Also provide product price mapping for the template JS (keep parity with unified view)
+    product_prices = {str(p.id): float(p.sale_price or 0) for p in Product.objects.all()}
+    inventory_items_qs = InventoryItem.objects.select_related('product').all()
+    inventoryitem_to_price = {str(i.id): float(i.product.sale_price or 0) for i in inventory_items_qs if i.product}
     return render(request, 'core/sale_create_unified.html', {
         'sale_form': sale_form,
         'item_formset': item_formset,
         'payment_form': payment_form,
         'inventory_items': inventory_items,
         'inventory_prices': inv_prices,
+        'product_prices': product_prices,
+        'inventoryitem_to_price': inventoryitem_to_price,
         'title': 'Create Sale'
     })
 
@@ -1220,7 +1281,7 @@ def sale_quote_create(request):
                         item_type=cd['item_type'],
                         inventory_item=cd.get('inventory_item') if cd['item_type'] == 'inventory' else None,
                         description=(cd.get('description') or '') if cd['item_type'] != 'inventory' else (
-                            f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
+                            f"{cd['inventory_item'].product.name} [{cd['inventory_item'].identifier}]" if cd.get('inventory_item') else ''
                         ),
                         quantity=cd.get('quantity') or 0,
                         unit_price=unit_price,
@@ -1306,7 +1367,7 @@ def sale_detail(request, pk):
         except Exception:
             logger.exception('Error retrieving inventory_item queryset')
             inv_qs = InventoryItem.objects.none()
-    inventory_prices = {str(i.id): float(i.unit_price) for i in (inv_qs or [])}
+    inventory_prices = {str(i.id): float(i.purchase_price_per_unit or 0) for i in (inv_qs or [])}
     context = {
         'sale': sale,
         'items': items,
@@ -1370,7 +1431,7 @@ def sale_finalize(request, pk):
     try:
         low_stock = sale.finalize(user=request.user)
         if low_stock:
-            names = ', '.join([f"{i.part_name} ({i.part_code})" for i in low_stock])
+            names = ', '.join([f"{i.product.name} [{i.identifier}]" for i in low_stock])
             messages.warning(request, f"Finalized. Low stock: {names}")
         else:
             messages.success(request, 'Sale finalized successfully.')
@@ -1634,7 +1695,7 @@ def sale_payments_export_pdf(request, pk):
     product_names = []
     for item in sale_items:
         if item.item_type == 'inventory' and item.inventory_item:
-            product_names.append(f"{item.inventory_item.part_name}")
+            product_names.append(f"{item.inventory_item.product.name}")
         elif item.description:
             product_names.append(item.description[:50])
     product_name_str = ", ".join(product_names) if product_names else "N/A"
@@ -1993,7 +2054,7 @@ def sales_export_pdf(request):
         labels = []
         for item in sale.items.all():
             if item.item_type == 'inventory' and item.inventory_item:
-                label = (item.inventory_item.part_name or '').strip()
+                label = (item.inventory_item.product.name or '').strip()
             else:
                 label = (item.description or '').strip()
             if label:

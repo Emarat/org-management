@@ -39,12 +39,12 @@
                   {{ form.item_type }}
                 </div>
 
-                <!-- Inventory Fields - Show when type=inventory -->
+                <!-- Product Fields - Show when type=inventory -->
                 <div class="inv-fields" style="display:none;">
                   <div class="row g-2">
                     <div class="col-md-5">
-                      <label class="form-label small fw-semibold">Item <span class="text-danger">*</span></label>
-                      {{ form.inventory_item }}
+                      <label class="form-label small fw-semibold">Product <span class="text-danger">*</span></label>
+                      {{ form.product }}
                     </div>
                     <div class="col-md-3">
                       <label class="form-label small fw-semibold">Quantity <span class="text-muted unit-label"></span> <span class="text-danger">*</span></label>
@@ -131,14 +131,8 @@
     </div>
   </div>
 </form>
-{% if inventory_prices %}
-  {{ inventory_prices|json_script:'inv_prices_data' }}
-{% endif %}
-{% if inventory_items %}
-<script id="inv_items_data" type="application/json">
-[{% for item in inventory_items %}{"id":"{{ item.id }}","name":"{{ item.part_name|escapejs }} ({{ item.part_code|escapejs }})","unit":"{{ item.get_unit_display|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
-</script>
-{% endif %}
+{{ product_prices|json_script:'product_prices_data' }}
+{{ inventoryitem_to_price|json_script:'inventoryitem_to_price_data' }}
 
 <div class="modal" tabindex="-1" id="quickAddCustomerModal" style="display:none; background:rgba(0,0,0,0.5); position:fixed; top:0; left:0; right:0; bottom:0;">
   <div class="modal-dialog" style="max-width:600px; margin:60px auto;">
@@ -150,12 +144,12 @@
       <div class="modal-body">
         <form id="quickAddCustomerForm">
           <div class="row g-3">
-            <div class="col-md-6"><label class="form-label">Name*</label><input type="text" name="name" class="form-control" required></div>
-            <div class="col-md-6"><label class="form-label">Phone*</label><input type="text" name="phone" class="form-control" required></div>
-            <div class="col-md-6"><label class="form-label">Company</label><input type="text" name="company" class="form-control"></div>
-            <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control"></div>
-            <div class="col-md-12"><label class="form-label">Address</label><textarea name="address" class="form-control" rows="2"></textarea></div>
-            <div class="col-md-6"><label class="form-label">City</label><input type="text" name="city" class="form-control"></div>
+            <div class="col-md-6"><label class="form-label">Name*</label><input type="text" name="name" class="form-control" autocomplete="name" required></div>
+            <div class="col-md-6"><label class="form-label">Phone*</label><input type="text" name="phone" class="form-control" autocomplete="tel" required></div>
+            <div class="col-md-6"><label class="form-label">Company</label><input type="text" name="company" class="form-control" autocomplete="organization"></div>
+            <div class="col-md-6"><label class="form-label">Email</label><input type="email" name="email" class="form-control" autocomplete="email"></div>
+            <div class="col-md-12"><label class="form-label">Address</label><textarea name="address" class="form-control" rows="2" autocomplete="street-address"></textarea></div>
+            <div class="col-md-6"><label class="form-label">City</label><input type="text" name="city" class="form-control" autocomplete="address-level2"></div>
             <div class="col-md-6"><label class="form-label">Status</label><select name="status" class="form-select"><option value="active" selected>Active</option><option value="inactive">Inactive</option></select></div>
             <div class="col-md-12"><label class="form-label">Notes</label><textarea name="notes" class="form-control" rows="2"></textarea></div>
           </div>
@@ -199,20 +193,14 @@
     var totalForms = document.getElementById('id_items-TOTAL_FORMS');
     if(totalForms){ totalForms.value = String(cards.length); }
   }
-  var INVENTORY_PRICES = {};
-  var INVENTORY_ITEMS = [];
-  var INVENTORY_UNITS = {};
-  try { 
-    var el = document.getElementById('inv_prices_data'); 
-    if (el) INVENTORY_PRICES = JSON.parse(el.textContent); 
-  } catch(e){}
-  try { 
-    var el = document.getElementById('inv_items_data'); 
-    if (el) {
-      INVENTORY_ITEMS = JSON.parse(el.textContent);
-      INVENTORY_ITEMS.forEach(function(item){ INVENTORY_UNITS[item.id] = item.unit || ''; });
-    }
-  } catch(e){}
+    var PRODUCT_PRICES = {};
+    var INVENTORYITEM_TO_PRICE = {};
+    try {
+      var el = document.getElementById('product_prices_data');
+      if (el) PRODUCT_PRICES = JSON.parse(el.textContent);
+      var el2 = document.getElementById('inventoryitem_to_price_data');
+      if (el2) INVENTORYITEM_TO_PRICE = JSON.parse(el2.textContent);
+    } catch(e){}
   var paymentAmountInput = document.getElementById('id_pay-amount');
   var customerSelect = document.getElementById('id_customer');
   var summaryTotal = document.getElementById('summaryTotal');
@@ -285,13 +273,12 @@
     var typeSel = card.querySelector('select[name$="item_type"]');
     var invFields = card.querySelector('.inv-fields');
     var machineFields = card.querySelector('.machine-fields');
-    var invSel = card.querySelector('select[name$="inventory_item"]');
+    var prodSel = card.querySelector('select[name$="product"]');
+    var invItemSel = card.querySelector('select[name$="product"]');
     var machineDescInput = card.querySelector('.machine-desc');
-    
     // Hidden Django form fields (always present)
     var hiddenQty = card.querySelector('.hidden-quantity');
     var hiddenPrice = card.querySelector('.hidden-unit-price');
-    
     // Visible input fields
     var invQtyInput = card.querySelector('.quantity-inv');
     var invPriceInput = card.querySelector('.unit-price-inv');
@@ -305,10 +292,10 @@
         if(machineFields) machineFields.style.display='none';
         // Sync inventory inputs to hidden fields
         syncInventoryToFormFields();
-        // Auto-populate price from inventory
-        if(invSel && invSel.value && INVENTORY_PRICES[invSel.value] !== undefined && invPriceInput){
+        // Auto-populate price from product
+        if(invItemSel && invItemSel.value && PRODUCT_PRICES[invItemSel.value] !== undefined && invPriceInput){
           if(!invPriceInput.value || parseFloat(invPriceInput.value) <= 0){
-            invPriceInput.value = INVENTORY_PRICES[invSel.value];
+            invPriceInput.value = PRODUCT_PRICES[invItemSel.value];
             if(hiddenPrice) hiddenPrice.value = invPriceInput.value;
           }
         }
@@ -321,17 +308,12 @@
       recalc();
     }
 
-    function syncInv(){
-      if(invSel && invSel.value && INVENTORY_PRICES[invSel.value] !== undefined && invPriceInput){
+    function syncProd(){
+      if(prodSel && prodSel.value && PRODUCT_PRICES[prodSel.value] !== undefined && invPriceInput){
         if(!invPriceInput.value || parseFloat(invPriceInput.value) <= 0){
-          invPriceInput.value = INVENTORY_PRICES[invSel.value];
+          invPriceInput.value = PRODUCT_PRICES[prodSel.value];
           if(hiddenPrice) hiddenPrice.value = invPriceInput.value;
         }
-      }
-      // Update unit label
-      var unitLabel = card.querySelector('.unit-label');
-      if(unitLabel){
-        unitLabel.textContent = (invSel && invSel.value && INVENTORY_UNITS[invSel.value]) ? '(' + INVENTORY_UNITS[invSel.value] + ')' : '';
       }
       recalc();
     }
@@ -352,8 +334,20 @@
 
     // Wire up event listeners
     if(typeSel){ typeSel.addEventListener('change', syncType); syncType(); }
-    if(invSel){ invSel.addEventListener('change', syncInv); }
-    
+    if(prodSel){ prodSel.addEventListener('change', function(){
+      if(prodSel.value && PRODUCT_PRICES[prodSel.value] !== undefined && invPriceInput){
+        invPriceInput.value = PRODUCT_PRICES[prodSel.value];
+        if(hiddenPrice) hiddenPrice.value = invPriceInput.value;
+      }
+      recalc();
+    }); }
+    if(invItemSel){ invItemSel.addEventListener('change', function(){
+      if(invItemSel.value && PRODUCT_PRICES[invItemSel.value] !== undefined && invPriceInput){
+        invPriceInput.value = PRODUCT_PRICES[invItemSel.value];
+        if(hiddenPrice) hiddenPrice.value = invPriceInput.value;
+      }
+      recalc();
+    }); }
     ['change','keyup'].forEach(function(evt){
       if(invPriceInput) invPriceInput.addEventListener(evt, syncInventoryToFormFields);
       if(invQtyInput) invQtyInput.addEventListener(evt, syncInventoryToFormFields);
@@ -361,7 +355,6 @@
       if(machineQtyInput) machineQtyInput.addEventListener(evt, syncMachineToFormFields);
       if(machineDescInput) machineDescInput.addEventListener(evt, syncMachineToFormFields);
     });
-
     var removeBtn = card.querySelector('.remove-item-btn');
     if(removeBtn){
       removeBtn.addEventListener('click', function(){
@@ -373,6 +366,20 @@
   }
 
   qsa('.item-card').forEach(wireCard);
+  // Ensure autofill triggers for existing forms on page load (safe, with debug)
+  qsa('.item-card').forEach(function(card, idx){
+    try {
+      var prodSel = card.querySelector('select[name$="product"]');
+      var invPriceInput = card.querySelector('.unit-price-inv');
+      var hiddenPrice = card.querySelector('.hidden-unit-price');
+      if(prodSel){
+        if(prodSel.value && typeof PRODUCT_PRICES !== 'undefined' && PRODUCT_PRICES[prodSel.value] !== undefined && invPriceInput){
+          invPriceInput.value = PRODUCT_PRICES[prodSel.value];
+          if(hiddenPrice) hiddenPrice.value = invPriceInput.value;
+        }
+      }
+    } catch(e){}
+  });
 
   var addBtn = document.getElementById('addItemRowBtn');
   addBtn.addEventListener('click', function(){
@@ -389,8 +396,8 @@
         + '<div class="inv-fields" style="display:none;">'
         + '<div class="row g-2">'
         + '<div class="col-md-5">'
-        + '<label class="form-label small fw-semibold">Item <span class="text-danger">*</span></label>'
-        + '<select name="items-'+index+'-inventory_item" class="form-select form-select-sm"></select>'
+        + '<label class="form-label small fw-semibold">Product <span class="text-danger">*</span></label>'
+        + '<select name="items-'+index+'-product" class="form-select form-select-sm"></select>'
         + '</div>'
         + '<div class="col-md-3">'
         + '<label class="form-label small fw-semibold">Quantity <span class="text-muted unit-label"></span> <span class="text-danger">*</span></label>'
@@ -430,14 +437,25 @@
     temp.innerHTML = cardHtml;
     var card = temp.firstElementChild;
     
-    // Populate inventory dropdown
-    var invSelect = card.querySelector('select[name$="inventory_item"]');
-    if(invSelect){
-      var opts = '<option value="">---------</option>';
-      INVENTORY_ITEMS.forEach(function(item){ 
-        opts += '<option value="'+item.id+'">'+item.name+'</option>'; 
-      });
-      invSelect.innerHTML = opts;
+    // Populate product dropdown for the new row by copying an existing product select if available
+    var prodSelect = card.querySelector('select[name$="product"]');
+    if(prodSelect){
+      try {
+        var sample = document.querySelector('select[name$="product"]');
+        if(sample && sample.innerHTML && sample.options && sample.options.length > 0){
+          prodSelect.innerHTML = sample.innerHTML;
+        } else if (typeof PRODUCT_PRICES !== 'undefined') {
+          var opts = '<option value="">---------</option>';
+          for(var k in PRODUCT_PRICES){
+            if(Object.prototype.hasOwnProperty.call(PRODUCT_PRICES,k)){
+              opts += '<option value="'+k+'">Product '+k+'</option>';
+            }
+          }
+          prodSelect.innerHTML = opts;
+        }
+      } catch(e){
+        prodSelect.innerHTML = '<option value="">---------</option>';
+      }
     }
     
     document.getElementById('itemsContainer').appendChild(card);

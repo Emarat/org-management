@@ -286,12 +286,12 @@
             <tbody>
               {% for item in low_stock_alerts %}
               <tr>
-                <td>{{ item.part_code }}</td>
-                <td>{{ item.part_name }}</td>
+                <td>{{ item.identifier }}</td>
+                <td>{{ item.product.name }}</td>
                 <td class="text-danger">
-                  <strong>{{ item.quantity }}</strong>
+                  <strong>{{ item.remaining_quantity }}</strong>
                 </td>
-                <td>{{ item.minimum_stock }}</td>
+                <td>{{ item.status }}</td>
                 <td>
                   <a
                     href="{% url 'inventory_edit' item.pk %}"
@@ -346,7 +346,7 @@
                         {% if top_products_max_qty %}
                           {% widthratio p.total_qty top_products_max_qty 100 as bar_width %}
                           <div class="progress-bar bg-primary" role="progressbar"
-                               style="width: {{ bar_width }}%"
+                               style="width: {{ bar_width }}%;
                                aria-valuenow="{{ p.total_qty }}" aria-valuemin="0" aria-valuemax="{{ top_products_max_qty }}"></div>
                         {% else %}
                           <div class="progress-bar bg-primary" role="progressbar"
