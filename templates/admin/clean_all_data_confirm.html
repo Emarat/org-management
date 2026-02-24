@@ -1,0 +1,13 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+  <h1>{{ title }}</h1>
+  <p>This will delete ALL database records for every model in this project (best-effort) and will remove files under <strong>{{ media_root }}</strong>.</p>
+  <p>Make sure you have a backup before proceeding. This action is irreversible.</p>
+
+  <form method="post" style="margin-top:1em;">
+    {% csrf_token %}
+    <input type="submit" value="Yes — delete all data" class="default">
+    <a href="{% url 'admin:index' %}">Cancel</a>
+  </form>
+{% endblock %}

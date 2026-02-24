@@ -5,8 +5,10 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from core import admin as core_admin
 
 urlpatterns = [
+    path('admin/clean-all-data/', admin.site.admin_view(core_admin.clean_all_data_view), name='admin-clean-all-data'),
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
 ]
