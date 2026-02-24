@@ -46,9 +46,10 @@
 
       /* Keep the left menu visible when scrolling */
       .sidebar .position-sticky { top: 0; }
-  /* Use a wrapper layout to ensure sidebar sticks; avoid position:sticky conflicts inside Bootstrap grid */
-  .layout-row { display: flex; min-height: 100vh; overflow-x: hidden; }
-  .sidebar { width: 240px; min-width: 240px; height: 100vh; position: sticky; top: 0; overflow-y: auto; transition: margin-left 0.3s ease; z-index: 1040; }
+  /* Use a wrapper layout to ensure sidebar sticks; make main the single scrollable area */
+  .layout-row { display: flex; height: 100vh; overflow: hidden; }
+  main.flex-grow-1 { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .sidebar { width: 240px; min-width: 240px; height: 100vh; position: sticky; top: 0; overflow-y: auto; overscroll-behavior: contain; transition: margin-left 0.3s ease; z-index: 1040; flex: 0 0 240px; }
 
   /* Collapsed sidebar — slide out and let main fill */
   body.sidebar-collapsed .sidebar { margin-left: -240px; }
@@ -64,6 +65,8 @@
     body.sidebar-collapsed .sidebar { margin-left: -240px; }
     .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 1045; }
     body.sidebar-open .sidebar-overlay { display: block; }
+    /* Prevent background content from scrolling when sidebar overlay is open */
+    body.sidebar-open { overflow: hidden; }
   }
   @media (min-width: 993px) { .sidebar-overlay { display: none !important; } }
 

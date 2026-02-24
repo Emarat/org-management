@@ -165,6 +165,15 @@ http://127.0.0.1:8000/admin/
 - Quick access to recent expenses and payments
 - Quick action buttons for common tasks
 
+## Layout & Sidebar
+
+- The app uses a left-hand sidebar and a single scrollable main content area. On desktop the sidebar is fixed and the `main` content scrolls independently to avoid double scrollbars. On mobile the sidebar appears as an overlay; when open, background scrolling is locked so the page behind the overlay doesn't scroll.
+- To customize the sidebar width or behavior, edit `templates/base.html` CSS variables and rules:
+   - Sidebar width: modify the `240px` values in the `.sidebar` / `.layout-row` styles.
+   - Mobile overlay behavior: the `body.sidebar-open` class disables body scrolling. The toggle is handled by the script at the bottom of `templates/base.html`.
+
+This change improves UX on small screens and prevents scroll chaining between the sidebar and page content.
+
 ### Employees
 
 - Add, edit, and delete employee records
