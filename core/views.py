@@ -53,6 +53,7 @@ from functools import wraps
 logger = logging.getLogger(__name__)
 from django.contrib import messages
 from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWrapper
+from django.db.models.deletion import ProtectedError
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
@@ -226,9 +227,61 @@ def customer_edit(request, pk):
 def customer_delete(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
     if request.method == 'POST':
-        customer.delete()
-        messages.success(request, 'Customer deleted successfully!')
-        return redirect('customer_list')
+        # Build a concise summary of blocking relations and show it inline
+        total_sales = customer.sales.count()
+        finalized_sales = customer.sales.filter(status='finalized').count()
+        total_payments = customer.payments.count()
+
+        if total_sales or total_payments:
+            parts = []
+            if total_sales:
+                if finalized_sales:
+                    parts.append(f"{total_sales} orders ({finalized_sales} finalized)")
+                else:
+                    parts.append(f"{total_sales} orders")
+            if total_payments:
+                parts.append(f"{total_payments} payments")
+            human = ', '.join(parts)
+            orders_url = reverse('customer_detail', args=[pk]) + '#orders'
+            error_message = (
+                f"Cannot delete {customer.name} because they have {human}."
+            )
+            return render(request, 'core/confirm_delete.html', {
+                'object': customer,
+                'type': 'Customer',
+                'error_message': error_message,
+                'orders_url': orders_url,
+                'blocking': True,
+                'block_counts': {
+                    'total_sales': total_sales,
+                    'finalized_sales': finalized_sales,
+                    'total_payments': total_payments,
+                },
+            })
+
+        # No blocking relations — attempt delete but still catch ProtectedError
+        try:
+            customer.delete()
+            messages.success(request, 'Customer deleted successfully!')
+            return redirect('customer_list')
+        except ProtectedError:
+            error_message = (
+                'Cannot delete customer: related protected records exist (e.g. orders). '
+                'Please review the Orders tab and reassign or remove related records.'
+            )
+            orders_url = reverse('customer_detail', args=[pk]) + '#orders'
+            return render(request, 'core/confirm_delete.html', {
+                'object': customer,
+                'type': 'Customer',
+                'error_message': error_message,
+                'orders_url': orders_url,
+                'blocking': True,
+                'block_counts': {
+                    'total_sales': total_sales,
+                    'finalized_sales': finalized_sales,
+                    'total_payments': total_payments,
+                },
+            })
     return render(request, 'core/confirm_delete.html', {'object': customer, 'type': 'Customer'})
 
 
