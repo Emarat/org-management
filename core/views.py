@@ -999,12 +999,20 @@ def sale_create_unified(request):
                     
                 try:
                     inv_item = InventoryItem.objects.get(pk=inv_id)
+                    # Determine default unit price: posted price else product.sale_price else purchase_price_per_unit
+                    if price:
+                        default_price = float(price)
+                    else:
+                        if getattr(inv_item, 'product', None) and getattr(inv_item.product, 'sale_price', None) is not None:
+                            default_price = float(inv_item.product.sale_price or 0)
+                        else:
+                            default_price = float(inv_item.purchase_price_per_unit or 0)
                     cleaned_items.append({
                         'item_type': 'inventory',
                         'inventory_item': inv_item,
                         'description': inv_item.name,
                         'quantity': int(qty) if qty else 1,
-                        'unit_price': float(price) if price else inv_item.unit_price
+                        'unit_price': default_price
                     })
                 except (InventoryItem.DoesNotExist, ValueError):
                     messages.error(request, 'Invalid inventory item')
@@ -1041,7 +1049,11 @@ def sale_create_unified(request):
                 unit_price = cd.get('unit_price') or 0
                 # If inventory and unit_price zero, fallback
                 if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                    unit_price = cd['inventory_item'].unit_price or 0
+                    inv = cd['inventory_item']
+                    if getattr(inv, 'product', None) and getattr(inv.product, 'sale_price', None) is not None:
+                        unit_price = inv.product.sale_price or 0
+                    else:
+                        unit_price = inv.purchase_price_per_unit or 0
                 qty = cd.get('quantity') or 0
                 total_amount += unit_price * qty
         # Payment validation (if provided)
@@ -1065,7 +1077,11 @@ def sale_create_unified(request):
                 for cd in cleaned_items:
                     unit_price = cd.get('unit_price') or 0
                     if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                        unit_price = cd['inventory_item'].unit_price or 0
+                        inv = cd['inventory_item']
+                        if getattr(inv, 'product', None) and getattr(inv.product, 'sale_price', None) is not None:
+                            unit_price = inv.product.sale_price or 0
+                        else:
+                            unit_price = inv.purchase_price_per_unit or 0
                     SaleItem.objects.create(
                         sale=sale,
                         item_type=cd['item_type'],
@@ -1241,21 +1257,22 @@ def sale_quote_create(request):
             for f in item_formset.forms:
                 if f.cleaned_data.get('DELETE'): continue
                 cd = f.cleaned_data
-                if not cd.get('item_type') and not cd.get('inventory_item') and not cd.get('description'): continue
+                # For SaleItemForm the inventory selection is via `product` (product-level selection)
+                if not cd.get('item_type') and not cd.get('product') and not cd.get('description'): continue
                 if not cd.get('item_type'):
                     f.add_error('item_type', 'Select type'); valid = False; continue
                 if cd.get('item_type') == 'non_inventory' and not cd.get('description'):
                     f.add_error('description', 'Description required'); valid = False; continue
-                if cd.get('item_type') == 'inventory' and not cd.get('inventory_item'):
-                    f.add_error('inventory_item', 'Choose inventory item'); valid = False; continue
+                if cd.get('item_type') == 'inventory' and not cd.get('product'):
+                    f.add_error('product', 'Choose product'); valid = False; continue
                 cleaned_items.append(cd)
         if not cleaned_items:
             messages.error(request, 'Add at least one valid item.'); valid = False
         total_amount = 0
         for cd in cleaned_items:
             unit_price = cd.get('unit_price') or 0
-            if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                unit_price = cd['inventory_item'].unit_price or 0
+            if cd.get('item_type') == 'inventory' and cd.get('product') and (unit_price is None or unit_price <= 0):
+                unit_price = cd['product'].sale_price or 0
             qty = cd.get('quantity') or 0
             total_amount += unit_price * qty
         payment_amount = None
@@ -1274,14 +1291,21 @@ def sale_quote_create(request):
                 sale.save()
                 for cd in cleaned_items:
                     unit_price = cd.get('unit_price') or 0
-                    if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                        unit_price = cd['inventory_item'].unit_price or 0
+                    if cd.get('item_type') == 'inventory' and cd.get('product') and (unit_price is None or unit_price <= 0):
+                        unit_price = cd['product'].sale_price or 0
+                    # Try to associate a concrete InventoryItem when product-level selection used
+                    inv_item = None
+                    if cd.get('item_type') == 'inventory':
+                        inv_item = cd.get('inventory_item') if cd.get('inventory_item') else None
+                        if not inv_item and cd.get('product'):
+                            inv_item = InventoryItem.objects.filter(product=cd['product'], quantity__gt=0).order_by('created_at').first()
+
                     SaleItem.objects.create(
                         sale=sale,
                         item_type=cd['item_type'],
-                        inventory_item=cd.get('inventory_item') if cd['item_type'] == 'inventory' else None,
+                        inventory_item=inv_item if cd['item_type'] == 'inventory' else None,
                         description=(cd.get('description') or '') if cd['item_type'] != 'inventory' else (
-                            f"{cd['inventory_item'].product.name} [{cd['inventory_item'].identifier}]" if cd.get('inventory_item') else ''
+                            f"{inv_item.product.name} [{inv_item.identifier}]" if inv_item else (f"{cd['product'].name}" if cd.get('product') else '')
                         ),
                         quantity=cd.get('quantity') or 0,
                         unit_price=unit_price,
@@ -1305,13 +1329,19 @@ def sale_quote_create(request):
         item_formset = formset_factory(SaleItemForm, extra=1, can_delete=True)(prefix='items')
         payment_form = SalePaymentForm(prefix='pay')
     inventory_items = InventoryItem.objects.all()
-    inv_prices = {str(i.id): float(i.unit_price or 0) for i in inventory_items}
+    inv_prices = {str(i.id): float(i.purchase_price_per_unit or 0) for i in inventory_items}
+    # Provide product sale prices and per-inventory-item sale price mapping for the template JS
+    product_prices = {str(p.id): float(p.sale_price or 0) for p in Product.objects.all()}
+    inventory_items_qs = InventoryItem.objects.select_related('product').all()
+    inventoryitem_to_price = {str(i.id): float(i.product.sale_price or 0) for i in inventory_items_qs if i.product}
     return render(request, 'core/sale_create_unified.html', {
         'sale_form': sale_form,
         'item_formset': item_formset,
         'payment_form': payment_form,
         'inventory_items': inventory_items,
         'inventory_prices': inv_prices,
+        'product_prices': product_prices,
+        'inventoryitem_to_price': inventoryitem_to_price,
         'title': 'Create Quotation'
     })
 
