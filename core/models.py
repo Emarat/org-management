@@ -86,7 +86,8 @@ class InventoryItem(models.Model):
     part_code = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True)
     category = models.CharField(max_length=100, blank=True)
-    quantity = models.IntegerField(validators=[MinValueValidator(0)])
+    quantity = models.DecimalField(max_digits=12, decimal_places=3, validators=[MinValueValidator(0)])
+    box_count = models.IntegerField(default=0, validators=[MinValueValidator(0)], help_text='Optional. Number of boxes/drums/batches on hand')
     unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default='pcs')
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=True, blank=True, help_text="Optional. Unit purchase cost.")
     unit_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=True, blank=True, help_text="Optional. Leave blank if unknown.")
@@ -266,8 +267,31 @@ class Sale(models.Model):
         for item in self.items.select_related('inventory_item'):
             if item.item_type == 'inventory' and item.inventory_item:
                 inv = item.inventory_item
+                # Validate boxes if provided
+                if (item.boxes or 0) > 0:
+                    if inv.box_count < item.boxes:
+                        raise ValueError(f"Insufficient box stock for {inv.part_name} ({inv.part_code}). Available boxes: {inv.box_count}, required: {item.boxes}")
+                # Validate unit quantity
                 if inv.quantity < item.quantity:
-                    raise ValueError(f"Insufficient stock for {inv.part_name} ({inv.part_code}). Available: {inv.quantity}, required: {item.quantity}")
+                    raise ValueError(f"Insufficient unit stock for {inv.part_name} ({inv.part_code}). Available: {inv.quantity}, required: {item.quantity}")
+
+                # Reduce box count separately
+                if (item.boxes or 0) > 0:
+                    prev_boxes = inv.box_count
+                    inv.box_count = prev_boxes - item.boxes
+                    inv.save(update_fields=['box_count', 'updated_at'])
+
+                    StockHistory.objects.create(
+                        item=inv,
+                        transaction_type='out',
+                        quantity=item.boxes,
+                        previous_quantity=prev_boxes,
+                        new_quantity=inv.box_count,
+                        reason=f"Sale {self.sale_number} (boxes)",
+                        created_by=(getattr(user, 'username', '') or '')
+                    )
+
+                # Reduce loose-unit quantity
                 previous = inv.quantity
                 inv.quantity = previous - item.quantity
                 inv.save(update_fields=['quantity', 'updated_at'])
@@ -302,10 +326,11 @@ class SaleItem(models.Model):
     ]
 
     sale = models.ForeignKey('Sale', on_delete=models.CASCADE, related_name='items')
-    item_type = models.CharField(max_length=20, choices=ITEM_TYPE_CHOICES)
+    item_type = models.CharField(max_length=20, choices=ITEM_TYPE_CHOICES, default='inventory')
     inventory_item = models.ForeignKey('InventoryItem', on_delete=models.PROTECT, null=True, blank=True, related_name='sale_items')
     description = models.TextField(blank=True, help_text="Required for non-inventory items")
-    quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)], default=1)
+    quantity = models.DecimalField(max_digits=12, decimal_places=3, validators=[MinValueValidator(0.001)], default=1)
+    boxes = models.IntegerField(default=0, validators=[MinValueValidator(0)], help_text='Optional: number of boxes sold')
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     line_total = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], default=0)
 
@@ -431,9 +456,9 @@ class StockHistory(models.Model):
     
     item = models.ForeignKey(InventoryItem, on_delete=models.CASCADE, related_name='stock_history')
     transaction_type = models.CharField(max_length=20, choices=TRANSACTION_CHOICES)
-    quantity = models.IntegerField()
-    previous_quantity = models.IntegerField()
-    new_quantity = models.IntegerField()
+    quantity = models.DecimalField(max_digits=12, decimal_places=3)
+    previous_quantity = models.DecimalField(max_digits=12, decimal_places=3)
+    new_quantity = models.DecimalField(max_digits=12, decimal_places=3)
     reason = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.CharField(max_length=100, blank=True)

@@ -956,14 +956,23 @@ def sale_create_unified(request):
                     
                 try:
                     inv_item = InventoryItem.objects.get(pk=inv_id)
+                    from decimal import Decimal as _D, InvalidOperation
+                    try:
+                        qty_dec = _D(str(qty)) if qty else _D('1')
+                    except InvalidOperation:
+                        qty_dec = _D('1')
+                    try:
+                        price_dec = _D(str(price)) if price else None
+                    except InvalidOperation:
+                        price_dec = None
                     cleaned_items.append({
                         'item_type': 'inventory',
                         'inventory_item': inv_item,
                         'description': inv_item.name,
-                        'quantity': int(qty) if qty else 1,
-                        'unit_price': float(price) if price else inv_item.unit_price
+                        'quantity': qty_dec,
+                        'unit_price': price_dec if price_dec is not None else inv_item.unit_price
                     })
-                except (InventoryItem.DoesNotExist, ValueError):
+                except InventoryItem.DoesNotExist:
                     messages.error(request, 'Invalid inventory item')
                     valid = False
                     
@@ -977,30 +986,37 @@ def sale_create_unified(request):
                     valid = False
                     continue
                 
+                from decimal import Decimal as _D, InvalidOperation
                 try:
-                    item_dict = {
-                        'item_type': 'non_inventory',
-                        'inventory_item': None,
-                        'description': machine_desc,
-                        'quantity': int(qty) if qty else 1,
-                        'unit_price': float(price) if price else 0
-                    }
-                    cleaned_items.append(item_dict)
-                except ValueError as e:
-                    valid = False
+                    qty_dec = _D(str(qty)) if qty else _D('1')
+                except InvalidOperation:
+                    qty_dec = _D('1')
+                try:
+                    price_dec = _D(str(price)) if price else _D('0')
+                except InvalidOperation:
+                    price_dec = _D('0')
+                item_dict = {
+                    'item_type': 'non_inventory',
+                    'inventory_item': None,
+                    'description': machine_desc,
+                    'quantity': qty_dec,
+                    'unit_price': price_dec
+                }
+                cleaned_items.append(item_dict)
         if not cleaned_items:
             valid = False
             messages.error(request, 'Add at least one valid item.')
         # Compute total from items (unit_price fallback to inventory price if missing)
-        total_amount = 0
+        from decimal import Decimal as _D
+        total_amount = _D('0')
         if cleaned_items:
             for cd in cleaned_items:
-                unit_price = cd.get('unit_price') or 0
+                unit_price = cd.get('unit_price') or _D('0')
                 # If inventory and unit_price zero, fallback
                 if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                    unit_price = cd['inventory_item'].unit_price or 0
-                qty = cd.get('quantity') or 0
-                total_amount += unit_price * qty
+                    unit_price = _D(str(cd['inventory_item'].unit_price or 0))
+                qty = cd.get('quantity') or _D('0')
+                total_amount += _D(str(unit_price)) * _D(str(qty))
         # Payment validation (if provided)
         payment_amount = None
         if payment_form.is_valid():
@@ -1031,6 +1047,7 @@ def sale_create_unified(request):
                             f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
                         ),
                         quantity=cd.get('quantity') or 0,
+                        boxes=cd.get('boxes') or 0,
                         unit_price=unit_price,
                     )
                 sale.recalc_total(save=True)
@@ -1096,13 +1113,14 @@ def sale_create(request):
                 cleaned_items.append(cd)
         if not cleaned_items:
             messages.error(request, 'Add at least one valid item.'); valid = False
-        total_amount = 0
+        from decimal import Decimal as _D
+        total_amount = _D('0')
         for cd in cleaned_items:
-            unit_price = cd.get('unit_price') or 0
+            unit_price = cd.get('unit_price') or _D('0')
             if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                unit_price = cd['inventory_item'].unit_price or 0
-            qty = cd.get('quantity') or 0
-            total_amount += unit_price * qty
+                unit_price = _D(str(cd['inventory_item'].unit_price or 0))
+            qty = cd.get('quantity') or _D('0')
+            total_amount += _D(str(unit_price)) * _D(str(qty))
         payment_amount = None
         if payment_form.is_valid():
             payment_amount = payment_form.cleaned_data.get('amount')
@@ -1128,6 +1146,7 @@ def sale_create(request):
                             f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
                         ),
                         quantity=cd.get('quantity') or 0,
+                        boxes=cd.get('boxes') or 0,
                         unit_price=unit_price,
                     )
                 sale.recalc_total(save=True)
@@ -1190,13 +1209,14 @@ def sale_quote_create(request):
                 cleaned_items.append(cd)
         if not cleaned_items:
             messages.error(request, 'Add at least one valid item.'); valid = False
-        total_amount = 0
+        from decimal import Decimal as _D
+        total_amount = _D('0')
         for cd in cleaned_items:
-            unit_price = cd.get('unit_price') or 0
+            unit_price = cd.get('unit_price') or _D('0')
             if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                unit_price = cd['inventory_item'].unit_price or 0
-            qty = cd.get('quantity') or 0
-            total_amount += unit_price * qty
+                unit_price = _D(str(cd['inventory_item'].unit_price or 0))
+            qty = cd.get('quantity') or _D('0')
+            total_amount += _D(str(unit_price)) * _D(str(qty))
         payment_amount = None
         if payment_form.is_valid():
             payment_amount = payment_form.cleaned_data.get('amount')
@@ -1223,6 +1243,7 @@ def sale_quote_create(request):
                             f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
                         ),
                         quantity=cd.get('quantity') or 0,
+                        boxes=cd.get('boxes') or 0,
                         unit_price=unit_price,
                     )
                 sale.recalc_total(save=True)
