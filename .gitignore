@@ -49,26 +49,3 @@ Thumbs.db
 .env
 .env.local
 *.sql
-# Local Python envs
-.venv/
-venv/
-env/
-
-# SQLite DB and SQL backups
-db.sqlite3
-backup-*.sql
-
-# Python cache
-__pycache__/
-*.py[cod]
-
-# Test artifacts and e2e
-e2e/
-.e2e_results/
-
-# IDE / OS
-.vscode/
-.idea/
-.DS_Store
-*.log
-

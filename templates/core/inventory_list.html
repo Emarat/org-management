@@ -54,46 +54,36 @@
       <table class="table table-hover">
         <thead>
           <tr>
-            <th style="width:40px">#</th>
-            <th style="min-width:120px">Product</th>
-            <th style="min-width:70px">Type</th>
-            <th style="min-width:90px">Identifier</th>
-            <th style="min-width:80px">Quantity</th>
-            <th style="min-width:60px">Unit</th>
-            <th style="min-width:120px">Purchase Price/Unit</th>
-            <th style="min-width:90px">Remaining</th>
-            <th style="min-width:100px">Total Value</th>
-            <th style="min-width:120px">Location</th>
-            <th style="min-width:80px">Status</th>
-            <th style="min-width:120px">Actions</th>
+            <th>Part Code</th>
+            <th>Part Name</th>
+            <th>Category</th>
+            <th>Quantity</th>
+            <th>Unit</th>
+            <th>Purchase Price</th>
+            <th>Unit Price</th>
+            <th>Total Value</th>
+            <th>Location</th>
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {% for item in items %}
           <tr class="{% if item.is_low_stock %}table-warning{% endif %}">
-            <td>{{ forloop.counter }}</td>
-            <td>{{ item.product.name }}</td>
-            <td>{{ item.inventory_type }}</td>
-            <td>{{ item.identifier }}</td>
+            <td><strong>{{ item.part_code }}</strong></td>
+            <td>{{ item.part_name }}</td>
+            <td>{{ item.category|default:"-" }}</td>
             <td><strong>{{ item.quantity }}</strong></td>
-            <td>{{ item.unit }}</td>
-            <td>৳&nbsp;{{ item.purchase_price_per_unit }}</td>
-            <td>
-              {% if item.remaining_quantity is not None %}
-                {{ item.remaining_quantity }}
-              {% else %}
-                {{ item.quantity }}
-              {% endif %}
-            </td>
+            <td>{{ item.get_unit_display }}</td>
+            <td>{% if item.purchase_price is not None %}৳&nbsp;{{ item.purchase_price }}{% else %}-{% endif %}</td>
+            <td>৳&nbsp;{{ item.unit_price }}</td>
             <td>৳&nbsp;{{ item.total_value|floatformat:2 }}</td>
             <td>{{ item.location|default:"-" }}</td>
             <td>
-              {% if item.stock_status == "Out of Stock" %}
-                <span class="badge bg-dark">Out of Stock</span>
-              {% elif item.stock_status == "Low Stock" %}
-                <span class="badge bg-danger">Low Stock</span>
+              {% if item.is_low_stock %}
+              <span class="badge bg-danger">Low Stock</span>
               {% else %}
-                <span class="badge bg-success">In Stock</span>
+              <span class="badge bg-success">In Stock</span>
               {% endif %}
             </td>
             <td>

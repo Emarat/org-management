@@ -13,10 +13,9 @@ class SalesFeatureTests(TestCase):
         self.user = User.objects.create_superuser(username='admin', password='pass123')
         self.client.login(username='admin', password='pass123')
         # Common inventory item
-        from core.models import Product
-        product = Product.objects.create(name='Gear', sale_unit='pcs', sale_price=75)
         self.inv = InventoryItem.objects.create(
-            product=product, inventory_type='piece', identifier='G001', quantity=50, unit='pcs', purchase_price_per_unit=60, remaining_quantity=50, status='in_stock', location='A1', supplier='Acme Ltd'
+            part_name='Gear', part_code='G001', description='Steel gear', category='mechanical',
+            quantity=50, unit='pcs', unit_price=75, location='A1', minimum_stock=5
         )
         self.customer = Customer.objects.create(name='Acme Ltd', phone='123456')
 

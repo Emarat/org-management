@@ -339,7 +339,7 @@
           <td>{{ item.get_item_type_display }}</td>
           <td>
             {% if item.item_type == 'inventory' and item.inventory_item %}
-              {{ item.inventory_item.product.name }}
+              {{ item.inventory_item.part_name }} ({{ item.inventory_item.part_code }})
             {% else %}
               {{ item.description }}
             {% endif %}

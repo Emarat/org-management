@@ -6,30 +6,6 @@ from django.utils import timezone
 import uuid
 from django.conf import settings
 
-# --- Product Model ---
-class Product(models.Model):
-    name = models.CharField(max_length=200, unique=True)
-    sale_unit = models.CharField(max_length=20, choices=[('pcs', 'Pieces'), ('kg', 'Kilogram'), ('ltr', 'Liter'), ('mtr', 'Meter')], default='pcs')
-    sale_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    description = models.TextField(blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-    
-    class Meta:
-        ordering = ['name']
-        verbose_name = 'Product'
-        verbose_name_plural = 'Products'
-    
-    def __str__(self):
-        return f"{self.name} ({self.sale_unit})"
-import logging
-
-from django.db import models, transaction
-from django.core.validators import MinValueValidator, FileExtensionValidator
-from django.utils import timezone
-import uuid
-from django.conf import settings
-
 logger = logging.getLogger(__name__)
 
 # Allowed file extensions for bill claim attachments
@@ -105,90 +81,36 @@ class InventoryItem(models.Model):
         ('ltr', 'Liter'),
         ('mtr', 'Meter'),
     ]
-    INVENTORY_TYPE_CHOICES = [
-        ('box', 'Box'),
-        ('piece', 'Piece'),
-        ('drum', 'Drum'),
-        ('batch', 'Batch'),
-        ('loose', 'Loose'),
-    ]
-    product = models.ForeignKey('Product', on_delete=models.CASCADE, related_name='inventory_items', null=True, blank=True)
-    inventory_type = models.CharField(max_length=20, choices=INVENTORY_TYPE_CHOICES, default='box')
-    identifier = models.CharField(max_length=50, blank=True, help_text="Box/Drum/Batch No")
-    quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default='kg')
-    purchase_price_per_unit = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=True, blank=True)
-    remaining_quantity = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=True, blank=True)
-    status = models.CharField(max_length=20, default='in_stock')
-
-    def save(self, *args, **kwargs):
-        # Set remaining_quantity to quantity if not set
-        if self.remaining_quantity is None:
-            self.remaining_quantity = self.quantity
-        # Always default status to 'in_stock' if not set
-        if not self.status:
-            self.status = 'in_stock'
-        super().save(*args, **kwargs)
+    
+    part_name = models.CharField(max_length=200)
+    part_code = models.CharField(max_length=50, unique=True)
+    description = models.TextField(blank=True)
+    category = models.CharField(max_length=100, blank=True)
+    quantity = models.IntegerField(validators=[MinValueValidator(0)])
+    unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default='pcs')
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=True, blank=True, help_text="Optional. Unit purchase cost.")
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=True, blank=True, help_text="Optional. Leave blank if unknown.")
     location = models.CharField(max_length=100, blank=True, help_text="Warehouse location/shelf")
+    minimum_stock = models.IntegerField(default=10, validators=[MinValueValidator(0)])
     supplier = models.CharField(max_length=200, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
-        ordering = ['product', 'identifier', 'created_at']
+        ordering = ['part_name']
         verbose_name = 'Inventory Item'
         verbose_name_plural = 'Inventory Items'
     
     def __str__(self):
-        product_name = self.product.name if self.product else "(No Product)"
-        return f"{product_name} [{self.identifier}] ({self.quantity} {self.unit})"
+        return f"{self.part_name} ({self.part_code})"
     
     @property
     def total_value(self):
-        from decimal import Decimal
-        if self.quantity is None or self.purchase_price_per_unit is None:
-            return Decimal('0.00')
-        return self.quantity * self.purchase_price_per_unit
-
+        return self.quantity * (self.unit_price or 0)
+    
     @property
     def is_low_stock(self):
-        """Return True when remaining stock is considered low.
-
-        Priority:
-        - If an integer `minimum_stock` field exists on the model, compare against that.
-        - Otherwise, use a default heuristic: remaining_quantity <= 10% of original quantity.
-        """
-        from decimal import Decimal, InvalidOperation
-        try:
-            if self.remaining_quantity is None:
-                return False
-            rq = Decimal(str(self.remaining_quantity))
-            qty = Decimal(str(self.quantity or 0))
-            # If model has minimum_stock field, prefer it
-            if hasattr(self, 'minimum_stock') and self.minimum_stock is not None:
-                try:
-                    return rq <= Decimal(str(self.minimum_stock))
-                except (InvalidOperation, TypeError):
-                    pass
-            if qty == 0:
-                return rq <= 0
-            return rq <= (Decimal('0.1') * qty)
-        except (InvalidOperation, TypeError):
-            return False
-    
-
-    @property
-    def stock_status(self):
-        from decimal import Decimal
-        if self.remaining_quantity is None or self.quantity is None:
-            return "In Stock"
-        rq = Decimal(str(self.remaining_quantity))
-        qty = Decimal(str(self.quantity))
-        if rq == 0:
-            return "Out of Stock"
-        elif rq <= Decimal('0.1') * qty:
-            return "Low Stock"
-        return "In Stock"
+        return self.quantity <= self.minimum_stock
 
 
 class Expense(models.Model):
@@ -343,36 +265,25 @@ class Sale(models.Model):
         low_stock_items = []
         for item in self.items.select_related('inventory_item'):
             if item.item_type == 'inventory' and item.inventory_item:
-                # Deduct from all available boxes for the product
-                product = item.inventory_item.product
-                required_qty = item.quantity
-                available_boxes = InventoryItem.objects.filter(product=product, quantity__gt=0).order_by('created_at')
-                total_available = sum([box.quantity for box in available_boxes])
-                if total_available < required_qty:
-                    pname = product.name if product else "(No Product)"
-                    raise ValueError(f"Insufficient stock for {pname}. Available: {total_available}, required: {required_qty}")
-                for box in available_boxes:
-                    if required_qty <= 0:
-                        break
-                    deduct = min(box.quantity, required_qty)
-                    previous = box.quantity
-                    box.quantity = previous - deduct
-                    # Also update remaining_quantity if used
-                    if hasattr(box, 'remaining_quantity') and box.remaining_quantity is not None:
-                        box.remaining_quantity = box.remaining_quantity - deduct
-                    box.save(update_fields=['quantity', 'remaining_quantity', 'updated_at'])
-                    StockHistory.objects.create(
-                        item=box,
-                        transaction_type='out',
-                        quantity=deduct,
-                        previous_quantity=previous,
-                        new_quantity=box.quantity,
-                        reason=f"Sale {self.sale_number}",
-                        created_by=(getattr(user, 'username', '') or '')
-                    )
-                    if box.is_low_stock:
-                        low_stock_items.append(box)
-                    required_qty -= deduct
+                inv = item.inventory_item
+                if inv.quantity < item.quantity:
+                    raise ValueError(f"Insufficient stock for {inv.part_name} ({inv.part_code}). Available: {inv.quantity}, required: {item.quantity}")
+                previous = inv.quantity
+                inv.quantity = previous - item.quantity
+                inv.save(update_fields=['quantity', 'updated_at'])
+
+                StockHistory.objects.create(
+                    item=inv,
+                    transaction_type='out',
+                    quantity=item.quantity,
+                    previous_quantity=previous,
+                    new_quantity=inv.quantity,
+                    reason=f"Sale {self.sale_number}",
+                    created_by=(getattr(user, 'username', '') or '')
+                )
+
+                if inv.is_low_stock:
+                    low_stock_items.append(inv)
 
         self.status = 'finalized'
         self.finalized_at = timezone.now()
@@ -395,7 +306,7 @@ class SaleItem(models.Model):
     inventory_item = models.ForeignKey('InventoryItem', on_delete=models.PROTECT, null=True, blank=True, related_name='sale_items')
     description = models.TextField(blank=True, help_text="Required for non-inventory items")
     quantity = models.PositiveIntegerField(validators=[MinValueValidator(1)], default=1)
-    unit_price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])  # For non-inventory items; inventory price comes from InventoryItem
+    unit_price = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     line_total = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)], default=0)
 
     class Meta:
@@ -403,25 +314,12 @@ class SaleItem(models.Model):
         verbose_name_plural = 'Sale Items'
 
     def __str__(self):
-        label = self.inventory_item.product.name if (self.item_type == 'inventory' and self.inventory_item) else self.description
+        label = self.inventory_item.part_name if (self.item_type == 'inventory' and self.inventory_item) else self.description
         return f"{label} x {self.quantity}"
 
     def save(self, *args, **kwargs):
         # Auto-calc line total
-        # For inventory items prefer the sale's unit_price when provided (selling price).
-        # Fallback to the inventory item's purchase_price_per_unit when unit_price is zero/empty.
-        price = 0
-        try:
-            if self.item_type == 'inventory' and self.inventory_item:
-                if self.unit_price is not None and float(self.unit_price) > 0:
-                    price = self.unit_price
-                else:
-                    price = self.inventory_item.purchase_price_per_unit or 0
-            else:
-                price = self.unit_price or 0
-        except Exception:
-            price = self.unit_price or (self.inventory_item.purchase_price_per_unit if self.inventory_item else 0) if True else 0
-        self.line_total = price * (self.quantity or 0)
+        self.line_total = (self.unit_price or 0) * (self.quantity or 0)
         super().save(*args, **kwargs)
         # Update parent sale total quickly
         if self.sale_id:
@@ -465,6 +363,27 @@ class SalePayment(models.Model):
             self.receipt_number = f"RCPT-{today.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
         super().save(*args, **kwargs)
 
+
+class LedgerEntry(models.Model):
+    """Simple ledger to track income (payments) and expenses."""
+    ENTRY_TYPES = [
+        ('payment', 'Payment'),
+        ('expense', 'Expense'),
+    ]
+    entry_type = models.CharField(max_length=20, choices=ENTRY_TYPES)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    sale_payment = models.ForeignKey('SalePayment', null=True, blank=True, on_delete=models.SET_NULL, related_name='ledger_entries')
+    expense = models.ForeignKey('Expense', null=True, blank=True, on_delete=models.SET_NULL, related_name='ledger_entries')
+    note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        sign = '+' if self.amount >= 0 else '-'
+        label = self.entry_type
+        return f"{label} {sign}৳ {abs(self.amount)}"
 
 
 class BillClaim(models.Model):

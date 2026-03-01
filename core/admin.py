@@ -10,7 +10,6 @@ import os
 import shutil
 
 
-
 # Keep admin minimal: only Users, Groups (default) and Permissions
 admin.site.register(Permission)
 

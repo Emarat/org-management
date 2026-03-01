@@ -15,62 +15,62 @@ Management{% endblock %}
       <div class="card-body">
         <form method="post">
           {% csrf_token %}
-          <div class="container-fluid">
-            <div class="row">
-              <div class="col-md-6 mb-3">
-                <label for="{{ form.product.id_for_label }}" class="form-label">{{ form.product.label }}{% if form.product.field.required %} <span class="text-danger">*</span>{% endif %}</label>
-                {{ form.product }}
-                {% if form.product.help_text %}<div class="form-text">{{ form.product.help_text }}</div>{% endif %}
-                {% for error in form.product.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-              </div>
-              <div class="col-md-6 mb-3">
-                <label for="{{ form.inventory_type.id_for_label }}" class="form-label">{{ form.inventory_type.label }}</label>
-                {{ form.inventory_type }}
-                {% if form.inventory_type.help_text %}<div class="form-text">{{ form.inventory_type.help_text }}</div>{% endif %}
-                {% for error in form.inventory_type.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-              </div>
-              <div class="col-md-6 mb-3">
-                <label for="{{ form.identifier.id_for_label }}" class="form-label">{{ form.identifier.label }}</label>
-                {{ form.identifier }}
-                {% if form.identifier.help_text %}<div class="form-text">{{ form.identifier.help_text }}</div>{% endif %}
-                {% for error in form.identifier.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-              </div>
-              <div class="col-md-6 mb-3">
-                <label for="{{ form.quantity.id_for_label }}" class="form-label">{{ form.quantity.label }}{% if form.quantity.field.required %} <span class="text-danger">*</span>{% endif %}</label>
-                {{ form.quantity }}
-                {% if form.quantity.help_text %}<div class="form-text">{{ form.quantity.help_text }}</div>{% endif %}
-                {% for error in form.quantity.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-              </div>
-              <div class="col-md-6 mb-3">
-                <label for="{{ form.unit.id_for_label }}" class="form-label">{{ form.unit.label }}</label>
-                {{ form.unit }}
-                {% if form.unit.help_text %}<div class="form-text">{{ form.unit.help_text }}</div>{% endif %}
-                {% for error in form.unit.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-              </div>
-              <div class="col-md-6 mb-3">
-                <label for="{{ form.purchase_price_per_unit.id_for_label }}" class="form-label">{{ form.purchase_price_per_unit.label }}{% if form.purchase_price_per_unit.field.required %} <span class="text-danger">*</span>{% endif %}</label>
-                {{ form.purchase_price_per_unit }}
-                {% if form.purchase_price_per_unit.help_text %}<div class="form-text">{{ form.purchase_price_per_unit.help_text }}</div>{% endif %}
-                {% for error in form.purchase_price_per_unit.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-              </div>
-              <div class="col-md-6 mb-3">
-                <label for="{{ form.location.id_for_label }}" class="form-label">{{ form.location.label }}</label>
-                {{ form.location }}
-                {% if form.location.help_text %}<div class="form-text">{{ form.location.help_text }}</div>{% endif %}
-                {% for error in form.location.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-              </div>
-              <div class="col-md-6 mb-3">
-                <label for="{{ form.supplier.id_for_label }}" class="form-label">{{ form.supplier.label }}</label>
-                {{ form.supplier }}
-                {% if form.supplier.help_text %}<div class="form-text">{{ form.supplier.help_text }}</div>{% endif %}
-                {% for error in form.supplier.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-              </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.part_name.label }}</label>
+              {{ form.part_name }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.part_code.label }}</label>
+              {{ form.part_code }}
             </div>
           </div>
-          <div class="d-flex justify-content-between mt-3">
-            <a href="{% url 'inventory_list' %}" class="btn btn-secondary">
-              <i class="fas fa-times"></i> Cancel
-            </a>
+          <div class="mb-3">
+            <label class="form-label">{{ form.description.label }}</label>
+            {{ form.description }}
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.category.label }}</label>
+              {{ form.category }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.supplier.label }}</label>
+              {{ form.supplier }}
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-3 mb-3">
+              <label class="form-label">{{ form.quantity.label }}</label>
+              {{ form.quantity }}
+            </div>
+            <div class="col-md-3 mb-3">
+              <label class="form-label">{{ form.unit.label }}</label>
+              {{ form.unit }}
+            </div>
+            <div class="col-md-3 mb-3">
+              <label class="form-label">{{ form.purchase_price.label }}</label>
+              {{ form.purchase_price }}
+            </div>
+            <div class="col-md-3 mb-3">
+              <label class="form-label">{{ form.unit_price.label }}</label>
+              {{ form.unit_price }}
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.location.label }}</label>
+              {{ form.location }}
+            </div>
+            <div class="col-md-6 mb-3">
+              <label class="form-label">{{ form.minimum_stock.label }}</label>
+              {{ form.minimum_stock }}
+            </div>
+          </div>
+          <div class="d-flex justify-content-between">
+            <a href="{% url 'inventory_list' %}" class="btn btn-secondary"
+              ><i class="fas fa-times"></i> Cancel</a
+            >
             <button type="submit" class="btn btn-warning">
               <i class="fas fa-save"></i> Save Item
             </button>

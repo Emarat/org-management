@@ -12,10 +12,9 @@ class SaleCreateViewTests(TestCase):
         self.user = User.objects.create_user(username='tester', password='pass123', is_superuser=True)
         self.client.login(username='tester', password='pass123')
         self.customer = Customer.objects.create(name='Alpha Corp', phone='123', status='active')
-        from core.models import Product
-        product = Product.objects.create(name='Widget', sale_unit='pcs', sale_price=50)
         self.inv = InventoryItem.objects.create(
-            product=product, inventory_type='piece', identifier='W01', quantity=100, unit='pcs', purchase_price_per_unit=40, remaining_quantity=100, status='in_stock', location='A1', supplier='Alpha Corp'
+            part_name='Widget', part_code='W01', description='Test', category='general',
+            quantity=100, unit='pcs', unit_price=50, location='A1', minimum_stock=5
         )
 
     def _formset_payload(self, total_forms=1):
