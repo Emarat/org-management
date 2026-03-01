@@ -57,12 +57,14 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='inventoryitem',
             name='part_code',
-            field=models.CharField(max_length=50, null=True, blank=True),
+            field=models.CharField(default='UNKNOWN', max_length=50, unique=True),
+            preserve_default=False,
         ),
         migrations.AddField(
             model_name='inventoryitem',
             name='part_name',
-            field=models.CharField(max_length=200, null=True, blank=True),
+            field=models.CharField(default='', max_length=200),
+            preserve_default=False,
         ),
         migrations.AddField(
             model_name='inventoryitem',
@@ -86,27 +88,5 @@ class Migration(migrations.Migration):
         ),
         migrations.DeleteModel(
             name='Product',
-        ),
-        migrations.RunPython(
-            code=lambda apps, schema_editor: (
-                (lambda InventoryItem: (
-                    [
-                        (setattr(obj, 'part_code', f"ITEM-{obj.id}") or obj.save(update_fields=['part_code']))
-                        for obj in InventoryItem.objects.filter(part_code__isnull=True)
-                    ],
-                    InventoryItem.objects.filter(part_name__isnull=True).update(part_name='')
-                ))(apps.get_model('core', 'InventoryItem'))
-            ),
-            reverse_code=migrations.RunPython.noop,
-        ),
-        migrations.AlterField(
-            model_name='inventoryitem',
-            name='part_code',
-            field=models.CharField(max_length=50, unique=True),
-        ),
-        migrations.AlterField(
-            model_name='inventoryitem',
-            name='part_name',
-            field=models.CharField(max_length=200),
         ),
     ]
