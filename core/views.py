@@ -964,6 +964,8 @@ def sale_list(request):
     item_type = request.GET.get('item_type', '')  # 'inventory' or 'machine'
     start_date = request.GET.get('start_date', '').strip()
     end_date = request.GET.get('end_date', '').strip()
+    selected_user_id = request.GET.get('user_id', '').strip()
+    can_filter_by_user = _can_view_all_sales(request.user)
     qs = _visible_sales_queryset(request.user).order_by('-created_at')
     if query:
         qs = qs.filter(
@@ -989,6 +991,11 @@ def sale_list(request):
         # Map 'machine' to non_inventory sale items
         mapped = 'non_inventory' if item_type == 'machine' else 'inventory'
         qs = qs.filter(items__item_type=mapped).distinct()
+    if can_filter_by_user and selected_user_id:
+        try:
+            qs = qs.filter(created_by_id=int(selected_user_id))
+        except (TypeError, ValueError):
+            selected_user_id = ''
     paginator = Paginator(qs, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
     # Sales overview metrics
@@ -999,6 +1006,9 @@ def sale_list(request):
         totals_qs.annotate(paid=Sum('payments__amount')).aggregate(total=Sum('paid'))['total'] or 0
     )
     total_due_amount = (total_sales_amount or 0) - (total_paid_amount or 0)
+    sales_users = []
+    if can_filter_by_user:
+        sales_users = CustomUser.objects.filter(status='active').order_by('first_name', 'username')
     return render(request, 'core/sale_list.html', {
         'sales': page_obj.object_list,
         'page_obj': page_obj,
@@ -1007,6 +1017,9 @@ def sale_list(request):
         'item_type': item_type,
         'start_date': start_date,
         'end_date': end_date,
+        'sales_users': sales_users,
+        'selected_user_id': selected_user_id,
+        'can_filter_by_user': can_filter_by_user,
         'total_sales_amount': total_sales_amount,
         'total_paid_amount': total_paid_amount,
         'total_due_amount': total_due_amount,

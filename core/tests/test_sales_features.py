@@ -199,3 +199,63 @@ class SalesFeatureTests(TestCase):
         html = resp.content.decode()
         self.assertIn(recent_sale.sale_number, html)
         self.assertNotIn(old_sale.sale_number, html)
+
+    @override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage')
+    def test_manager_can_filter_sales_by_user(self):
+        User = get_user_model()
+        manager = User.objects.create_user(username='manager1', password='pass123', is_manager=True)
+        manager.user_permissions.add(Permission.objects.get(codename='view_sale'))
+        sales_user = User.objects.create_user(username='sales_a', password='pass123')
+        other_user = User.objects.create_user(username='sales_b', password='pass123')
+
+        target_sale = Sale.objects.create(
+            customer=self.customer,
+            created_by=sales_user,
+            status='finalized',
+            total_amount=1100,
+        )
+        other_sale = Sale.objects.create(
+            customer=self.customer,
+            created_by=other_user,
+            status='finalized',
+            total_amount=900,
+        )
+
+        self.client.logout()
+        self.client.login(username='manager1', password='pass123')
+        resp = self.client.get(reverse('sale_list'), {'user_id': str(sales_user.id)}, follow=True)
+
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn(target_sale.sale_number, html)
+        self.assertNotIn(other_sale.sale_number, html)
+        self.assertEqual(str(resp.context['selected_user_id']), str(sales_user.id))
+
+    @override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage')
+    def test_non_admin_user_cannot_filter_to_other_users_sales(self):
+        User = get_user_model()
+        sales_user = User.objects.create_user(username='sales_local', password='pass123')
+        other_user = User.objects.create_user(username='sales_remote', password='pass123')
+        sales_user.user_permissions.add(Permission.objects.get(codename='view_sale'))
+
+        own_sale = Sale.objects.create(
+            customer=self.customer,
+            created_by=sales_user,
+            status='finalized',
+            total_amount=800,
+        )
+        other_sale = Sale.objects.create(
+            customer=self.customer,
+            created_by=other_user,
+            status='finalized',
+            total_amount=600,
+        )
+
+        self.client.logout()
+        self.client.login(username='sales_local', password='pass123')
+        resp = self.client.get(reverse('sale_list'), {'user_id': str(other_user.id)}, follow=True)
+
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn(own_sale.sale_number, html)
+        self.assertNotIn(other_sale.sale_number, html)
