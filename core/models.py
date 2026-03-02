@@ -82,8 +82,8 @@ class InventoryItem(models.Model):
         ('mtr', 'Meter'),
     ]
     
-    part_name = models.CharField(max_length=200)
-    part_code = models.CharField(max_length=50, unique=True)
+    part_name = models.CharField('Product Name', max_length=200)
+    part_code = models.CharField('Product Code', max_length=50, unique=True)
     description = models.TextField(blank=True)
     category = models.CharField(max_length=100, blank=True)
     quantity = models.DecimalField(max_digits=12, decimal_places=3, validators=[MinValueValidator(0)])

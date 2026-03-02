@@ -752,7 +752,7 @@ def export_excel(request):
     
     # Export Inventory
     ws_inventory = wb.create_sheet("Inventory")
-    ws_inventory.append(['Part Code', 'Part Name', 'Category', 'Quantity', 'Unit Price', 'Total Value'])
+    ws_inventory.append(['Product Code', 'Product Name', 'Category', 'Quantity', 'Unit Price', 'Total Value'])
     for item in InventoryItem.objects.all():
         ws_inventory.append([
             item.part_code, item.part_name, item.category, item.quantity,
