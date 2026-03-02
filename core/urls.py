@@ -49,6 +49,7 @@ urlpatterns = [
     path('reports/', views.reports, name='reports'),
     path('reports/ledger/', views.ledger, name='ledger'),
     path('reports/export-excel/', views.export_excel, name='export_excel'),
+    path('reports/customer-report-excel/', views.customer_report_excel, name='customer_report_excel'),
 
     # Sales URLs
     path('sales/', views.sale_list, name='sale_list'),

@@ -791,6 +791,104 @@ def export_excel(request):
     return response
 
 
+@login_required
+def customer_report_excel(request):
+    """Export customer financial summary to Excel with Total, Paid, and Due amounts"""
+    from django.db.models import Sum, F, DecimalField
+    from django.db.models.functions import Coalesce
+    
+    # Get all customers with their sales aggregates
+    customers = Customer.objects.all().order_by('customer_id')
+    
+    # Create workbook
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Customer Report"
+    
+    # Header styling
+    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+    header_font = Font(bold=True, color='FFFFFF', size=12)
+    header_alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Add headers
+    headers = ['Name', 'Company', 'Phone', 'Total', 'Paid', 'Due']
+    ws.append(headers)
+    
+    # Style header row
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_alignment
+    
+    # Add data rows
+    total_amount_sum = 0
+    total_paid_sum = 0
+    total_due_sum = 0
+    
+    for customer in customers:
+        # Get all finalized sales for this customer
+        sales = customer.sales.filter(status='finalized')
+        
+        # Calculate totals
+        total_amount = sales.aggregate(total=Sum('total_amount'))['total'] or 0
+        
+        # Calculate total paid from all sale payments
+        total_paid = 0
+        for sale in sales:
+            total_paid += sale.total_paid
+        
+        balance_due = total_amount - total_paid
+        
+        # Add to grand totals
+        total_amount_sum += total_amount
+        total_paid_sum += total_paid
+        total_due_sum += balance_due
+        
+        # Add row
+        ws.append([
+            customer.name,
+            customer.company or '-',
+            customer.phone,
+            float(total_amount),
+            float(total_paid),
+            float(balance_due)
+        ])
+    
+    # Add totals row
+    ws.append([])
+    total_row = ws.max_row + 1
+    ws.append(['TOTAL', '', '', float(total_amount_sum), float(total_paid_sum), float(total_due_sum)])
+    
+    # Style totals row
+    total_fill = PatternFill(start_color='E7E6E6', end_color='E7E6E6', fill_type='solid')
+    total_font = Font(bold=True, size=11)
+    for cell in ws[total_row]:
+        cell.fill = total_fill
+        cell.font = total_font
+        cell.alignment = Alignment(horizontal='center' if cell.column <= 3 else 'right')
+    
+    # Format currency columns (D, E, F) with alignment and number format
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=4, max_col=6):
+        for cell in row:
+            cell.alignment = Alignment(horizontal='right')
+            cell.number_format = '#,##0.00'
+    
+    # Adjust column widths
+    ws.column_dimensions['A'].width = 25
+    ws.column_dimensions['B'].width = 25
+    ws.column_dimensions['C'].width = 15
+    ws.column_dimensions['D'].width = 15
+    ws.column_dimensions['E'].width = 15
+    ws.column_dimensions['F'].width = 15
+    
+    # Create response
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename=customer_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+    wb.save(response)
+    
+    return response
+
+
 # =========================
 # Sales Views (minimal UI)
 # =========================
