@@ -1,134 +1,335 @@
 {% extends 'base.html' %}
 {% block title %}{{ title|default:'Create Sale' }} - {{ brand.name|default:'Fashion Express' }}{% endblock %}
+{% block extra_css %}
+<style>
+  /* Modern card design */
+  .sc-card { 
+    border: none; 
+    border-radius: 0.5rem; 
+    margin-bottom: 1.25rem; 
+    background: #fff; 
+    box-shadow: 0 2px 8px rgba(0,0,0,.06); 
+    transition: box-shadow 0.3s ease;
+    overflow: hidden;
+  }
+  .sc-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+  
+  .sc-card-header {
+    background: linear-gradient(135deg, #4a9edd 0%, #3a8cc8 100%);
+    color: #fff;
+    padding: .75rem 1.25rem;
+    font-weight: 600;
+    font-size: .95rem;
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    border-bottom: 2px solid rgba(0,0,0,.05);
+  }
+  .sc-card .card-body { 
+    padding: .85rem; 
+  }
+
+  /* Item cards */
+  .item-card {
+    background: #fafbfc;
+    border: 1.5px solid #e0e4e8 !important;
+    border-radius: .5rem !important;
+    padding: .75rem .95rem !important;
+    margin-bottom: .75rem !important;
+    position: relative;
+    transition: all 0.2s ease;
+  }
+  .item-card:hover {
+    border-color: #4a9edd;
+    box-shadow: 0 2px 6px rgba(74, 158, 221, .1);
+  }
+  
+  .item-card .remove-item-btn {
+    position: absolute !important; top: .5rem !important; right: .5rem !important;
+    width: 24px; height: 24px; padding: 0; border-radius: 50% !important;
+    background: #ff6b6b; color: #fff; border: none;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .9rem; line-height: 1; z-index: 10; cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .item-card .remove-item-btn:hover { 
+    background: #ee5a52; 
+    transform: scale(1.1);
+  }
+
+  /* Summary styling */
+  .summary-total-amt { 
+    font-size: 1.5rem; 
+    font-weight: 700; 
+    color: #4a9edd;
+    letter-spacing: -0.5px;
+  }
+  .summary-row { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: .4rem 0; 
+    border-bottom: 1px solid #f0f2f5;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-divider { 
+    border-top: 2px solid #e9ecef; 
+    margin: .4rem 0; 
+  }
+
+  /* Button styling */
+  .btn-create-sale {
+    background: linear-gradient(135deg, #4a9edd 0%, #3a8cc8 100%);
+    border: none; 
+    color: #fff; 
+    width: 100%; 
+    padding: .75rem 1.25rem;
+    border-radius: .5rem; 
+    font-weight: 600; 
+    font-size: .95rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(74, 158, 221, .2);
+  }
+  .btn-create-sale:hover { 
+    background: linear-gradient(135deg, #3a8cc8 0%, #2a7db8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(74, 158, 221, .3);
+  }
+
+  /* Form elements */
+  .form-label {
+    font-weight: 500;
+    color: #495057;
+    font-size: .9rem;
+    margin-bottom: .5rem;
+  }
+  
+  .form-control, .form-select {
+    border: 1.5px solid #dee2e6;
+    border-radius: .375rem;
+    transition: all 0.2s ease;
+    font-size: .9rem;
+  }
+  
+  .form-control:focus, .form-select:focus {
+    border-color: #4a9edd;
+    box-shadow: 0 0 0 3px rgba(74, 158, 221, .1);
+  }
+  
+  .form-control::placeholder {
+    color: #a8b4ba;
+  }
+
+  /* Add Item button */
+  #addItemRowBtn {
+    background: #fff;
+    color: #4a9edd;
+    font-weight: 600;
+    border: 1.5px solid #4a9edd;
+    padding: .35rem .75rem !important;
+    border-radius: .375rem;
+    transition: all 0.2s ease;
+  }
+  
+  #addItemRowBtn:hover {
+    background: #4a9edd;
+    color: #fff;
+    transform: translateY(-1px);
+  }
+
+  #itemsContainer:empty::after {
+    content: 'No items yet. Click "+ Add Item" to get started.';
+    display: block; 
+    text-align: center; 
+    color: #adb5bd; 
+    padding: 2rem 0; 
+    font-size: .95rem;
+    font-style: italic;
+  }
+  
+  /* Responsive improvements */
+  @media (max-width: 768px) {
+    .summary-total-amt { font-size: 1.5rem; }
+    .sc-card .card-body { padding: 1rem; }
+  }
+</style>
+<!-- Select2 CSS -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+  /* Select2 custom styling */
+  .select2-container--default .select2-selection--single {
+    height: calc(1.5em + 0.75rem + 2px);
+    border: 1.5px solid #dee2e6;
+    border-radius: 0.375rem;
+  }
+  .select2-container--default .select2-selection--single .select2-selection__rendered {
+    line-height: calc(1.5em + 0.75rem);
+    padding-left: 0.75rem;
+    color: #495057;
+  }
+  .select2-container--default .select2-selection--single .select2-selection__arrow {
+    height: calc(1.5em + 0.75rem);
+  }
+  .select2-container--default.select2-container--focus .select2-selection--single {
+    border-color: #4a9edd;
+    box-shadow: 0 0 0 3px rgba(74, 158, 221, .1);
+  }
+  .select2-dropdown {
+    border: 1.5px solid #4a9edd;
+    border-radius: 0.375rem;
+  }
+  .select2-container--default .select2-results__option--highlighted[aria-selected] {
+    background-color: #4a9edd;
+  }
+  .select2-container {
+    width: 100% !important;
+  }
+</style>
+{% endblock %}
 {% block content %}
 <form method="post" novalidate id="saleBuilderForm" autocomplete="off">
   {% csrf_token %}
-  {{ item_formset.management_form }}
-  <div class="row g-3">
-    <div class="col-lg-8">
-      <div class="card mb-3 shadow-sm">
-        <div class="card-header fw-semibold">Customer Details</div>
+  <div style="display: none;">
+    {{ item_formset.management_form }}
+  </div>
+
+  <div style="display:flex; gap:1.5rem; align-items:flex-start;">
+
+    {# ── LEFT COLUMN ── #}
+    <div style="flex:1 1 0; min-width:0;">
+
+      {# Customer #}
+      <div class="sc-card">
+        <div class="sc-card-header">Customer Details</div>
         <div class="card-body">
-          <div class="row g-2 align-items-start">
-            <div class="col-md-7">
-              <label class="form-label">Customer</label>
+          <div class="row g-3 align-items-end">
+            <div class="col">
+              <label class="form-label mb-1">Customer</label>
               {{ sale_form.customer }}
             </div>
-            <div class="col-md-5">
-              <label class="form-label">Quick Add</label><br>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="quickAddCustomerBtn"> Add New Customer</button>
+            <div class="col-auto">
+              <label class="form-label mb-1">Quick Add</label>
+              <button type="button" id="quickAddCustomerBtn"
+                class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1">
+                Add New Customer
+              </button>
             </div>
           </div>
         </div>
       </div>
-      <div class="card mb-3 shadow-sm" id="productsCard">
-        <div class="card-header d-flex justify-content-between align-items-center fw-semibold">
-          <span>Products</span>
-          <button type="button" class="btn btn-sm btn-primary" id="addItemRowBtn">+ Add Item</button>
+
+      {# Products #}
+      <div class="sc-card">
+        <div class="sc-card-header">
+          Products
+          <button type="button" id="addItemRowBtn"
+            class="btn btn-sm ms-auto">
+            + Add Item
+          </button>
         </div>
-        <div class="card-body p-2">
+        <div class="card-body">
           <div id="itemsContainer">
             {% for form in item_formset.forms %}
-            <div class="item-card border rounded p-3 mb-3 position-relative" data-index="{{ forloop.counter0 }}">
-              <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-item-btn" style="z-index:10;">&times;</button>
-              
-              <div class="row g-2">
-                <!-- Type Selection - Always visible -->
-                <div class="col-md-3">
-                  <label class="form-label small fw-semibold">Type <span class="text-danger">*</span></label>
+            {% with itype=form.item_type.value n=forloop.counter %}
+            <div class="item-card" data-index="{{ forloop.counter0 }}">
+              <button type="button" class="remove-item-btn" title="Remove">&times;</button>
+              <div class="row g-3 mb-3">
+                <div class="col-md-4">
+                  <label class="form-label mb-1" style="font-size:.85rem;">Type</label>
                   {{ form.item_type }}
                 </div>
-
-                <!-- Inventory Fields - Show when type=inventory -->
-                <div class="inv-fields" style="display:none;">
-                  <div class="row g-2">
-                    <div class="col-md-5">
-                      <label class="form-label small fw-semibold">Item <span class="text-danger">*</span></label>
-                      {{ form.inventory_item }}
-                    </div>
-                    <div class="col-md-3">
-                      <label class="form-label small fw-semibold">Quantity <span class="text-muted unit-label"></span> <span class="text-danger">*</span></label>
-                      <input type="number" min="1" name="items-{{ forloop.counter0 }}-quantity_inv" value="1" class="form-control form-control-sm quantity-inv">
-                    </div>
-                    <div class="col-md-4">
-                      <label class="form-label small fw-semibold">Unit Price <span class="text-danger">*</span></label>
-                      <input type="number" step="0.01" name="items-{{ forloop.counter0 }}-unit_price_inv" value="0" class="form-control form-control-sm unit-price-inv">
-                    </div>
+              </div>
+              <div class="inv-fields" style="display:{% if itype == 'non_inventory' %}none{% else %}block{% endif %};">
+                <div class="row g-3 align-items-end mb-3">
+                  <div class="col-md-8">
+                    <label class="form-label mb-1" style="font-size:.85rem;">Inventory Item</label>
+                    {{ form.inventory_item }}
                   </div>
-                </div>
-
-                <!-- Machine Fields - Show when type=non_inventory -->
-                <div class="machine-fields" style="display:none;">
-                  <div class="row g-2">
-                    <div class="col-md-12">
-                      <label class="form-label small fw-semibold">Machine Details <span class="text-danger">*</span></label>
-                      <!-- Bind directly to formset 'description' so backend receives it -->
-                      <textarea name="items-{{ forloop.counter0 }}-description" id="machine_desc_{{ forloop.counter0 }}" class="form-control form-control-sm machine-desc" placeholder="Enter machine name and specifications&#10;Example:&#10;- Model: ABC-123&#10;- Capacity: 500kg&#10;- Power: 220V" rows="4" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
-                    </div>
-                  </div>
-                  <div class="row g-2 mt-2">
-                    <div class="col-md-6">
-                      <label class="form-label small fw-semibold">Quantity <span class="text-danger">*</span></label>
-                      <input type="number" min="1" name="items-{{ forloop.counter0 }}-quantity_machine" value="1" class="form-control form-control-sm quantity-machine">
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label small fw-semibold">Unit Price <span class="text-danger">*</span></label>
-                      <input type="number" step="0.01" name="items-{{ forloop.counter0 }}-unit_price_machine" value="0" class="form-control form-control-sm unit-price-machine">
-                    </div>
+                  <div class="col-md-4">
+                    <label class="form-label mb-1" style="font-size:.85rem;">Boxes</label>
+                    {{ form.boxes }}
                   </div>
                 </div>
               </div>
-
-              <!-- Hidden fields for backend (quantity & unit price for formset) -->
-              <input type="hidden" name="items-{{ forloop.counter0 }}-quantity" value="1" class="hidden-quantity">
-              <input type="hidden" name="items-{{ forloop.counter0 }}-unit_price" value="0" class="hidden-unit-price">
+              <div class="machine-fields" style="display:{% if itype == 'non_inventory' %}block{% else %}none{% endif %};">
+                <div class="row g-3 mb-3">
+                  <div class="col-12">
+                    <label class="form-label mb-1" style="font-size:.85rem;">Machine Details</label>
+                    <textarea name="{{ form.description.name }}" class="form-control form-control-sm" placeholder="Example:&#10;- Model: ABC-123&#10;- Capacity: 500kg" rows="3">{{ form.description.value|default:'' }}</textarea>
+                  </div>
+                </div>
+              </div>
+              {# Shared: quantity + unit_price — rendered ONCE to avoid duplicate name submission #}
+              <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                  <label class="form-label mb-1" style="font-size:.85rem;">Qty <span class="unit-label text-primary" style="font-size:.78rem;"></span></label>
+                  {{ form.quantity }}
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label mb-1" style="font-size:.85rem;">Unit Price</label>
+                  {{ form.unit_price }}
+                </div>
+              </div>
+              {{ form.non_field_errors }}
             </div>
+            {% endwith %}
             {% endfor %}
           </div>
         </div>
       </div>
-    </div>
-    <div class="col-lg-4">
-      <div class="card mb-3 shadow-sm">
-        <div class="card-header fw-semibold">Summary</div>
+
+    </div>{# end left #}
+
+    {# ── RIGHT COLUMN ── #}
+    <div style="flex:0 0 340px; min-width:300px;">
+
+      {# Summary #}
+      <div class="sc-card">
+        <div class="sc-card-header">Summary</div>
         <div class="card-body">
-          <div class="d-flex justify-content-between mb-3">
-            <span class="fw-semibold">Total Amount</span>
-            <span class="fs-4 fw-bold text-primary" id="summaryTotal">৳&nbsp;0.00</span>
+          <div class="summary-row">
+            <strong>Total Amount</strong>
+            <span class="summary-total-amt" id="summaryTotal">৳&nbsp;0.00</span>
           </div>
-          <div class="d-flex justify-content-between small mb-2 text-muted">
-            <span>Amount Paid</span>
-            <span id="amountPaidSummary">৳&nbsp;0.00</span>
+          <div class="summary-divider"></div>
+          <div class="summary-row">
+            <span class="text-muted small">Amount Paid</span>
+            <span id="amountPaidSummary" style="font-size:.9rem;">৳&nbsp;0.00</span>
           </div>
-          <div class="d-flex justify-content-between mb-3">
-            <span class="fw-semibold">Balance Due</span>
-            <span class="fw-bold text-danger" id="balanceDueSummary">৳&nbsp;0.00</span>
+          <div class="summary-row">
+            <strong>Balance Due</strong>
+            <strong class="text-danger" id="balanceDueSummary">৳&nbsp;0.00</strong>
           </div>
         </div>
       </div>
-      <div class="card mb-3 shadow-sm" id="paymentCard">
-        <div class="card-header fw-semibold">Payment (Optional)</div>
+
+      {# Payment #}
+      <div class="sc-card" id="paymentCard">
+        <div class="sc-card-header">Payment (Optional)</div>
         <div class="card-body">
           <div class="mb-2">
-            <label class="form-label">Payment Method</label>
+            <label class="form-label mb-1">Payment Method</label>
             {{ payment_form.method }}
           </div>
           <div class="mb-2" id="payment-notes-wrapper">
-            <label class="form-label">Details <small class="text-muted">(optional)</small></label>
+            <label class="form-label mb-1">Details <span class="text-muted small">(optional)</span></label>
             {{ payment_form.notes }}
           </div>
           <div class="mb-2">
-            <label class="form-label">Payment Date</label>
+            <label class="form-label mb-1">Payment Date</label>
             {{ payment_form.payment_date }}
           </div>
-            <div class="mb-3">
-            <label class="form-label">Amount</label>
+          <div class="mb-3">
+            <label class="form-label mb-1">Amount</label>
             {{ payment_form.amount }}
           </div>
-          <button type="submit" class="btn btn-primary w-100">{{ title|default:'Create Sale' }}</button>
+          <button type="submit" class="btn-create-sale">
+            {{ title|default:'Create Sale' }}
+          </button>
         </div>
       </div>
-    </div>
+
+    </div>{# end right #}
   </div>
 </form>
 {% if inventory_prices %}
@@ -240,7 +441,7 @@
       return false;
     }
     if(paid > currentTotal){
-      paymentAmountInput.setCustomValidity('Amount cannot exceed total.');
+      paymentAmountInput.setCustomValidity('Payment exceeds total.');
       paymentAmountInput.classList.add('is-invalid');
       return false;
     }
@@ -255,8 +456,7 @@
       var typeSel = card.querySelector('select[name$="item_type"]');
       var type = typeSel ? typeSel.value : 'inventory';
       var qty = 0, price = 0;
-      
-      if(type === 'inventory'){
+      if(type === 'inventory' || type === '' || !type){
         var qtyEl = card.querySelector('.quantity-inv');
         var priceEl = card.querySelector('.unit-price-inv');
         qty = parseFloat(qtyEl && qtyEl.value ? qtyEl.value : 0);
@@ -267,17 +467,19 @@
         qty = parseFloat(qtyEl && qtyEl.value ? qtyEl.value : 0);
         price = parseFloat(priceEl && priceEl.value ? priceEl.value : 0);
       }
-      
-      total += qty * price;
+      var lineTotal = (isNaN(qty) ? 0 : qty) * (isNaN(price) ? 0 : price);
+      total += lineTotal;
+      var ltEl = card.querySelector('.line-total-val');
+      if(ltEl) ltEl.textContent = lineTotal.toFixed(2);
     });
-    
     currentTotal = total;
-    summaryTotal.textContent = '৳\u00A0' + total.toFixed(2);
+    if(summaryTotal) summaryTotal.textContent = '৳\u00A0' + total.toFixed(2);
     var paid = parseFloat(paymentAmountInput && paymentAmountInput.value ? paymentAmountInput.value : 0);
-    amountPaidSummary.textContent = '৳\u00A0' + paid.toFixed(2);
-    balanceDueSummary.textContent = '৳\u00A0' + (total - paid).toFixed(2);
-
-    // Keep payment validation in sync with changing totals
+    if(isNaN(paid)) paid = 0;
+    if(amountPaidSummary) amountPaidSummary.textContent = '৳\u00A0' + paid.toFixed(2);
+    var balance = total - paid;
+    if(balance < 0) balance = 0;
+    if(balanceDueSummary) balanceDueSummary.textContent = '৳\u00A0' + balance.toFixed(2);
     validatePaymentAmount();
   }
 
@@ -288,28 +490,24 @@
     var invSel = card.querySelector('select[name$="inventory_item"]');
     var machineDescInput = card.querySelector('.machine-desc');
     
-    // Hidden Django form fields (always present)
-    var hiddenQty = card.querySelector('.hidden-quantity');
-    var hiddenPrice = card.querySelector('.hidden-unit-price');
-    
     // Visible input fields
     var invQtyInput = card.querySelector('.quantity-inv');
     var invPriceInput = card.querySelector('.unit-price-inv');
+    var invBoxesInput = card.querySelector('.boxes-inv');
     var machineQtyInput = card.querySelector('.quantity-machine');
     var machinePriceInput = card.querySelector('.unit-price-machine');
 
     function syncType(){
       var t = typeSel ? typeSel.value : 'inventory';
-      if(t === 'inventory'){
+      if(t === 'inventory' || t === '' || !t){
         if(invFields) invFields.style.display='block';
         if(machineFields) machineFields.style.display='none';
-        // Sync inventory inputs to hidden fields
+        // Visible fields ARE the form inputs; just recompute
         syncInventoryToFormFields();
         // Auto-populate price from inventory
         if(invSel && invSel.value && INVENTORY_PRICES[invSel.value] !== undefined && invPriceInput){
           if(!invPriceInput.value || parseFloat(invPriceInput.value) <= 0){
             invPriceInput.value = INVENTORY_PRICES[invSel.value];
-            if(hiddenPrice) hiddenPrice.value = invPriceInput.value;
           }
         }
       } else { // machine
@@ -325,7 +523,6 @@
       if(invSel && invSel.value && INVENTORY_PRICES[invSel.value] !== undefined && invPriceInput){
         if(!invPriceInput.value || parseFloat(invPriceInput.value) <= 0){
           invPriceInput.value = INVENTORY_PRICES[invSel.value];
-          if(hiddenPrice) hiddenPrice.value = invPriceInput.value;
         }
       }
       // Update unit label
@@ -337,16 +534,12 @@
     }
 
     function syncInventoryToFormFields(){
-      if(hiddenQty && invQtyInput) hiddenQty.value = invQtyInput.value;
-      if(hiddenPrice && invPriceInput) hiddenPrice.value = invPriceInput.value;
+      // visible fields are the actual form fields; just recalc totals
       recalc();
     }
 
     function syncMachineToFormFields(){
-      // Copy machine fields to actual form fields for submission
-      if(hiddenQty && machineQtyInput) hiddenQty.value = machineQtyInput.value;
-      if(hiddenPrice && machinePriceInput) hiddenPrice.value = machinePriceInput.value;
-      // Description is bound directly via textarea to formset; no hidden desc needed
+      // visible fields are the actual form fields; just recalc totals
       recalc();
     }
 
@@ -357,6 +550,7 @@
     ['change','keyup'].forEach(function(evt){
       if(invPriceInput) invPriceInput.addEventListener(evt, syncInventoryToFormFields);
       if(invQtyInput) invQtyInput.addEventListener(evt, syncInventoryToFormFields);
+      if(invBoxesInput) invBoxesInput.addEventListener(evt, syncInventoryToFormFields);
       if(machinePriceInput) machinePriceInput.addEventListener(evt, syncMachineToFormFields);
       if(machineQtyInput) machineQtyInput.addEventListener(evt, syncMachineToFormFields);
       if(machineDescInput) machineDescInput.addEventListener(evt, syncMachineToFormFields);
@@ -375,55 +569,47 @@
   qsa('.item-card').forEach(wireCard);
 
   var addBtn = document.getElementById('addItemRowBtn');
-  addBtn.addEventListener('click', function(){
+  if(addBtn){
+    addBtn.addEventListener('click', function(){
     var totalForms = document.getElementById('id_items-TOTAL_FORMS');
     var index = parseInt(totalForms.value, 10);
     
-      var cardHtml = '<div class="item-card border rounded p-3 mb-3 position-relative" data-index="'+index+'">'
-        + '<button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0 m-2 remove-item-btn" style="z-index:10;">&times;</button>'
-        + '<div class="row g-2">'
-        + '<div class="col-md-3">'
-        + '<label class="form-label small fw-semibold">Type <span class="text-danger">*</span></label>'
-        + '<select name="items-'+index+'-item_type" class="form-select form-select-sm"><option value="inventory">Inventory</option><option value="non_inventory">Machine</option></select>'
+      var cardHtml = '<div class="item-card" data-index="'+index+'">'  
+        + '<button type="button" class="remove-item-btn" title="Remove">&times;</button>'
+        + '<div class="row g-3 mb-3">'
+        +   '<div class="col-md-4">'
+        +     '<label class="form-label mb-1" style="font-size:.85rem;">Type</label>'
+        +     '<select name="items-'+index+'-item_type" class="form-select form-select-sm">'
+        +       '<option value="inventory" selected>Inventory</option>'
+        +       '<option value="non_inventory">Machine</option>'
+        +     '</select>'
+        +   '</div>'
         + '</div>'
-        + '<div class="inv-fields" style="display:none;">'
-        + '<div class="row g-2">'
-        + '<div class="col-md-5">'
-        + '<label class="form-label small fw-semibold">Item <span class="text-danger">*</span></label>'
-        + '<select name="items-'+index+'-inventory_item" class="form-select form-select-sm"></select>'
-        + '</div>'
-        + '<div class="col-md-3">'
-        + '<label class="form-label small fw-semibold">Quantity <span class="text-muted unit-label"></span> <span class="text-danger">*</span></label>'
-        + '<input type="number" min="1" name="items-'+index+'-quantity_inv" value="1" class="form-control form-control-sm quantity-inv">'
-        + '</div>'
-        + '<div class="col-md-4">'
-        + '<label class="form-label small fw-semibold">Unit Price <span class="text-danger">*</span></label>'
-        + '<input type="number" step="0.01" name="items-'+index+'-unit_price_inv" value="0" class="form-control form-control-sm unit-price-inv">'
-        + '</div>'
-        + '</div>'
+        + '<div class="inv-fields" style="display:block;">'
+        +   '<div class="row g-3 align-items-end mb-3">'
+        +     '<div class="col-md-8"><label class="form-label mb-1" style="font-size:.85rem;">Inventory Item</label>'
+        +       '<select name="items-'+index+'-inventory_item" class="form-select form-select-sm"></select>'
+        +     '</div>'
+        +     '<div class="col-md-4"><label class="form-label mb-1" style="font-size:.85rem;">Boxes</label>'
+        +       '<input type="number" min="0" name="items-'+index+'-boxes" value="0" class="form-control form-control-sm boxes-inv">'
+        +     '</div>'
+        +   '</div>'
         + '</div>'
         + '<div class="machine-fields" style="display:none;">'
-        + '<div class="row g-2">'
-        + '<div class="col-md-12">'
-        + '<label class="form-label small fw-semibold">Machine Details <span class="text-danger">*</span></label>'
-        + '<textarea name="items-'+index+'-description" id="machine_desc_'+index+'" class="form-control form-control-sm machine-desc" placeholder="Enter machine name and specifications&#10;Example:&#10;- Model: ABC-123&#10;- Capacity: 500kg&#10;- Power: 220V" rows="4" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>'
+        +   '<div class="row g-3 mb-3">'
+        +     '<div class="col-12"><label class="form-label mb-1" style="font-size:.85rem;">Machine Details</label>'
+        +       '<textarea name="items-'+index+'-description" id="machine_desc_'+index+'" class="form-control form-control-sm machine-desc" placeholder="Example:\\n- Model: ABC-123\\n- Capacity: 500kg" rows="3" autocomplete="off"></textarea>'
+        +     '</div>'
+        +   '</div>'
         + '</div>'
+        + '<div class="row g-3 align-items-end">'
+        +   '<div class="col-md-6"><label class="form-label mb-1" style="font-size:.85rem;">Qty <span class="unit-label text-primary" style="font-size:.78rem;"></span></label>'
+        +     '<input type="number" min="0" step="0.001" name="items-'+index+'-quantity" value="1" class="form-control form-control-sm quantity-inv quantity-machine">'
+        +   '</div>'
+        +   '<div class="col-md-6"><label class="form-label mb-1" style="font-size:.85rem;">Unit Price</label>'
+        +     '<input type="number" step="0.01" name="items-'+index+'-unit_price" value="0" class="form-control form-control-sm unit-price-inv unit-price-machine">'
+        +   '</div>'
         + '</div>'
-        + '<div class="row g-2 mt-2">'
-        + '<div class="col-md-6">'
-        + '<label class="form-label small fw-semibold">Quantity <span class="text-danger">*</span></label>'
-        + '<input type="number" min="1" name="items-'+index+'-quantity_machine" value="1" class="form-control form-control-sm quantity-machine">'
-        + '</div>'
-        + '<div class="col-md-6">'
-        + '<label class="form-label small fw-semibold">Unit Price <span class="text-danger">*</span></label>'
-        + '<input type="number" step="0.01" name="items-'+index+'-unit_price_machine" value="0" class="form-control form-control-sm unit-price-machine">'
-        + '</div>'
-        + '</div>'
-        + '</div>'
-        + '</div>'
-        
-        + '<input type="hidden" name="items-'+index+'-quantity" value="1" class="hidden-quantity">'
-        + '<input type="hidden" name="items-'+index+'-unit_price" value="0" class="hidden-unit-price">'
         + '</div>';
     
     var temp = document.createElement('div');
@@ -444,7 +630,21 @@
     totalForms.value = index + 1;
     wireCard(card);
     recalc();
-  });
+    });
+
+    // If there are no server-rendered item cards already, create one blank row
+    (function ensureInitialItem(){
+      var totalForms = document.getElementById('id_items-TOTAL_FORMS');
+      if(!totalForms) return;
+      var existingCards = qsa('.item-card').length;
+      if(existingCards === 0){
+        addBtn.click();
+      } else {
+        // Server rendered cards already exist; just update TOTAL_FORMS to match
+        totalForms.value = String(existingCards);
+      }
+    })();
+  }
 
   if(paymentAmountInput){
     ['keyup','change'].forEach(function(e){
@@ -524,50 +724,7 @@
       var itemCards = qsa('.item-card');
       if(totalForms) totalForms.value = itemCards.length;
       
-      // Make sure all machine item values are synced to hidden fields
-      itemCards.forEach(function(card, index){
-        var typeSel = card.querySelector('select[name$="item_type"]');
-        console.log('Card', index, 'type:', typeSel ? typeSel.value : 'none');
-        
-        if(typeSel && typeSel.value === 'non_inventory'){
-          var machineQty = card.querySelector('.quantity-machine');
-          var machinePrice = card.querySelector('.unit-price-machine');
-          var machineDesc = card.querySelector('.machine-desc');
-          var hiddenQty = card.querySelector('.hidden-quantity');
-          var hiddenPrice = card.querySelector('.hidden-unit-price');
-          
-          console.log('  Machine desc:', machineDesc ? machineDesc.value : 'not found');
-          console.log('  Machine qty:', machineQty ? machineQty.value : 'not found');
-          console.log('  Machine price:', machinePrice ? machinePrice.value : 'not found');
-          
-          if(machineQty && hiddenQty) {
-            hiddenQty.value = machineQty.value;
-            console.log('  Set hidden qty to:', hiddenQty.value);
-          }
-          if(machinePrice && hiddenPrice) {
-            hiddenPrice.value = machinePrice.value;
-            console.log('  Set hidden price to:', hiddenPrice.value);
-          }
-        } else if(typeSel && typeSel.value === 'inventory'){
-          // Sync inventory inputs to hidden fields
-          var invQty = card.querySelector('.quantity-inv');
-          var invPrice = card.querySelector('.unit-price-inv');
-          var hiddenQty = card.querySelector('.hidden-quantity');
-          var hiddenPrice = card.querySelector('.hidden-unit-price');
-          
-          console.log('  Inventory qty:', invQty ? invQty.value : 'not found');
-          console.log('  Inventory price:', invPrice ? invPrice.value : 'not found');
-          
-          if(invQty && hiddenQty) {
-            hiddenQty.value = invQty.value;
-            console.log('  Set hidden qty to:', hiddenQty.value);
-          }
-          if(invPrice && hiddenPrice) {
-            hiddenPrice.value = invPrice.value;
-            console.log('  Set hidden price to:', hiddenPrice.value);
-          }
-        }
-      });
+      // Visible inputs are already named correctly (no hidden sync required)
       
       // Debug: log all form fields being submitted
       var formData = new FormData(mainForm);
@@ -603,6 +760,55 @@
   }
 
   recalc();
+})();
+</script>
+
+<!-- Select2 JS -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+(function() {
+  // Initialize Select2 on customer dropdown
+  $('#id_customer').select2({
+    placeholder: 'Search or select customer...',
+    allowClear: true,
+    width: '100%'
+  });
+
+  // Initialize Select2 on existing inventory item dropdowns
+  function initInventorySelect2(element) {
+    if (element && !$(element).hasClass('select2-hidden-accessible')) {
+      $(element).select2({
+        placeholder: 'Search or select inventory item...',
+        allowClear: true,
+        width: '100%'
+      });
+    }
+  }
+
+  // Initialize on page load for existing items
+  document.querySelectorAll('select[name$="inventory_item"]').forEach(function(select) {
+    initInventorySelect2(select);
+  });
+
+  // Watch for new items being added and initialize Select2 on them
+  var observer = new MutationObserver(function(mutations) {
+    mutations.forEach(function(mutation) {
+      mutation.addedNodes.forEach(function(node) {
+        if (node.nodeType === 1) {
+          var invSelect = node.querySelector ? node.querySelector('select[name$="inventory_item"]') : null;
+          if (invSelect) {
+            initInventorySelect2(invSelect);
+          }
+        }
+      });
+    });
+  });
+
+  var itemsContainer = document.getElementById('itemsContainer');
+  if (itemsContainer) {
+    observer.observe(itemsContainer, { childList: true, subtree: true });
+  }
 })();
 </script>
 {% endblock %}

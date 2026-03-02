@@ -245,6 +245,9 @@ def inventory_add(request):
                     quantity=item.quantity,
                     previous_quantity=0,
                     new_quantity=item.quantity,
+                    box_quantity=0,
+                    previous_box_quantity=0,
+                    new_box_quantity=0,
                     reason='Initial stock',
                     created_by=request.user.username,
                 )
@@ -278,6 +281,9 @@ def inventory_edit(request, pk):
                     quantity=abs(diff),
                     previous_quantity=previous_quantity,
                     new_quantity=new_quantity,
+                    box_quantity=0,
+                    previous_box_quantity=0,
+                    new_box_quantity=0,
                     reason=reason,
                     created_by=request.user.username,
                 )
@@ -752,7 +758,7 @@ def export_excel(request):
     
     # Export Inventory
     ws_inventory = wb.create_sheet("Inventory")
-    ws_inventory.append(['Part Code', 'Part Name', 'Category', 'Quantity', 'Unit Price', 'Total Value'])
+    ws_inventory.append(['Product Code', 'Product Name', 'Category', 'Quantity', 'Unit Price', 'Total Value'])
     for item in InventoryItem.objects.all():
         ws_inventory.append([
             item.part_code, item.part_name, item.category, item.quantity,
@@ -780,6 +786,104 @@ def export_excel(request):
     # Save to response
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
     response['Content-Disposition'] = f'attachment; filename=org_management_export_{datetime.now().strftime("%Y%m%d")}.xlsx'
+    wb.save(response)
+    
+    return response
+
+
+@login_required
+def customer_report_excel(request):
+    """Export customer financial summary to Excel with Total, Paid, and Due amounts"""
+    from django.db.models import Sum, F, DecimalField
+    from django.db.models.functions import Coalesce
+    
+    # Get all customers with their sales aggregates
+    customers = Customer.objects.all().order_by('customer_id')
+    
+    # Create workbook
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Customer Report"
+    
+    # Header styling
+    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+    header_font = Font(bold=True, color='FFFFFF', size=12)
+    header_alignment = Alignment(horizontal='center', vertical='center')
+    
+    # Add headers
+    headers = ['Name', 'Company', 'Phone', 'Total', 'Paid', 'Due']
+    ws.append(headers)
+    
+    # Style header row
+    for cell in ws[1]:
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = header_alignment
+    
+    # Add data rows
+    total_amount_sum = 0
+    total_paid_sum = 0
+    total_due_sum = 0
+    
+    for customer in customers:
+        # Get all finalized sales for this customer
+        sales = customer.sales.filter(status='finalized')
+        
+        # Calculate totals
+        total_amount = sales.aggregate(total=Sum('total_amount'))['total'] or 0
+        
+        # Calculate total paid from all sale payments
+        total_paid = 0
+        for sale in sales:
+            total_paid += sale.total_paid
+        
+        balance_due = total_amount - total_paid
+        
+        # Add to grand totals
+        total_amount_sum += total_amount
+        total_paid_sum += total_paid
+        total_due_sum += balance_due
+        
+        # Add row
+        ws.append([
+            customer.name,
+            customer.company or '-',
+            customer.phone,
+            float(total_amount),
+            float(total_paid),
+            float(balance_due)
+        ])
+    
+    # Add totals row
+    ws.append([])
+    total_row = ws.max_row + 1
+    ws.append(['TOTAL', '', '', float(total_amount_sum), float(total_paid_sum), float(total_due_sum)])
+    
+    # Style totals row
+    total_fill = PatternFill(start_color='E7E6E6', end_color='E7E6E6', fill_type='solid')
+    total_font = Font(bold=True, size=11)
+    for cell in ws[total_row]:
+        cell.fill = total_fill
+        cell.font = total_font
+        cell.alignment = Alignment(horizontal='center' if cell.column <= 3 else 'right')
+    
+    # Format currency columns (D, E, F) with alignment and number format
+    for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=4, max_col=6):
+        for cell in row:
+            cell.alignment = Alignment(horizontal='right')
+            cell.number_format = '#,##0.00'
+    
+    # Adjust column widths
+    ws.column_dimensions['A'].width = 25
+    ws.column_dimensions['B'].width = 25
+    ws.column_dimensions['C'].width = 15
+    ws.column_dimensions['D'].width = 15
+    ws.column_dimensions['E'].width = 15
+    ws.column_dimensions['F'].width = 15
+    
+    # Create response
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = f'attachment; filename=customer_report_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
     wb.save(response)
     
     return response
@@ -956,14 +1060,23 @@ def sale_create_unified(request):
                     
                 try:
                     inv_item = InventoryItem.objects.get(pk=inv_id)
+                    from decimal import Decimal as _D, InvalidOperation
+                    try:
+                        qty_dec = _D(str(qty)) if qty else _D('1')
+                    except InvalidOperation:
+                        qty_dec = _D('1')
+                    try:
+                        price_dec = _D(str(price)) if price else None
+                    except InvalidOperation:
+                        price_dec = None
                     cleaned_items.append({
                         'item_type': 'inventory',
                         'inventory_item': inv_item,
                         'description': inv_item.name,
-                        'quantity': int(qty) if qty else 1,
-                        'unit_price': float(price) if price else inv_item.unit_price
+                        'quantity': qty_dec,
+                        'unit_price': price_dec if price_dec is not None else inv_item.unit_price
                     })
-                except (InventoryItem.DoesNotExist, ValueError):
+                except InventoryItem.DoesNotExist:
                     messages.error(request, 'Invalid inventory item')
                     valid = False
                     
@@ -977,30 +1090,37 @@ def sale_create_unified(request):
                     valid = False
                     continue
                 
+                from decimal import Decimal as _D, InvalidOperation
                 try:
-                    item_dict = {
-                        'item_type': 'non_inventory',
-                        'inventory_item': None,
-                        'description': machine_desc,
-                        'quantity': int(qty) if qty else 1,
-                        'unit_price': float(price) if price else 0
-                    }
-                    cleaned_items.append(item_dict)
-                except ValueError as e:
-                    valid = False
+                    qty_dec = _D(str(qty)) if qty else _D('1')
+                except InvalidOperation:
+                    qty_dec = _D('1')
+                try:
+                    price_dec = _D(str(price)) if price else _D('0')
+                except InvalidOperation:
+                    price_dec = _D('0')
+                item_dict = {
+                    'item_type': 'non_inventory',
+                    'inventory_item': None,
+                    'description': machine_desc,
+                    'quantity': qty_dec,
+                    'unit_price': price_dec
+                }
+                cleaned_items.append(item_dict)
         if not cleaned_items:
             valid = False
             messages.error(request, 'Add at least one valid item.')
         # Compute total from items (unit_price fallback to inventory price if missing)
-        total_amount = 0
+        from decimal import Decimal as _D
+        total_amount = _D('0')
         if cleaned_items:
             for cd in cleaned_items:
-                unit_price = cd.get('unit_price') or 0
+                unit_price = cd.get('unit_price') or _D('0')
                 # If inventory and unit_price zero, fallback
                 if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                    unit_price = cd['inventory_item'].unit_price or 0
-                qty = cd.get('quantity') or 0
-                total_amount += unit_price * qty
+                    unit_price = _D(str(cd['inventory_item'].unit_price or 0))
+                qty = cd.get('quantity') or _D('0')
+                total_amount += _D(str(unit_price)) * _D(str(qty))
         # Payment validation (if provided)
         payment_amount = None
         if payment_form.is_valid():
@@ -1031,6 +1151,7 @@ def sale_create_unified(request):
                             f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
                         ),
                         quantity=cd.get('quantity') or 0,
+                        boxes=cd.get('boxes') or 0,
                         unit_price=unit_price,
                     )
                 sale.recalc_total(save=True)
@@ -1096,13 +1217,14 @@ def sale_create(request):
                 cleaned_items.append(cd)
         if not cleaned_items:
             messages.error(request, 'Add at least one valid item.'); valid = False
-        total_amount = 0
+        from decimal import Decimal as _D
+        total_amount = _D('0')
         for cd in cleaned_items:
-            unit_price = cd.get('unit_price') or 0
+            unit_price = cd.get('unit_price') or _D('0')
             if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                unit_price = cd['inventory_item'].unit_price or 0
-            qty = cd.get('quantity') or 0
-            total_amount += unit_price * qty
+                unit_price = _D(str(cd['inventory_item'].unit_price or 0))
+            qty = cd.get('quantity') or _D('0')
+            total_amount += _D(str(unit_price)) * _D(str(qty))
         payment_amount = None
         if payment_form.is_valid():
             payment_amount = payment_form.cleaned_data.get('amount')
@@ -1128,6 +1250,7 @@ def sale_create(request):
                             f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
                         ),
                         quantity=cd.get('quantity') or 0,
+                        boxes=cd.get('boxes') or 0,
                         unit_price=unit_price,
                     )
                 sale.recalc_total(save=True)
@@ -1190,13 +1313,14 @@ def sale_quote_create(request):
                 cleaned_items.append(cd)
         if not cleaned_items:
             messages.error(request, 'Add at least one valid item.'); valid = False
-        total_amount = 0
+        from decimal import Decimal as _D
+        total_amount = _D('0')
         for cd in cleaned_items:
-            unit_price = cd.get('unit_price') or 0
+            unit_price = cd.get('unit_price') or _D('0')
             if cd.get('item_type') == 'inventory' and cd.get('inventory_item') and (unit_price is None or unit_price <= 0):
-                unit_price = cd['inventory_item'].unit_price or 0
-            qty = cd.get('quantity') or 0
-            total_amount += unit_price * qty
+                unit_price = _D(str(cd['inventory_item'].unit_price or 0))
+            qty = cd.get('quantity') or _D('0')
+            total_amount += _D(str(unit_price)) * _D(str(qty))
         payment_amount = None
         if payment_form.is_valid():
             payment_amount = payment_form.cleaned_data.get('amount')
@@ -1223,6 +1347,7 @@ def sale_quote_create(request):
                             f"{cd['inventory_item'].part_name} ({cd['inventory_item'].part_code})" if cd.get('inventory_item') else ''
                         ),
                         quantity=cd.get('quantity') or 0,
+                        boxes=cd.get('boxes') or 0,
                         unit_price=unit_price,
                     )
                 sale.recalc_total(save=True)
@@ -1294,7 +1419,9 @@ def sale_detail(request, pk):
     payments = sale.payments.all()
     add_item_form = None
     add_payment_form = None
-    if request.user.has_perm('core.add_saleitem') and sale.status == 'draft':
+    # Allow admins to edit finalized sales, or allow regular users to edit drafts
+    can_edit_items = request.user.has_perm('core.add_saleitem') and (sale.status == 'draft' or request.user.is_superuser or request.user.is_staff)
+    if can_edit_items:
         add_item_form = SaleItemForm()
     if request.user.has_perm('core.add_salepayment') and sale.status != 'cancelled' and sale.status != 'quote':
         add_payment_form = SalePaymentForm()
@@ -1334,9 +1461,11 @@ def sale_invoice(request, pk):
 @permission_required('core.add_saleitem', raise_exception=True)
 def sale_add_item(request, pk):
     sale = get_object_or_404(Sale, pk=pk)
-    if sale.status != 'draft':
+    # Allow admins to edit finalized sales
+    if sale.status != 'draft' and not (request.user.is_superuser or request.user.is_staff):
         messages.warning(request, 'Cannot add items to a finalized sale.')
         return redirect('sale_detail', pk=sale.pk)
+    
     if request.method == 'POST':
         form = SaleItemForm(request.POST)
         if form.is_valid():
@@ -1349,8 +1478,73 @@ def sale_add_item(request, pk):
                 # Allow override: use provided unit_price if > 0 else fallback to inventory price
                 if item.item_type == 'inventory' and item.inventory_item and (item.unit_price is None or item.unit_price <= 0):
                     item.unit_price = item.inventory_item.unit_price
-                item.save()
-                messages.success(request, 'Item added to sale.')
+                
+                # If adding to a finalized sale, check and adjust inventory
+                if sale.status == 'finalized' and item.item_type == 'inventory' and item.inventory_item:
+                    inv = item.inventory_item
+                    
+                    # Validate boxes if provided
+                    if (item.boxes or 0) > 0:
+                        if inv.box_count < item.boxes:
+                            messages.error(request, f"Insufficient box stock for {inv.part_name} ({inv.part_code}). Available boxes: {inv.box_count}, required: {item.boxes}")
+                            return redirect('sale_detail', pk=sale.pk)
+                    
+                    # Validate unit quantity
+                    if inv.quantity < item.quantity:
+                        messages.error(request, f"Insufficient unit stock for {inv.part_name} ({inv.part_code}). Available: {inv.quantity}, required: {item.quantity}")
+                        return redirect('sale_detail', pk=sale.pk)
+                    
+                    # Save the item first
+                    item.save()
+                    
+                    # Deduct boxes if provided
+                    if (item.boxes or 0) > 0:
+                        prev_boxes = inv.box_count
+                        inv.box_count = prev_boxes - item.boxes
+                        inv.save(update_fields=['box_count', 'updated_at'])
+                        
+                        StockHistory.objects.create(
+                            item=inv,
+                            transaction_type='out',
+                            quantity=0,
+                            previous_quantity=0,
+                            new_quantity=0,
+                            box_quantity=item.boxes,
+                            previous_box_quantity=prev_boxes,
+                            new_box_quantity=inv.box_count,
+                            reason=f"Added to finalized sale {sale.sale_number} by admin (boxes)",
+                            created_by=request.user.username
+                        )
+                    
+                    # Deduct unit quantity
+                    previous = inv.quantity
+                    inv.quantity = previous - item.quantity
+                    inv.save(update_fields=['quantity', 'updated_at'])
+                    
+                    StockHistory.objects.create(
+                        item=inv,
+                        transaction_type='out',
+                        quantity=item.quantity,
+                        previous_quantity=previous,
+                        new_quantity=inv.quantity,
+                        box_quantity=0,
+                        previous_box_quantity=0,
+                        new_box_quantity=0,
+                        reason=f"Added to finalized sale {sale.sale_number} by admin",
+                        created_by=request.user.username
+                    )
+                    
+                    messages.success(request, f'Item added to finalized sale and inventory adjusted: {inv.part_name} ({inv.part_code})')
+                else:
+                    item.save()
+                    messages.success(request, 'Item added to sale.')
+                
+                # Recalculate sale total
+                try:
+                    sale.recalc_total(save=True)
+                except Exception:
+                    logger.exception('Failed to recalc total after adding item to Sale pk=%s', pk)
+                
                 return redirect('sale_detail', pk=sale.pk)
         else:
             for field, errs in form.errors.items():
@@ -1383,11 +1577,57 @@ def sale_finalize(request, pk):
 @permission_required('core.delete_saleitem', raise_exception=True)
 def sale_delete_item(request, pk, item_pk):
     sale = get_object_or_404(Sale, pk=pk)
-    if sale.status != 'draft':
+    # Allow admins to edit finalized sales
+    if sale.status != 'draft' and not (request.user.is_superuser or request.user.is_staff):
         messages.warning(request, 'Cannot delete items from a finalized sale.')
         return redirect('sale_detail', pk=sale.pk)
+    
     item = get_object_or_404(SaleItem, pk=item_pk, sale=sale)
+    
     if request.method == 'POST':
+        # If deleting from a finalized sale, restore inventory
+        if sale.status == 'finalized' and item.item_type == 'inventory' and item.inventory_item:
+            inv = item.inventory_item
+            
+            # Restore boxes if they were deducted
+            if (item.boxes or 0) > 0:
+                prev_boxes = inv.box_count
+                inv.box_count = prev_boxes + item.boxes
+                inv.save(update_fields=['box_count', 'updated_at'])
+                
+                StockHistory.objects.create(
+                    item=inv,
+                    transaction_type='adjustment',
+                    quantity=0,
+                    previous_quantity=0,
+                    new_quantity=0,
+                    box_quantity=item.boxes,
+                    previous_box_quantity=prev_boxes,
+                    new_box_quantity=inv.box_count,
+                    reason=f"Reversed: Item deleted from finalized sale {sale.sale_number} by admin",
+                    created_by=request.user.username
+                )
+            
+            # Restore unit quantity
+            previous = inv.quantity
+            inv.quantity = previous + item.quantity
+            inv.save(update_fields=['quantity', 'updated_at'])
+            
+            StockHistory.objects.create(
+                item=inv,
+                transaction_type='adjustment',
+                quantity=item.quantity,
+                previous_quantity=previous,
+                new_quantity=inv.quantity,
+                box_quantity=0,
+                previous_box_quantity=0,
+                new_box_quantity=0,
+                reason=f"Reversed: Item deleted from finalized sale {sale.sale_number} by admin",
+                created_by=request.user.username
+            )
+            
+            messages.success(request, f'Item deleted and inventory restored: {inv.part_name} ({inv.part_code})')
+        
         item.delete()
         try:
             sale.recalc_total(save=True)
@@ -1802,12 +2042,14 @@ def sale_add_payment(request, pk):
                 payment.save()
                 # Log to ledger as a credit (inflow)
                 try:
-                    LedgerEntry.objects.create(
-                        entry_type='credit',
+                    LedgerEntry.objects.update_or_create(
                         source='sale_payment',
                         reference=payment.receipt_number,
-                        description=f"Payment for {sale.sale_number}",
-                        amount=payment.amount,
+                        defaults={
+                            'entry_type': 'credit',
+                            'description': f"Payment for {sale.sale_number}",
+                            'amount': payment.amount,
+                        }
                     )
                 except Exception:
                     logger.exception('Non-blocking ledger write failure for SalePayment receipt=%s', payment.receipt_number)
@@ -1817,6 +2059,86 @@ def sale_add_payment(request, pk):
             for field, errs in form.errors.items():
                 for err in errs:
                     messages.error(request, f"{field}: {err}")
+    return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
+@permission_required('core.change_salepayment', raise_exception=True)
+def sale_edit_payment(request, pk, payment_pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    payment = get_object_or_404(SalePayment, pk=payment_pk, sale=sale)
+
+    if not (request.user.is_superuser or request.user.is_staff):
+        messages.error(request, 'Only admin users can edit sale payments.')
+        return redirect('sale_detail', pk=sale.pk)
+
+    if request.method == 'POST':
+        form = SalePaymentForm(request.POST, instance=payment)
+        if form.is_valid():
+            updated_payment = form.save(commit=False)
+
+            if updated_payment.amount <= 0:
+                messages.error(request, 'Amount must be greater than zero.')
+                return redirect('sale_edit_payment', pk=sale.pk, payment_pk=payment.pk)
+
+            other_paid = sale.payments.exclude(pk=payment.pk).aggregate(total=Sum('amount')).get('total') or 0
+            max_allowed = sale.total_amount - other_paid
+            if updated_payment.amount > max_allowed:
+                messages.error(request, 'Payment exceeds remaining balance.')
+                return redirect('sale_edit_payment', pk=sale.pk, payment_pk=payment.pk)
+
+            updated_payment.save()
+
+            try:
+                LedgerEntry.objects.update_or_create(
+                    source='sale_payment',
+                    reference=updated_payment.receipt_number,
+                    defaults={
+                        'entry_type': 'credit',
+                        'description': f"Payment for {sale.sale_number}",
+                        'amount': updated_payment.amount,
+                    }
+                )
+            except Exception:
+                logger.exception('Non-blocking ledger update failure for SalePayment receipt=%s', updated_payment.receipt_number)
+
+            messages.success(request, f'Payment {updated_payment.receipt_number} updated successfully.')
+            return redirect('sale_detail', pk=sale.pk)
+        else:
+            for field, errs in form.errors.items():
+                for err in errs:
+                    messages.error(request, f"{field}: {err}")
+    else:
+        form = SalePaymentForm(instance=payment)
+
+    context = {
+        'sale': sale,
+        'payment': payment,
+        'form': form,
+    }
+    return render(request, 'core/sale_payment_edit.html', context)
+
+
+@login_required
+@permission_required('core.delete_salepayment', raise_exception=True)
+@require_POST
+def sale_delete_payment(request, pk, payment_pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    payment = get_object_or_404(SalePayment, pk=payment_pk, sale=sale)
+
+    if not (request.user.is_superuser or request.user.is_staff):
+        messages.error(request, 'Only admin users can delete sale payments.')
+        return redirect('sale_detail', pk=sale.pk)
+
+    receipt_number = payment.receipt_number
+    payment.delete()
+
+    try:
+        LedgerEntry.objects.filter(source='sale_payment', reference=receipt_number).delete()
+    except Exception:
+        logger.exception('Non-blocking ledger cleanup failure for SalePayment receipt=%s', receipt_number)
+
+    messages.success(request, f'Payment {receipt_number} deleted successfully.')
     return redirect('sale_detail', pk=sale.pk)
 
 

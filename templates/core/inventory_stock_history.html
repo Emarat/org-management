@@ -28,6 +28,9 @@
             <th>Date &amp; Time</th>
             <th>Type</th>
             <th>Quantity</th>
+            <th>Boxes</th>
+            <th>Previous Boxes</th>
+            <th>New Boxes</th>
             <th>Previous Stock</th>
             <th>New Stock</th>
             <th>Reason</th>
@@ -54,6 +57,33 @@
                 <span class="text-danger">-{{ entry.quantity }}</span>
               {% else %}
                 {{ entry.quantity }}
+              {% endif %}
+            </td>
+            <td>
+              {% if entry.box_quantity > 0 %}
+                {% if entry.transaction_type == 'in' %}
+                  <span class="text-success">+{{ entry.box_quantity }}</span>
+                {% elif entry.transaction_type == 'out' %}
+                  <span class="text-danger">-{{ entry.box_quantity }}</span>
+                {% else %}
+                  {{ entry.box_quantity }}
+                {% endif %}
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if entry.box_quantity > 0 %}
+                {{ entry.previous_box_quantity }}
+              {% else %}
+                <span class="text-muted">-</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if entry.box_quantity > 0 %}
+                <strong>{{ entry.new_box_quantity }}</strong>
+              {% else %}
+                <span class="text-muted">-</span>
               {% endif %}
             </td>
             <td>{{ entry.previous_quantity }}</td>

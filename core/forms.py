@@ -23,14 +23,15 @@ class CustomerForm(forms.ModelForm):
 class InventoryItemForm(forms.ModelForm):
     class Meta:
         model = InventoryItem
-        fields = ['part_name', 'part_code', 'description', 'category', 'quantity', 
+        fields = ['part_name', 'part_code', 'description', 'category', 'quantity', 'box_count',
                   'unit', 'purchase_price', 'unit_price', 'location', 'minimum_stock', 'supplier']
         widgets = {
             'part_name': forms.TextInput(attrs={'class': 'form-control'}),
             'part_code': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'category': forms.TextInput(attrs={'class': 'form-control'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001'}),
+            'box_count': forms.NumberInput(attrs={'class': 'form-control', 'min': 0, 'value': '0'}),
             'unit': forms.Select(attrs={'class': 'form-control'}),
             'purchase_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
@@ -101,17 +102,18 @@ class SaleForm(forms.ModelForm):
 class SaleItemForm(forms.ModelForm):
     inventory_item = forms.ModelChoiceField(
         queryset=InventoryItem.objects.all(), required=False,
-        widget=forms.Select(attrs={'class': 'form-control'})
+        widget=forms.Select(attrs={'class':'form-control form-select form-select-sm'})
     )
-    description = forms.CharField(required=False, widget=forms.Textarea(attrs={'class': 'form-control', 'rows': 3}))
+    description = forms.CharField(required=False, widget=forms.Textarea(attrs={'class':'form-control form-control-sm machine-desc', 'rows': 3}))
 
     class Meta:
         model = SaleItem
-        fields = ['item_type', 'inventory_item', 'description', 'quantity', 'unit_price']
+        fields = ['item_type', 'inventory_item', 'description', 'quantity', 'boxes', 'unit_price']
         widgets = {
-            'item_type': forms.Select(attrs={'class': 'form-control'}),
-            'quantity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1, 'value': '1'}),
-            'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'value': '0'}),
+            'item_type': forms.Select(attrs={'class': 'form-control form-select form-select-sm'}),
+            'quantity': forms.NumberInput(attrs={'class': 'form-control form-control-sm quantity-inv quantity-machine', 'min': 0.001, 'step': '0.001', 'value': '1'}),
+            'boxes': forms.NumberInput(attrs={'class': 'form-control form-control-sm boxes-inv', 'min': 0, 'value': '0'}),
+            'unit_price': forms.NumberInput(attrs={'class': 'form-control form-control-sm unit-price-inv unit-price-machine', 'step': '0.01', 'value': '0'}),
         }
 
 
@@ -133,7 +135,7 @@ class CombinedSaleItemForm(forms.Form):
     )
     machine_name = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
     description = forms.CharField(required=False, widget=forms.TextInput(attrs={'class': 'form-control'}))
-    quantity = forms.IntegerField(min_value=1, initial=1, widget=forms.NumberInput(attrs={'class': 'form-control', 'min': 1}))
+    quantity = forms.DecimalField(min_value=0.001, decimal_places=3, max_digits=12, initial=1, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.001'}))
     unit_price = forms.DecimalField(min_value=0, decimal_places=2, max_digits=12, widget=forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}))
 
     def clean(self):

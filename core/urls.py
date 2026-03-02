@@ -49,6 +49,7 @@ urlpatterns = [
     path('reports/', views.reports, name='reports'),
     path('reports/ledger/', views.ledger, name='ledger'),
     path('reports/export-excel/', views.export_excel, name='export_excel'),
+    path('reports/customer-report-excel/', views.customer_report_excel, name='customer_report_excel'),
 
     # Sales URLs
     path('sales/', views.sale_list, name='sale_list'),
@@ -63,6 +64,8 @@ urlpatterns = [
     path('sales/<int:pk>/delete/', views.sale_delete, name='sale_delete'),
     path('sales/<int:pk>/finalize/', views.sale_finalize, name='sale_finalize'),
     path('sales/<int:pk>/add-payment/', views.sale_add_payment, name='sale_add_payment'),
+    path('sales/<int:pk>/payments/<int:payment_pk>/edit/', views.sale_edit_payment, name='sale_edit_payment'),
+    path('sales/<int:pk>/payments/<int:payment_pk>/delete/', views.sale_delete_payment, name='sale_delete_payment'),
     path('sales/<int:pk>/payments/export.csv', views.sale_payments_export, name='sale_payments_export'),
     path('sales/<int:pk>/payments/export.pdf', views.sale_payments_export_pdf, name='sale_payments_export_pdf'),
     path('sales/<int:sale_pk>/payments/<int:payment_pk>/receipt/', views.sale_payment_receipt, name='sale_payment_receipt'),

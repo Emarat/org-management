@@ -94,16 +94,37 @@
 </div>
 
 <div class="row mt-4">
-  <div class="col-12">
+  <div class="col-md-6">
     <div class="card">
-      <div class="card-header bg-info text-white">
-        <i class="fas fa-download"></i> Export Options
+      <div class="card-header bg-primary text-white">
+        <i class="fas fa-users"></i> Customer Financial Report
       </div>
       <div class="card-body">
-        <h5>Available Export Formats</h5>
+        <h5>Customer Summary</h5>
         <p>
-          Click the button below to export all your data to Excel format. The
-          export includes:
+          Export a detailed financial summary of all customers including:
+        </p>
+        <ul>
+          <li><i class="fas fa-check text-success"></i> Customer Name &amp; Contact</li>
+          <li><i class="fas fa-check text-success"></i> Total Sales Amount</li>
+          <li><i class="fas fa-check text-success"></i> Total Paid Amount</li>
+          <li><i class="fas fa-check text-success"></i> Outstanding Balance</li>
+        </ul>
+        <a href="{% url 'customer_report_excel' %}" class="btn btn-primary btn-lg">
+          <i class="fas fa-file-excel"></i> Download Customer Report
+        </a>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header bg-info text-white">
+        <i class="fas fa-download"></i> All Data Export
+      </div>
+      <div class="card-body">
+        <h5>Complete Database Export</h5>
+        <p>
+          Export all your data to Excel format. The export includes:
         </p>
         <ul>
           <li><i class="fas fa-check text-success"></i> All Employees</li>
@@ -113,7 +134,7 @@
           <li><i class="fas fa-check text-success"></i> All Payments</li>
         </ul>
         <a href="{% url 'export_excel' %}" class="btn btn-success btn-lg">
-          <i class="fas fa-file-excel"></i> Download Excel Report
+          <i class="fas fa-file-excel"></i> Download All Data
         </a>
       </div>
     </div>

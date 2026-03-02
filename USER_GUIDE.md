@@ -90,8 +90,8 @@ The dashboard shows:
 1. Navigate to "Inventory"
 2. Click "Add New Item"
 3. Enter:
-   - **Part Name**: Description of part
-   - **Part Code**: Unique code (e.g., PART001)
+   - **Product Name**: Description of product
+   - **Product Code**: Unique code (e.g., PROD001)
    - **Category**: Type/category (optional)
    - **Quantity**: Current stock
    - **Unit**: Pieces/Box/Kg/Liter/Meter
