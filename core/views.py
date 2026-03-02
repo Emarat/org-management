@@ -1321,7 +1321,9 @@ def sale_detail(request, pk):
     payments = sale.payments.all()
     add_item_form = None
     add_payment_form = None
-    if request.user.has_perm('core.add_saleitem') and sale.status == 'draft':
+    # Allow admins to edit finalized sales, or allow regular users to edit drafts
+    can_edit_items = request.user.has_perm('core.add_saleitem') and (sale.status == 'draft' or request.user.is_superuser or request.user.is_staff)
+    if can_edit_items:
         add_item_form = SaleItemForm()
     if request.user.has_perm('core.add_salepayment') and sale.status != 'cancelled' and sale.status != 'quote':
         add_payment_form = SalePaymentForm()
@@ -1361,9 +1363,11 @@ def sale_invoice(request, pk):
 @permission_required('core.add_saleitem', raise_exception=True)
 def sale_add_item(request, pk):
     sale = get_object_or_404(Sale, pk=pk)
-    if sale.status != 'draft':
+    # Allow admins to edit finalized sales
+    if sale.status != 'draft' and not (request.user.is_superuser or request.user.is_staff):
         messages.warning(request, 'Cannot add items to a finalized sale.')
         return redirect('sale_detail', pk=sale.pk)
+    
     if request.method == 'POST':
         form = SaleItemForm(request.POST)
         if form.is_valid():
@@ -1376,8 +1380,73 @@ def sale_add_item(request, pk):
                 # Allow override: use provided unit_price if > 0 else fallback to inventory price
                 if item.item_type == 'inventory' and item.inventory_item and (item.unit_price is None or item.unit_price <= 0):
                     item.unit_price = item.inventory_item.unit_price
-                item.save()
-                messages.success(request, 'Item added to sale.')
+                
+                # If adding to a finalized sale, check and adjust inventory
+                if sale.status == 'finalized' and item.item_type == 'inventory' and item.inventory_item:
+                    inv = item.inventory_item
+                    
+                    # Validate boxes if provided
+                    if (item.boxes or 0) > 0:
+                        if inv.box_count < item.boxes:
+                            messages.error(request, f"Insufficient box stock for {inv.part_name} ({inv.part_code}). Available boxes: {inv.box_count}, required: {item.boxes}")
+                            return redirect('sale_detail', pk=sale.pk)
+                    
+                    # Validate unit quantity
+                    if inv.quantity < item.quantity:
+                        messages.error(request, f"Insufficient unit stock for {inv.part_name} ({inv.part_code}). Available: {inv.quantity}, required: {item.quantity}")
+                        return redirect('sale_detail', pk=sale.pk)
+                    
+                    # Save the item first
+                    item.save()
+                    
+                    # Deduct boxes if provided
+                    if (item.boxes or 0) > 0:
+                        prev_boxes = inv.box_count
+                        inv.box_count = prev_boxes - item.boxes
+                        inv.save(update_fields=['box_count', 'updated_at'])
+                        
+                        StockHistory.objects.create(
+                            item=inv,
+                            transaction_type='out',
+                            quantity=0,
+                            previous_quantity=0,
+                            new_quantity=0,
+                            box_quantity=item.boxes,
+                            previous_box_quantity=prev_boxes,
+                            new_box_quantity=inv.box_count,
+                            reason=f"Added to finalized sale {sale.sale_number} by admin (boxes)",
+                            created_by=request.user.username
+                        )
+                    
+                    # Deduct unit quantity
+                    previous = inv.quantity
+                    inv.quantity = previous - item.quantity
+                    inv.save(update_fields=['quantity', 'updated_at'])
+                    
+                    StockHistory.objects.create(
+                        item=inv,
+                        transaction_type='out',
+                        quantity=item.quantity,
+                        previous_quantity=previous,
+                        new_quantity=inv.quantity,
+                        box_quantity=0,
+                        previous_box_quantity=0,
+                        new_box_quantity=0,
+                        reason=f"Added to finalized sale {sale.sale_number} by admin",
+                        created_by=request.user.username
+                    )
+                    
+                    messages.success(request, f'Item added to finalized sale and inventory adjusted: {inv.part_name} ({inv.part_code})')
+                else:
+                    item.save()
+                    messages.success(request, 'Item added to sale.')
+                
+                # Recalculate sale total
+                try:
+                    sale.recalc_total(save=True)
+                except Exception:
+                    logger.exception('Failed to recalc total after adding item to Sale pk=%s', pk)
+                
                 return redirect('sale_detail', pk=sale.pk)
         else:
             for field, errs in form.errors.items():
@@ -1410,11 +1479,57 @@ def sale_finalize(request, pk):
 @permission_required('core.delete_saleitem', raise_exception=True)
 def sale_delete_item(request, pk, item_pk):
     sale = get_object_or_404(Sale, pk=pk)
-    if sale.status != 'draft':
+    # Allow admins to edit finalized sales
+    if sale.status != 'draft' and not (request.user.is_superuser or request.user.is_staff):
         messages.warning(request, 'Cannot delete items from a finalized sale.')
         return redirect('sale_detail', pk=sale.pk)
+    
     item = get_object_or_404(SaleItem, pk=item_pk, sale=sale)
+    
     if request.method == 'POST':
+        # If deleting from a finalized sale, restore inventory
+        if sale.status == 'finalized' and item.item_type == 'inventory' and item.inventory_item:
+            inv = item.inventory_item
+            
+            # Restore boxes if they were deducted
+            if (item.boxes or 0) > 0:
+                prev_boxes = inv.box_count
+                inv.box_count = prev_boxes + item.boxes
+                inv.save(update_fields=['box_count', 'updated_at'])
+                
+                StockHistory.objects.create(
+                    item=inv,
+                    transaction_type='adjustment',
+                    quantity=0,
+                    previous_quantity=0,
+                    new_quantity=0,
+                    box_quantity=item.boxes,
+                    previous_box_quantity=prev_boxes,
+                    new_box_quantity=inv.box_count,
+                    reason=f"Reversed: Item deleted from finalized sale {sale.sale_number} by admin",
+                    created_by=request.user.username
+                )
+            
+            # Restore unit quantity
+            previous = inv.quantity
+            inv.quantity = previous + item.quantity
+            inv.save(update_fields=['quantity', 'updated_at'])
+            
+            StockHistory.objects.create(
+                item=inv,
+                transaction_type='adjustment',
+                quantity=item.quantity,
+                previous_quantity=previous,
+                new_quantity=inv.quantity,
+                box_quantity=0,
+                previous_box_quantity=0,
+                new_box_quantity=0,
+                reason=f"Reversed: Item deleted from finalized sale {sale.sale_number} by admin",
+                created_by=request.user.username
+            )
+            
+            messages.success(request, f'Item deleted and inventory restored: {inv.part_name} ({inv.part_code})')
+        
         item.delete()
         try:
             sale.recalc_total(save=True)
@@ -1829,12 +1944,14 @@ def sale_add_payment(request, pk):
                 payment.save()
                 # Log to ledger as a credit (inflow)
                 try:
-                    LedgerEntry.objects.create(
-                        entry_type='credit',
+                    LedgerEntry.objects.update_or_create(
                         source='sale_payment',
                         reference=payment.receipt_number,
-                        description=f"Payment for {sale.sale_number}",
-                        amount=payment.amount,
+                        defaults={
+                            'entry_type': 'credit',
+                            'description': f"Payment for {sale.sale_number}",
+                            'amount': payment.amount,
+                        }
                     )
                 except Exception:
                     logger.exception('Non-blocking ledger write failure for SalePayment receipt=%s', payment.receipt_number)
@@ -1844,6 +1961,86 @@ def sale_add_payment(request, pk):
             for field, errs in form.errors.items():
                 for err in errs:
                     messages.error(request, f"{field}: {err}")
+    return redirect('sale_detail', pk=sale.pk)
+
+
+@login_required
+@permission_required('core.change_salepayment', raise_exception=True)
+def sale_edit_payment(request, pk, payment_pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    payment = get_object_or_404(SalePayment, pk=payment_pk, sale=sale)
+
+    if not (request.user.is_superuser or request.user.is_staff):
+        messages.error(request, 'Only admin users can edit sale payments.')
+        return redirect('sale_detail', pk=sale.pk)
+
+    if request.method == 'POST':
+        form = SalePaymentForm(request.POST, instance=payment)
+        if form.is_valid():
+            updated_payment = form.save(commit=False)
+
+            if updated_payment.amount <= 0:
+                messages.error(request, 'Amount must be greater than zero.')
+                return redirect('sale_edit_payment', pk=sale.pk, payment_pk=payment.pk)
+
+            other_paid = sale.payments.exclude(pk=payment.pk).aggregate(total=Sum('amount')).get('total') or 0
+            max_allowed = sale.total_amount - other_paid
+            if updated_payment.amount > max_allowed:
+                messages.error(request, 'Payment exceeds remaining balance.')
+                return redirect('sale_edit_payment', pk=sale.pk, payment_pk=payment.pk)
+
+            updated_payment.save()
+
+            try:
+                LedgerEntry.objects.update_or_create(
+                    source='sale_payment',
+                    reference=updated_payment.receipt_number,
+                    defaults={
+                        'entry_type': 'credit',
+                        'description': f"Payment for {sale.sale_number}",
+                        'amount': updated_payment.amount,
+                    }
+                )
+            except Exception:
+                logger.exception('Non-blocking ledger update failure for SalePayment receipt=%s', updated_payment.receipt_number)
+
+            messages.success(request, f'Payment {updated_payment.receipt_number} updated successfully.')
+            return redirect('sale_detail', pk=sale.pk)
+        else:
+            for field, errs in form.errors.items():
+                for err in errs:
+                    messages.error(request, f"{field}: {err}")
+    else:
+        form = SalePaymentForm(instance=payment)
+
+    context = {
+        'sale': sale,
+        'payment': payment,
+        'form': form,
+    }
+    return render(request, 'core/sale_payment_edit.html', context)
+
+
+@login_required
+@permission_required('core.delete_salepayment', raise_exception=True)
+@require_POST
+def sale_delete_payment(request, pk, payment_pk):
+    sale = get_object_or_404(Sale, pk=pk)
+    payment = get_object_or_404(SalePayment, pk=payment_pk, sale=sale)
+
+    if not (request.user.is_superuser or request.user.is_staff):
+        messages.error(request, 'Only admin users can delete sale payments.')
+        return redirect('sale_detail', pk=sale.pk)
+
+    receipt_number = payment.receipt_number
+    payment.delete()
+
+    try:
+        LedgerEntry.objects.filter(source='sale_payment', reference=receipt_number).delete()
+    except Exception:
+        logger.exception('Non-blocking ledger cleanup failure for SalePayment receipt=%s', receipt_number)
+
+    messages.success(request, f'Payment {receipt_number} deleted successfully.')
     return redirect('sale_detail', pk=sale.pk)
 
 

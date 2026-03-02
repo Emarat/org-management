@@ -395,28 +395,6 @@ class SalePayment(models.Model):
         super().save(*args, **kwargs)
 
 
-class LedgerEntry(models.Model):
-    """Simple ledger to track income (payments) and expenses."""
-    ENTRY_TYPES = [
-        ('payment', 'Payment'),
-        ('expense', 'Expense'),
-    ]
-    entry_type = models.CharField(max_length=20, choices=ENTRY_TYPES)
-    amount = models.DecimalField(max_digits=12, decimal_places=2)
-    sale_payment = models.ForeignKey('SalePayment', null=True, blank=True, on_delete=models.SET_NULL, related_name='ledger_entries')
-    expense = models.ForeignKey('Expense', null=True, blank=True, on_delete=models.SET_NULL, related_name='ledger_entries')
-    note = models.CharField(max_length=255, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ['-created_at']
-
-    def __str__(self):
-        sign = '+' if self.amount >= 0 else '-'
-        label = self.entry_type
-        return f"{label} {sign}৳ {abs(self.amount)}"
-
-
 class BillClaim(models.Model):
     """Model for Employee Bill Claims"""
     STATUS_CHOICES = [
