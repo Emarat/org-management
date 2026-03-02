@@ -2,61 +2,166 @@
 {% block title %}{{ title|default:'Create Sale' }} - {{ brand.name|default:'Fashion Express' }}{% endblock %}
 {% block extra_css %}
 <style>
-  .sc-card { border: 1px solid #dee2e6; border-radius: .375rem; margin-bottom: 1rem; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.07); }
+  /* Modern card design */
+  .sc-card { 
+    border: none; 
+    border-radius: 0.5rem; 
+    margin-bottom: 1.25rem; 
+    background: #fff; 
+    box-shadow: 0 2px 8px rgba(0,0,0,.06); 
+    transition: box-shadow 0.3s ease;
+    overflow: hidden;
+  }
+  .sc-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); }
+  
   .sc-card-header {
-    background: #4a9edd;
+    background: linear-gradient(135deg, #4a9edd 0%, #3a8cc8 100%);
     color: #fff;
-    padding: .6rem 1rem;
-    border-radius: .375rem .375rem 0 0;
+    padding: .75rem 1.25rem;
     font-weight: 600;
     font-size: .95rem;
     display: flex;
     align-items: center;
-    gap: .4rem;
+    gap: .6rem;
+    border-bottom: 2px solid rgba(0,0,0,.05);
   }
-  .sc-card .card-body { padding: 1rem; }
+  .sc-card .card-body { 
+    padding: .85rem; 
+  }
 
+  /* Item cards */
   .item-card {
-    background: #fff;
-    border: 1px solid #dee2e6 !important;
-    border-radius: .375rem !important;
-    padding: 1rem !important;
+    background: #fafbfc;
+    border: 1.5px solid #e0e4e8 !important;
+    border-radius: .5rem !important;
+    padding: .75rem .95rem !important;
     margin-bottom: .75rem !important;
     position: relative;
+    transition: all 0.2s ease;
   }
+  .item-card:hover {
+    border-color: #4a9edd;
+    box-shadow: 0 2px 6px rgba(74, 158, 221, .1);
+  }
+  
   .item-card .remove-item-btn {
     position: absolute !important; top: .5rem !important; right: .5rem !important;
-    width: 28px; height: 28px; padding: 0; border-radius: 50% !important;
-    background: #dc3545; color: #fff; border: none;
+    width: 24px; height: 24px; padding: 0; border-radius: 50% !important;
+    background: #ff6b6b; color: #fff; border: none;
     display: flex; align-items: center; justify-content: center;
-    font-size: 1rem; line-height: 1; z-index: 10; cursor: pointer;
+    font-size: .9rem; line-height: 1; z-index: 10; cursor: pointer;
+    transition: all 0.2s ease;
   }
-  .item-card .remove-item-btn:hover { background: #bb2d3b; }
+  .item-card .remove-item-btn:hover { 
+    background: #ee5a52; 
+    transform: scale(1.1);
+  }
 
-  .summary-total-amt { font-size: 1.7rem; font-weight: 800; color: #4a9edd; }
-  .summary-row { display: flex; justify-content: space-between; align-items: center; padding: .35rem 0; }
-  .summary-divider { border-top: 1px solid #dee2e6; margin: .4rem 0; }
+  /* Summary styling */
+  .summary-total-amt { 
+    font-size: 1.5rem; 
+    font-weight: 700; 
+    color: #4a9edd;
+    letter-spacing: -0.5px;
+  }
+  .summary-row { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    padding: .4rem 0; 
+    border-bottom: 1px solid #f0f2f5;
+  }
+  .summary-row:last-child { border-bottom: none; }
+  .summary-divider { 
+    border-top: 2px solid #e9ecef; 
+    margin: .4rem 0; 
+  }
 
+  /* Button styling */
   .btn-create-sale {
-    background: #4a9edd;
-    border: none; color: #fff; width: 100%; padding: .55rem;
-    border-radius: .375rem; font-weight: 600; font-size: .95rem;
-    transition: background .15s;
+    background: linear-gradient(135deg, #4a9edd 0%, #3a8cc8 100%);
+    border: none; 
+    color: #fff; 
+    width: 100%; 
+    padding: .75rem 1.25rem;
+    border-radius: .5rem; 
+    font-weight: 600; 
+    font-size: .95rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(74, 158, 221, .2);
   }
-  .btn-create-sale:hover { background: #3a8cc8; color: #fff; }
+  .btn-create-sale:hover { 
+    background: linear-gradient(135deg, #3a8cc8 0%, #2a7db8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(74, 158, 221, .3);
+  }
+
+  /* Form elements */
+  .form-label {
+    font-weight: 500;
+    color: #495057;
+    font-size: .9rem;
+    margin-bottom: .5rem;
+  }
+  
+  .form-control, .form-select {
+    border: 1.5px solid #dee2e6;
+    border-radius: .375rem;
+    transition: all 0.2s ease;
+    font-size: .9rem;
+  }
+  
+  .form-control:focus, .form-select:focus {
+    border-color: #4a9edd;
+    box-shadow: 0 0 0 3px rgba(74, 158, 221, .1);
+  }
+  
+  .form-control::placeholder {
+    color: #a8b4ba;
+  }
+
+  /* Add Item button */
+  #addItemRowBtn {
+    background: #fff;
+    color: #4a9edd;
+    font-weight: 600;
+    border: 1.5px solid #4a9edd;
+    padding: .35rem .75rem !important;
+    border-radius: .375rem;
+    transition: all 0.2s ease;
+  }
+  
+  #addItemRowBtn:hover {
+    background: #4a9edd;
+    color: #fff;
+    transform: translateY(-1px);
+  }
 
   #itemsContainer:empty::after {
     content: 'No items yet. Click "+ Add Item" to get started.';
-    display: block; text-align: center; color: #adb5bd; padding: 2rem 0; font-size: .9rem;
+    display: block; 
+    text-align: center; 
+    color: #adb5bd; 
+    padding: 2rem 0; 
+    font-size: .95rem;
+    font-style: italic;
+  }
+  
+  /* Responsive improvements */
+  @media (max-width: 768px) {
+    .summary-total-amt { font-size: 1.5rem; }
+    .sc-card .card-body { padding: 1rem; }
   }
 </style>
 {% endblock %}
 {% block content %}
 <form method="post" novalidate id="saleBuilderForm" autocomplete="off">
   {% csrf_token %}
-  {{ item_formset.management_form }}
+  <div style="display: none;">
+    {{ item_formset.management_form }}
+  </div>
 
-  <div style="display:flex; gap:1rem; align-items:flex-start;">
+  <div style="display:flex; gap:1.5rem; align-items:flex-start;">
 
     {# ── LEFT COLUMN ── #}
     <div style="flex:1 1 0; min-width:0;">
@@ -68,13 +173,15 @@
           <div class="row g-3 align-items-end">
             <div class="col">
               <label class="form-label mb-1">Customer</label>
-              {{ sale_form.customer }}
+              <div style="max-height: 36px;">
+                {{ sale_form.customer }}
+              </div>
             </div>
             <div class="col-auto">
               <label class="form-label mb-1">Quick Add</label>
               <button type="button" id="quickAddCustomerBtn"
                 class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1">
-                <i class="fas fa-user-plus"></i> Add New Customer
+                Add New Customer
               </button>
             </div>
           </div>
@@ -86,8 +193,7 @@
         <div class="sc-card-header">
           Products
           <button type="button" id="addItemRowBtn"
-            class="btn btn-sm ms-auto"
-            style="background:#fff; color:#4a9edd; font-weight:600; border:1px solid rgba(255,255,255,.6); padding:.2rem .6rem;">
+            class="btn btn-sm ms-auto">
             + Add Item
           </button>
         </div>
@@ -97,48 +203,41 @@
             {% with itype=form.item_type.value n=forloop.counter %}
             <div class="item-card" data-index="{{ forloop.counter0 }}">
               <button type="button" class="remove-item-btn" title="Remove">&times;</button>
-              {# Type row #}
-              <div class="row g-2 mb-2">
+              <div class="row g-3 mb-3">
                 <div class="col-md-4">
-                  <label class="form-label mb-1">Type</label>
+                  <label class="form-label mb-1" style="font-size:.85rem;">Type</label>
                   {{ form.item_type }}
                 </div>
               </div>
-              {# Inventory fields #}
               <div class="inv-fields" style="display:{% if itype == 'non_inventory' %}none{% else %}block{% endif %};">
-                <div class="row g-2 align-items-end">
-                  <div class="col-md-6">
-                    <label class="form-label mb-1">Inventory Item</label>
+                <div class="row g-3 align-items-end mb-3">
+                  <div class="col-md-8">
+                    <label class="form-label mb-1" style="font-size:.85rem;">Inventory Item</label>
                     {{ form.inventory_item }}
                   </div>
-                  <div class="col-md-3">
-                    <label class="form-label mb-1">Boxes</label>
+                  <div class="col-md-4">
+                    <label class="form-label mb-1" style="font-size:.85rem;">Boxes</label>
                     {{ form.boxes }}
                   </div>
                 </div>
               </div>
-              {# Machine fields #}
               <div class="machine-fields" style="display:{% if itype == 'non_inventory' %}block{% else %}none{% endif %};">
-                <div class="row g-2">
+                <div class="row g-3 mb-3">
                   <div class="col-12">
-                    <label class="form-label mb-1">Machine Details</label>
-                    {{ form.description }}
+                    <label class="form-label mb-1" style="font-size:.85rem;">Machine Details</label>
+                    <textarea name="{{ form.description.name }}" class="form-control form-control-sm" placeholder="Example:&#10;- Model: ABC-123&#10;- Capacity: 500kg" rows="3">{{ form.description.value|default:'' }}</textarea>
                   </div>
                 </div>
               </div>
               {# Shared: quantity + unit_price — rendered ONCE to avoid duplicate name submission #}
-              <div class="row g-2 mt-2 align-items-end">
-                <div class="col-md-3">
-                  <label class="form-label mb-1">Quantity <span class="unit-label text-primary small"></span></label>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                  <label class="form-label mb-1" style="font-size:.85rem;">Qty <span class="unit-label text-primary" style="font-size:.78rem;"></span></label>
                   {{ form.quantity }}
                 </div>
-                <div class="col-md-3">
-                  <label class="form-label mb-1">Unit Price</label>
+                <div class="col-md-6">
+                  <label class="form-label mb-1" style="font-size:.85rem;">Unit Price</label>
                   {{ form.unit_price }}
-                </div>
-                <div class="col-md-3 text-end">
-                  <label class="form-label mb-1">&nbsp;</label><br>
-                  <span class="badge bg-light text-primary border" style="font-size:.82rem; padding:.3rem .5rem;">৳&nbsp;<span class="line-total-val">0.00</span></span>
                 </div>
               </div>
               {{ form.non_field_errors }}
@@ -152,7 +251,7 @@
     </div>{# end left #}
 
     {# ── RIGHT COLUMN ── #}
-    <div style="flex:0 0 300px; min-width:260px;">
+    <div style="flex:0 0 340px; min-width:300px;">
 
       {# Summary #}
       <div class="sc-card">
@@ -178,15 +277,15 @@
       <div class="sc-card" id="paymentCard">
         <div class="sc-card-header">Payment (Optional)</div>
         <div class="card-body">
-          <div class="mb-3">
+          <div class="mb-2">
             <label class="form-label mb-1">Payment Method</label>
             {{ payment_form.method }}
           </div>
-          <div class="mb-3" id="payment-notes-wrapper">
+          <div class="mb-2" id="payment-notes-wrapper">
             <label class="form-label mb-1">Details <span class="text-muted small">(optional)</span></label>
             {{ payment_form.notes }}
           </div>
-          <div class="mb-3">
+          <div class="mb-2">
             <label class="form-label mb-1">Payment Date</label>
             {{ payment_form.payment_date }}
           </div>
@@ -447,40 +546,40 @@
     
       var cardHtml = '<div class="item-card" data-index="'+index+'">'  
         + '<button type="button" class="remove-item-btn" title="Remove">&times;</button>'
-        + '<div class="row g-2 mb-2"><div class="col-md-4">'
-        +   '<label class="form-label mb-1">Type</label>'
-        +   '<select name="items-'+index+'-item_type" class="form-select form-select-sm">'
-        +     '<option value="inventory" selected>Inventory</option>'
-        +     '<option value="non_inventory">Machine</option>'
-        +   '</select>'
-        + '</div></div>'
+        + '<div class="row g-3 mb-3">'
+        +   '<div class="col-md-4">'
+        +     '<label class="form-label mb-1" style="font-size:.85rem;">Type</label>'
+        +     '<select name="items-'+index+'-item_type" class="form-select form-select-sm">'
+        +       '<option value="inventory" selected>Inventory</option>'
+        +       '<option value="non_inventory">Machine</option>'
+        +     '</select>'
+        +   '</div>'
+        + '</div>'
         + '<div class="inv-fields" style="display:block;">'
-        +   '<div class="row g-2 align-items-end">'
-        +     '<div class="col-md-6"><label class="form-label mb-1">Inventory Item</label>'
+        +   '<div class="row g-3 align-items-end mb-3">'
+        +     '<div class="col-md-8"><label class="form-label mb-1" style="font-size:.85rem;">Inventory Item</label>'
         +       '<select name="items-'+index+'-inventory_item" class="form-select form-select-sm"></select>'
         +     '</div>'
-        +     '<div class="col-md-3"><label class="form-label mb-1">Boxes</label>'
+        +     '<div class="col-md-4"><label class="form-label mb-1" style="font-size:.85rem;">Boxes</label>'
         +       '<input type="number" min="0" name="items-'+index+'-boxes" value="0" class="form-control form-control-sm boxes-inv">'
         +     '</div>'
         +   '</div>'
         + '</div>'
         + '<div class="machine-fields" style="display:none;">'
-        +   '<div class="row g-2">'
-        +     '<div class="col-12"><label class="form-label mb-1">Machine Details</label>'
-        +       '<textarea name="items-'+index+'-description" id="machine_desc_'+index+'" class="form-control form-control-sm machine-desc" placeholder="Enter machine name and specifications" rows="3" autocomplete="off"></textarea>'
+        +   '<div class="row g-3 mb-3">'
+        +     '<div class="col-12"><label class="form-label mb-1" style="font-size:.85rem;">Machine Details</label>'
+        +       '<textarea name="items-'+index+'-description" id="machine_desc_'+index+'" class="form-control form-control-sm machine-desc" placeholder="Example:\\n- Model: ABC-123\\n- Capacity: 500kg" rows="3" autocomplete="off"></textarea>'
         +     '</div>'
         +   '</div>'
         + '</div>'
-        + '<div class="row g-2 mt-2 align-items-end">'
-        +   '<div class="col-md-3"><label class="form-label mb-1">Quantity <span class="unit-label text-primary small"></span></label>'
+        + '<div class="row g-3 align-items-end">'
+        +   '<div class="col-md-6"><label class="form-label mb-1" style="font-size:.85rem;">Qty <span class="unit-label text-primary" style="font-size:.78rem;"></span></label>'
         +     '<input type="number" min="0" step="0.001" name="items-'+index+'-quantity" value="1" class="form-control form-control-sm quantity-inv quantity-machine">'
         +   '</div>'
-        +   '<div class="col-md-3"><label class="form-label mb-1">Unit Price</label>'
+        +   '<div class="col-md-6"><label class="form-label mb-1" style="font-size:.85rem;">Unit Price</label>'
         +     '<input type="number" step="0.01" name="items-'+index+'-unit_price" value="0" class="form-control form-control-sm unit-price-inv unit-price-machine">'
         +   '</div>'
-        +   '<div class="col-md-3 text-end"><label class="form-label mb-1">&nbsp;</label><br>'
-        +     '<span class="badge bg-light text-primary border" style="font-size:.82rem;padding:.3rem .5rem;">\u09F3&nbsp;<span class="line-total-val">0.00</span></span>'
-        +   '</div>'
+        + '</div>'
         + '</div>';
     
     var temp = document.createElement('div');
