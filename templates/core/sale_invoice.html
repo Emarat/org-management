@@ -6,11 +6,12 @@
   <title>Invoice {{ sale.invoice_number|default:sale.sale_number }} - {{ brand.name|default:'Fashion Express' }}</title>
   <style>
     :root {
-      --text: #111;
-      --muted: #666;
+      --text: #1a1a1a;
+      --muted: #6b7280;
       --border: #e5e7eb;
-      --soft: #f5f7fb;
-      --accent: #2c3e50;
+      --soft: #f9fafb;
+      --accent: #1f2937;
+      --primary: #2563eb;
     }
 
     html, body {
@@ -23,34 +24,35 @@
 
     .page {
       max-width: 920px;
-      margin: 18px auto;
-      padding: 18px 22px;
+      margin: 16px auto;
+      padding: 24px 28px;
     }
 
     .row {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 16px;
+      gap: 20px;
       flex-wrap: nowrap;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 14px;
       min-width: 0;
       flex: 1 1 auto;
     }
 
-    .brand img { height: 52px; width: auto; }
+    .brand img { height: 56px; width: auto; }
 
     .brand-title {
-      font-size: 20px;
-      font-weight: 800;
-      letter-spacing: 0.2px;
-      line-height: 1.15;
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
       overflow-wrap: anywhere;
+      color: var(--accent);
     }
 
     .muted { color: var(--muted); }
@@ -58,111 +60,143 @@
     .meta {
       text-align: right;
       min-width: 240px;
-      flex: 0 1 260px;
+      flex: 0 1 280px;
     }
 
     .doc-title {
-      font-size: 22px;
+      font-size: 28px;
       font-weight: 900;
       color: var(--accent);
-      letter-spacing: 0.6px;
+      letter-spacing: -0.5px;
+      margin: 0;
     }
 
     .doc-no {
-      font-size: 12px;
-      margin-top: 4px;
+      font-size: 13px;
+      margin-top: 6px;
+      color: var(--muted);
     }
 
     .pill {
       display: inline-block;
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 3px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
       font-size: 12px;
+      font-weight: 600;
       white-space: nowrap;
+      margin-top: 8px;
     }
 
-    .pill.finalized { border-color: #27ae60; color: #27ae60; }
-    .pill.draft { border-color: #f39c12; color: #f39c12; }
-    .pill.cancelled { border-color: #e74c3c; color: #e74c3c; }
+    .pill.finalized { border-color: #10b981; color: #059669; background: #ecfdf5; }
+    .pill.draft { border-color: #f59e0b; color: #d97706; background: #fffbeb; }
+    .pill.cancelled { border-color: #ef4444; color: #dc2626; background: #fef2f2; }
 
     hr {
       border: 0;
       border-top: 1px solid var(--border);
-      margin: 16px 0;
+      margin: 20px 0;
     }
 
     .actions {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      margin: 10px 0 0;
+      margin: 12px 0 0;
     }
 
     .btn {
       border: 1px solid var(--border);
-      background: #f7f7f7;
+      background: #ffffff;
       color: var(--text);
-      padding: 7px 11px;
-      border-radius: 8px;
+      padding: 8px 14px;
+      border-radius: 6px;
       cursor: pointer;
       font-weight: 600;
+      font-size: 14px;
+      transition: all 0.2s;
+    }
+
+    .btn:hover {
+      background: var(--soft);
+      border-color: var(--primary);
     }
 
     .two-col {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px 18px;
-      margin-top: 12px;
+      gap: 14px 20px;
+      margin-top: 16px;
     }
 
     .card {
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px 14px;
-      background: #fff;
+      border-radius: 8px;
+      padding: 14px 16px;
+      background: var(--soft);
     }
 
     .card-title {
       font-size: 12px;
       font-weight: 800;
-      letter-spacing: 0.6px;
+      letter-spacing: 0.5px;
       color: var(--muted);
       text-transform: uppercase;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
 
     .kv {
       display: grid;
-      grid-template-columns: 110px 1fr;
-      gap: 6px 10px;
+      grid-template-columns: 100px 1fr;
+      gap: 8px 12px;
       font-size: 13px;
     }
 
-    .k { color: var(--muted); }
-    .v { font-weight: 600; }
+    .k { color: var(--muted); font-weight: 500; }
+    .v { font-weight: 700; color: var(--text); }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 12px;
+      margin-top: 16px;
     }
 
     thead th {
       font-size: 12px;
       text-transform: uppercase;
-      letter-spacing: 0.6px;
-      background: var(--soft);
-      color: var(--muted);
-      border-bottom: 1px solid var(--border);
-      padding: 10px 8px;
+      letter-spacing: 0.5px;
+      background: transparent;
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent);
+      padding: 12px 10px;
+      font-weight: 800;
+      text-align: right;
+    }
+
+    thead th:first-child {
+      text-align: left;
     }
 
     tbody td {
       border-bottom: 1px solid var(--border);
-      padding: 10px 8px;
+      padding: 12px 10px;
       font-size: 14px;
-      vertical-align: top;
+      vertical-align: middle;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody td:first-child {
+      text-align: left;
+      font-weight: 500;
+    }
+
+    tbody td:not(:first-child) {
+      text-align: right;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
     }
 
     .text-end { text-align: right; white-space: nowrap; }
@@ -170,33 +204,56 @@
     .totals {
       display: flex;
       justify-content: flex-end;
-      margin-top: 12px;
+      margin-top: 20px;
+      gap: 0;
     }
 
     .totals-box {
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px 12px;
-      min-width: 260px;
-      background: #fff;
+      border-radius: 8px;
+      padding: 14px 16px;
+      min-width: 280px;
+      background: var(--soft);
     }
 
     .totals-row {
       display: flex;
       justify-content: space-between;
-      gap: 12px;
-      padding: 6px 2px;
+      gap: 16px;
+      padding: 8px 0;
       font-size: 14px;
     }
 
+    .totals-row span:first-child {
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .totals-row span:last-child {
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      text-align: right;
+      min-width: 100px;
+    }
+
     .totals-row strong { font-weight: 900; }
-    .totals-row.total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 10px; }
+    .totals-row.total { 
+      margin-top: 8px; 
+      padding-top: 10px;
+      font-size: 14px;
+      color: var(--accent);
+    }
+
+    .totals-row.due {
+      border-top: 1px solid var(--border);
+      margin-top: 8px;
+      padding-top: 10px;
+    }
 
     .signatures {
       display: flex;
       justify-content: space-between;
-      gap: 24px;
-      margin-top: 36px;
+      gap: 32px;
+      margin-top: 40px;
     }
 
     .sig {
@@ -204,17 +261,21 @@
     }
 
     .sig .line {
-      height: 56px;
-      border-bottom: 1px solid var(--border);
+      height: 60px;
+      border-bottom: 1.5px solid var(--text);
+      margin-bottom: 8px;
     }
 
     .sig .label {
-      margin-top: 8px;
       font-size: 12px;
-      color: var(--muted);
-      font-weight: 700;
+      color: var(--text);
+      font-weight: 800;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+    }
+
+    .sig[style*="text-align:right"] .label {
+      text-align: right;
     }
 
     @media print {
@@ -240,13 +301,13 @@
 
       /* Tighten vertical rhythm for print */
       /* Use table layout for the two cards as well (grid/flex can break in print) */
-      .two-col { display: table; width: 100%; table-layout: fixed; margin-top: 10px; border-collapse: separate; border-spacing: 16px 0; }
-      .two-col .card { display: table-cell; width: 50%; }
-      table { margin-top: 10px; }
-      .totals { margin-top: 10px; }
-      .signatures { margin-top: 20px; }
-      .card { padding: 10px 12px; }
-      tbody td { padding: 8px 8px; }
+      .two-col { display: table; width: 100%; table-layout: fixed; margin-top: 14px; border-collapse: separate; border-spacing: 16px 0; }
+      .two-col .card { display: table-cell; width: 50%; padding: 12px 14px; }
+      table { margin-top: 14px; }
+      .totals { margin-top: 14px; }
+      .signatures { margin-top: 28px; }
+      thead th { padding: 10px 8px; }
+      tbody td { padding: 10px 8px; }
 
       thead { display: table-header-group; }
       tfoot { display: table-footer-group; }
@@ -272,7 +333,7 @@
         <div style="min-width:0;">
           <div class="brand-title">{{ brand.name|default:'Fashion Express' }}</div>
           {% if brand.address or brand.phone or brand.email %}
-            <div class="muted" style="font-size:12px; margin-top:6px;">
+            <div class="muted" style="font-size:12px; margin-top:8px; line-height:1.6;">
               {% if brand.address %}<div>{{ brand.address }}</div>{% endif %}
               {% if brand.phone %}<div>Phone: {{ brand.phone }}</div>{% endif %}
               {% if brand.email %}<div>Email: {{ brand.email }}</div>{% endif %}
@@ -282,13 +343,6 @@
       </div>
 
       <div class="meta">
-        <div class="doc-title">INVOICE</div>
-        <div class="doc-no muted">
-          No: <strong>{{ sale.invoice_number|default:sale.sale_number }}</strong>
-        </div>
-        <div style="margin-top:10px;">
-          <span class="pill {% if sale.status == 'finalized' %}finalized{% elif sale.status == 'cancelled' %}cancelled{% else %}draft{% endif %}">{{ sale.status|title }}</span>
-        </div>
       </div>
     </div>
 
@@ -299,13 +353,13 @@
     <div class="two-col">
       <div class="card">
         <div class="card-title">Bill To</div>
-        <div style="font-weight:800;">{{ sale.customer.name }}</div>
-        {% if sale.customer.company %}<div class="muted" style="margin-top:2px;">{{ sale.customer.company }}</div>{% endif %}
+        <div style="font-weight:800; color: var(--accent); font-size: 15px;">{{ sale.customer.name }}</div>
+        {% if sale.customer.company %}<div class="muted" style="margin-top:4px; font-size: 13px;">{{ sale.customer.company }}</div>{% endif %}
         {% if sale.customer.address or sale.customer.city %}
-          <div class="muted" style="margin-top:6px;">{{ sale.customer.address }}{% if sale.customer.city %}, {{ sale.customer.city }}{% endif %}</div>
+          <div class="muted" style="margin-top:8px; font-size: 13px;">{{ sale.customer.address }}{% if sale.customer.city %}<br>{{ sale.customer.city }}{% endif %}</div>
         {% endif %}
-        {% if sale.customer.phone %}<div class="muted" style="margin-top:6px;">Phone: {{ sale.customer.phone }}</div>{% endif %}
-        {% if sale.customer.email %}<div class="muted">Email: {{ sale.customer.email }}</div>{% endif %}
+        {% if sale.customer.phone %}<div class="muted" style="margin-top:6px; font-size: 13px;">Phone: {{ sale.customer.phone }}</div>{% endif %}
+        {% if sale.customer.email %}<div class="muted" style="font-size: 13px;">Email: {{ sale.customer.email }}</div>{% endif %}
       </div>
 
       <div class="card">
@@ -326,22 +380,20 @@
     <table>
       <thead>
         <tr>
-          <th style="width: 12%">Type</th>
-          <th>Description</th>
-          <th class="text-end" style="width: 8%">Qty</th>
-          <th class="text-end" style="width: 18%">Unit Price</th>
-          <th class="text-end" style="width: 18%">Total</th>
+          <th style="width: 40%">Product/Description</th>
+          <th class="text-end" style="width: 15%">Qty</th>
+          <th class="text-end" style="width: 20%">Unit Price</th>
+          <th class="text-end" style="width: 25%">Total</th>
         </tr>
       </thead>
       <tbody>
         {% for item in items %}
         <tr>
-          <td>{{ item.get_item_type_display }}</td>
           <td>
             {% if item.item_type == 'inventory' and item.inventory_item %}
-              {{ item.inventory_item.part_name }} ({{ item.inventory_item.part_code }})
+              <strong>{{ item.inventory_item.part_name }}</strong> <span class="muted">({{ item.inventory_item.part_code }})</span>
             {% else %}
-              {{ item.description }}
+              <strong>{{ item.description }}</strong>
             {% endif %}
           </td>
           <td class="text-end">{{ item.quantity }}{% if item.item_type == 'inventory' and item.inventory_item %} <small>{{ item.inventory_item.get_unit_display }}</small>{% endif %}</td>
@@ -349,16 +401,16 @@
           <td class="text-end">৳&nbsp;{{ item.line_total }}</td>
         </tr>
         {% empty %}
-        <tr><td colspan="5" class="text-end">No items.</td></tr>
+        <tr><td colspan="4" class="text-end">No items.</td></tr>
         {% endfor %}
       </tbody>
     </table>
 
     <div class="totals">
       <div class="totals-box">
-        <div class="totals-row"><span class="muted">Paid</span><span><strong>৳&nbsp;{{ sale.total_paid }}</strong></span></div>
-        <div class="totals-row"><span class="muted">Due</span><span><strong>৳&nbsp;{{ sale.balance_due }}</strong></span></div>
         <div class="totals-row total"><span>Total</span><span><strong>৳&nbsp;{{ sale.total_amount }}</strong></span></div>
+        <div class="totals-row"><span>Paid</span><span><strong>৳&nbsp;{{ sale.total_paid }}</strong></span></div>
+        <div class="totals-row due"><span>Due</span><span><strong>৳&nbsp;{{ sale.balance_due }}</strong></span></div>
       </div>
     </div>
 
