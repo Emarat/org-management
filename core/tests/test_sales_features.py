@@ -1,9 +1,11 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.utils import timezone
+from datetime import timedelta
 
-from core.models import Customer, InventoryItem, Sale, SaleItem
+from core.models import Customer, InventoryItem, Sale, SaleItem, SalePayment
 
 
 class SalesFeatureTests(TestCase):
@@ -129,3 +131,71 @@ class SalesFeatureTests(TestCase):
         self.assertIn('id', data)
         self.assertIn('display', data)
         self.assertTrue(Customer.objects.filter(name='Rapid Co').exists())
+
+    @override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage')
+    def test_sale_list_scopes_to_current_non_admin_user(self):
+        User = get_user_model()
+        sales_user = User.objects.create_user(username='sales1', password='pass123')
+        other_user = User.objects.create_user(username='sales2', password='pass123')
+        sales_user.user_permissions.add(Permission.objects.get(codename='view_sale'))
+
+        own_sale = Sale.objects.create(
+            customer=self.customer,
+            created_by=sales_user,
+            status='finalized',
+            total_amount=1000,
+        )
+        SalePayment.objects.create(sale=own_sale, amount=300, method='cash')
+
+        other_sale = Sale.objects.create(
+            customer=self.customer,
+            created_by=other_user,
+            status='finalized',
+            total_amount=2000,
+        )
+        SalePayment.objects.create(sale=other_sale, amount=700, method='cash')
+
+        self.client.logout()
+        self.client.login(username='sales1', password='pass123')
+        resp = self.client.get(reverse('sale_list'), follow=True)
+
+        self.assertEqual(resp.status_code, 200)
+        html = resp.content.decode()
+        self.assertIn(own_sale.sale_number, html)
+        self.assertNotIn(other_sale.sale_number, html)
+        self.assertEqual(resp.context['total_sales_amount'], 1000)
+        self.assertEqual(resp.context['total_paid_amount'], 300)
+        self.assertEqual(resp.context['total_due_amount'], 700)
+
+    @override_settings(STATICFILES_STORAGE='django.contrib.staticfiles.storage.StaticFilesStorage')
+    def test_sale_list_date_range_filter(self):
+        User = get_user_model()
+        sales_user = User.objects.create_user(username='sales_date', password='pass123')
+        sales_user.user_permissions.add(Permission.objects.get(codename='view_sale'))
+
+        old_sale = Sale.objects.create(
+            customer=self.customer,
+            created_by=sales_user,
+            status='finalized',
+            total_amount=500,
+        )
+        recent_sale = Sale.objects.create(
+            customer=self.customer,
+            created_by=sales_user,
+            status='finalized',
+            total_amount=900,
+        )
+
+        old_dt = timezone.now() - timedelta(days=10)
+        Sale.objects.filter(pk=old_sale.pk).update(created_at=old_dt)
+
+        self.client.logout()
+        self.client.login(username='sales_date', password='pass123')
+
+        start_date = (timezone.localdate() - timedelta(days=3)).isoformat()
+        resp = self.client.get(reverse('sale_list'), {'start_date': start_date}, follow=True)
+        self.assertEqual(resp.status_code, 200)
+
+        html = resp.content.decode()
+        self.assertIn(recent_sale.sale_number, html)
+        self.assertNotIn(old_sale.sale_number, html)
