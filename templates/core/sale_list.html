@@ -30,12 +30,12 @@
         </div>
       </div>
     </div>
-    <form method="get" class="row g-2 mb-3 align-items-end">
-      <div class="col-lg-3 col-md-6">
-        <input type="text" class="form-control" name="q" placeholder="Search by sale no. or customer" value="{{ query }}">
+    <form method="get" class="row g-2 mb-3 align-items-end" style="font-size: 14px;">
+      <div class="col-lg-2 col-md-4">
+        <input type="text" class="form-control form-control-sm" name="q" placeholder="Search by sale no. or customer" value="{{ query }}" style="font-size: 13px; padding: 0.4rem 0.5rem;">
       </div>
       <div class="col-lg-2 col-md-3">
-        <select name="status" class="form-select">
+        <select name="status" class="form-select form-select-sm" style="font-size: 13px; padding: 0.4rem 0.5rem;">
           <option value="">All Statuses</option>
           <option value="quote" {% if status == 'quote' %}selected{% endif %}>Quotation</option>
           <option value="draft" {% if status == 'draft' %}selected{% endif %}>Draft</option>
@@ -43,21 +43,33 @@
           <option value="cancelled" {% if status == 'cancelled' %}selected{% endif %}>Cancelled</option>
         </select>
       </div>
-      <div class="col-lg-2 col-md-3">
-        <select name="item_type" class="form-select">
+      <div class="col-lg-2 col-md-2">
+        <select name="item_type" class="form-select form-select-sm" style="font-size: 13px; padding: 0.4rem 0.5rem;">
           <option value="">All Item Types</option>
           <option value="inventory" {% if item_type == 'inventory' %}selected{% endif %}>Inventory Items</option>
           <option value="machine" {% if item_type == 'machine' %}selected{% endif %}>Machines</option>
         </select>
       </div>
-      <div class="col-lg-2 col-md-4">
-        <input type="date" class="form-control" name="start_date" value="{{ start_date }}" placeholder="Start date">
+      <div class="col-lg-2 col-md-2">
+        <input type="date" class="form-control form-control-sm" name="start_date" value="{{ start_date }}" style="font-size: 13px; padding: 0.4rem 0.5rem;">
       </div>
-      <div class="col-lg-2 col-md-4">
-        <input type="date" class="form-control" name="end_date" value="{{ end_date }}" placeholder="End date">
+      <div class="col-lg-2 col-md-2">
+        <input type="date" class="form-control form-control-sm" name="end_date" value="{{ end_date }}" style="font-size: 13px; padding: 0.4rem 0.5rem;">
       </div>
-      <div class="col-lg-1 col-md-2">
-        <button class="btn btn-outline-secondary w-100" type="submit"><i class="fas fa-filter"></i> Filter</button>
+      {% if can_filter_by_user %}
+      <div class="col-lg-1 col-md-1">
+        <select name="user_id" class="form-select form-select-sm" style="font-size: 13px; padding: 0.4rem 0.5rem;">
+          <option value="">Salesperson</option>
+          {% for sales_user in sales_users %}
+            <option value="{{ sales_user.id }}" {% if selected_user_id == sales_user.id|stringformat:'s' %}selected{% endif %}>
+              {{ sales_user.get_full_name|default:sales_user.username }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="col-lg-1 col-md-1">
+        <button class="btn btn-outline-secondary btn-sm w-100" type="submit" style="font-size: 13px; padding: 0.4rem 0.5rem;"><i class="fas fa-filter"></i> Filter</button>
       </div>
     </form>
 
