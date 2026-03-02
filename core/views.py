@@ -21,6 +21,21 @@ from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, Bi
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
+
+def _can_view_all_sales(user):
+    return bool(user.is_superuser or getattr(user, 'is_manager', False))
+
+
+def _visible_sales_queryset(user):
+    qs = Sale.objects.select_related('customer').all()
+    if _can_view_all_sales(user):
+        return qs
+    return qs.filter(created_by=user)
+
+
+def _get_visible_sale_or_404(request, pk):
+    return get_object_or_404(_visible_sales_queryset(request.user), pk=pk)
+
 def is_manager(user):
     return user.is_superuser or (user.is_authenticated and user.is_manager)
 
@@ -947,7 +962,9 @@ def sale_list(request):
     query = request.GET.get('q', '')
     status = request.GET.get('status', '')
     item_type = request.GET.get('item_type', '')  # 'inventory' or 'machine'
-    qs = Sale.objects.select_related('customer').all().order_by('-created_at')
+    start_date = request.GET.get('start_date', '').strip()
+    end_date = request.GET.get('end_date', '').strip()
+    qs = _visible_sales_queryset(request.user).order_by('-created_at')
     if query:
         qs = qs.filter(
             Q(sale_number__icontains=query) |
@@ -956,6 +973,18 @@ def sale_list(request):
         )
     if status:
         qs = qs.filter(status=status)
+    if start_date:
+        try:
+            start_date_obj = datetime.strptime(start_date, '%Y-%m-%d').date()
+            qs = qs.filter(created_at__date__gte=start_date_obj)
+        except ValueError:
+            start_date = ''
+    if end_date:
+        try:
+            end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
+            qs = qs.filter(created_at__date__lte=end_date_obj)
+        except ValueError:
+            end_date = ''
     if item_type in ['inventory', 'machine']:
         # Map 'machine' to non_inventory sale items
         mapped = 'non_inventory' if item_type == 'machine' else 'inventory'
@@ -976,6 +1005,8 @@ def sale_list(request):
         'query': query,
         'status': status,
         'item_type': item_type,
+        'start_date': start_date,
+        'end_date': end_date,
         'total_sales_amount': total_sales_amount,
         'total_paid_amount': total_paid_amount,
         'total_due_amount': total_due_amount,
@@ -1401,7 +1432,7 @@ def customer_quick_add(request):
 @login_required
 @permission_required('core.change_sale', raise_exception=True)
 def sale_convert_to_invoice(request, pk):
-    sale = get_object_or_404(Sale, pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     if sale.status != 'quote':
         messages.info(request, 'This sale is not a quotation.')
         return redirect('sale_detail', pk=sale.pk)
@@ -1414,7 +1445,7 @@ def sale_convert_to_invoice(request, pk):
 @login_required
 @permission_required('core.view_sale', raise_exception=True)
 def sale_detail(request, pk):
-    sale = get_object_or_404(Sale.objects.select_related('customer'), pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     items = sale.items.select_related('inventory_item').all()
     payments = sale.payments.all()
     add_item_form = None
@@ -1448,7 +1479,7 @@ def sale_detail(request, pk):
 @login_required
 @permission_required('core.view_sale', raise_exception=True)
 def sale_invoice(request, pk):
-    sale = get_object_or_404(Sale.objects.select_related('customer'), pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     items = sale.items.select_related('inventory_item').all()
     context = {
         'sale': sale,
@@ -1460,7 +1491,7 @@ def sale_invoice(request, pk):
 @login_required
 @permission_required('core.add_saleitem', raise_exception=True)
 def sale_add_item(request, pk):
-    sale = get_object_or_404(Sale, pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     # Allow admins to edit finalized sales
     if sale.status != 'draft' and not (request.user.is_superuser or request.user.is_staff):
         messages.warning(request, 'Cannot add items to a finalized sale.')
@@ -1557,7 +1588,7 @@ def sale_add_item(request, pk):
 @permission_required('core.finalize_sale', raise_exception=True)
 @require_POST
 def sale_finalize(request, pk):
-    sale = get_object_or_404(Sale, pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     if sale.status == 'finalized':
         messages.info(request, 'Sale already finalized.')
         return redirect('sale_detail', pk=sale.pk)
@@ -1576,7 +1607,7 @@ def sale_finalize(request, pk):
 @login_required
 @permission_required('core.delete_saleitem', raise_exception=True)
 def sale_delete_item(request, pk, item_pk):
-    sale = get_object_or_404(Sale, pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     # Allow admins to edit finalized sales
     if sale.status != 'draft' and not (request.user.is_superuser or request.user.is_staff):
         messages.warning(request, 'Cannot delete items from a finalized sale.')
@@ -1641,7 +1672,7 @@ def sale_delete_item(request, pk, item_pk):
 def sale_payments_export(request, pk):
     import csv
     from django.utils.encoding import smart_str
-    sale = get_object_or_404(Sale, pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     payments = sale.payments.all().order_by('-payment_date', '-created_at')
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = f'attachment; filename="{sale.sale_number}_payments.csv"'
@@ -1672,7 +1703,7 @@ def sale_payments_export_pdf(request, pk):
     from django.conf import settings
     from django.utils import timezone
 
-    sale = get_object_or_404(Sale, pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     payments = sale.payments.all().order_by('payment_date', 'created_at')
 
     # Brand info from settings
@@ -2023,7 +2054,7 @@ def sale_payments_export_pdf(request, pk):
 @login_required
 @permission_required('core.add_salepayment', raise_exception=True)
 def sale_add_payment(request, pk):
-    sale = get_object_or_404(Sale, pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     if sale.status == 'cancelled':
         messages.warning(request, 'Cannot record payments for a cancelled sale.')
         return redirect('sale_detail', pk=sale.pk)
@@ -2065,7 +2096,7 @@ def sale_add_payment(request, pk):
 @login_required
 @permission_required('core.change_salepayment', raise_exception=True)
 def sale_edit_payment(request, pk, payment_pk):
-    sale = get_object_or_404(Sale, pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     payment = get_object_or_404(SalePayment, pk=payment_pk, sale=sale)
 
     if not (request.user.is_superuser or request.user.is_staff):
@@ -2123,7 +2154,7 @@ def sale_edit_payment(request, pk, payment_pk):
 @permission_required('core.delete_salepayment', raise_exception=True)
 @require_POST
 def sale_delete_payment(request, pk, payment_pk):
-    sale = get_object_or_404(Sale, pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     payment = get_object_or_404(SalePayment, pk=payment_pk, sale=sale)
 
     if not (request.user.is_superuser or request.user.is_staff):
@@ -2145,7 +2176,7 @@ def sale_delete_payment(request, pk, payment_pk):
 @login_required
 @permission_required('core.view_salepayment', raise_exception=True)
 def sale_payment_receipt(request, sale_pk, payment_pk):
-    sale = get_object_or_404(Sale, pk=sale_pk)
+    sale = _get_visible_sale_or_404(request, sale_pk)
     payment = get_object_or_404(SalePayment, pk=payment_pk, sale=sale)
     context = {
         'sale': sale,
@@ -2164,7 +2195,7 @@ def sales_export_csv(request):
     query = request.GET.get('q', '')
     status = request.GET.get('status', '')
     item_type = request.GET.get('item_type', '')
-    qs = Sale.objects.select_related('customer').filter(status='finalized').order_by('-created_at')
+    qs = _visible_sales_queryset(request.user).filter(status='finalized').order_by('-created_at')
     if query:
         qs = qs.filter(Q(sale_number__icontains=query) | Q(customer__name__icontains=query))
     if status:
@@ -2200,7 +2231,7 @@ def sales_export_pdf(request):
     item_type = request.GET.get('item_type', '')
     customer_id = request.GET.get('customer_id')
 
-    qs = Sale.objects.select_related('customer').prefetch_related('items__inventory_item').filter(status=status).order_by('-created_at')
+    qs = _visible_sales_queryset(request.user).prefetch_related('items__inventory_item').filter(status=status).order_by('-created_at')
     if customer_id:
         qs = qs.filter(customer_id=customer_id)
     if query:
@@ -2504,7 +2535,7 @@ def sale_delete(request, pk):
     """Delete a sale safely.
     Policy: allow deletion only for draft sales (payments allowed).
     """
-    sale = get_object_or_404(Sale, pk=pk)
+    sale = _get_visible_sale_or_404(request, pk)
     if request.method == 'POST':
         if sale.status != 'draft':
             messages.warning(request, 'Only draft sales can be deleted.')
