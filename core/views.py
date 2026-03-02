@@ -245,6 +245,9 @@ def inventory_add(request):
                     quantity=item.quantity,
                     previous_quantity=0,
                     new_quantity=item.quantity,
+                    box_quantity=0,
+                    previous_box_quantity=0,
+                    new_box_quantity=0,
                     reason='Initial stock',
                     created_by=request.user.username,
                 )
@@ -278,6 +281,9 @@ def inventory_edit(request, pk):
                     quantity=abs(diff),
                     previous_quantity=previous_quantity,
                     new_quantity=new_quantity,
+                    box_quantity=0,
+                    previous_box_quantity=0,
+                    new_box_quantity=0,
                     reason=reason,
                     created_by=request.user.username,
                 )

@@ -58,6 +58,7 @@
             <th>Product Name</th>
             <th>Category</th>
             <th>Quantity</th>
+            <th>Boxes</th>
             <th>Unit</th>
             <th>Purchase Price</th>
             <th>Unit Price</th>
@@ -74,6 +75,7 @@
             <td>{{ item.part_name }}</td>
             <td>{{ item.category|default:"-" }}</td>
             <td><strong>{{ item.quantity }}</strong></td>
+            <td><strong>{{ item.box_count }}</strong></td>
             <td>{{ item.get_unit_display }}</td>
             <td>{% if item.purchase_price is not None %}৳&nbsp;{{ item.purchase_price }}{% else %}-{% endif %}</td>
             <td>৳&nbsp;{{ item.unit_price }}</td>

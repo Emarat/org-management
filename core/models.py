@@ -284,9 +284,12 @@ class Sale(models.Model):
                     StockHistory.objects.create(
                         item=inv,
                         transaction_type='out',
-                        quantity=item.boxes,
-                        previous_quantity=prev_boxes,
-                        new_quantity=inv.box_count,
+                        quantity=0,
+                        previous_quantity=0,
+                        new_quantity=0,
+                        box_quantity=item.boxes,
+                        previous_box_quantity=prev_boxes,
+                        new_box_quantity=inv.box_count,
                         reason=f"Sale {self.sale_number} (boxes)",
                         created_by=(getattr(user, 'username', '') or '')
                     )
@@ -302,6 +305,9 @@ class Sale(models.Model):
                     quantity=item.quantity,
                     previous_quantity=previous,
                     new_quantity=inv.quantity,
+                    box_quantity=0,
+                    previous_box_quantity=0,
+                    new_box_quantity=0,
                     reason=f"Sale {self.sale_number}",
                     created_by=(getattr(user, 'username', '') or '')
                 )
@@ -459,6 +465,9 @@ class StockHistory(models.Model):
     quantity = models.DecimalField(max_digits=12, decimal_places=3)
     previous_quantity = models.DecimalField(max_digits=12, decimal_places=3)
     new_quantity = models.DecimalField(max_digits=12, decimal_places=3)
+    box_quantity = models.DecimalField(max_digits=12, decimal_places=0, default=0, help_text='Boxes transacted')
+    previous_box_quantity = models.DecimalField(max_digits=12, decimal_places=0, default=0)
+    new_box_quantity = models.DecimalField(max_digits=12, decimal_places=0, default=0)
     reason = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     created_by = models.CharField(max_length=100, blank=True)
