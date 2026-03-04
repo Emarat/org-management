@@ -1172,7 +1172,7 @@ def sale_create_unified(request):
             if payment_amount is not None and payment_amount < 0:
                 payment_form.add_error('amount', 'Payment cannot be negative.')
                 valid = False
-            elif payment_amount and payment_amount > 0:
+            elif cleaned_items and payment_amount and payment_amount > 0:
                 if payment_amount > total_amount:
                     payment_form.add_error('amount', 'Payment exceeds total.')
                     valid = False
@@ -1274,7 +1274,7 @@ def sale_create(request):
             payment_amount = payment_form.cleaned_data.get('amount')
             if payment_amount is not None and payment_amount < 0:
                 payment_form.add_error('amount', 'Payment cannot be negative.'); valid = False
-            elif payment_amount and payment_amount > total_amount:
+            elif cleaned_items and payment_amount and payment_amount > total_amount:
                 payment_form.add_error('amount', 'Payment exceeds total.'); valid = False
         if valid:
             from django.db import transaction
