@@ -104,7 +104,14 @@ class SaleItemForm(forms.ModelForm):
         queryset=InventoryItem.objects.all(), required=False,
         widget=forms.Select(attrs={'class':'form-control form-select form-select-sm'})
     )
-    description = forms.CharField(required=False, widget=forms.Textarea(attrs={'class':'form-control form-control-sm machine-desc', 'rows': 3}))
+    description = forms.CharField(
+        required=False, 
+        widget=forms.Textarea(attrs={
+            'class': 'form-control form-control-sm machine-desc',
+            'rows': 3,
+            'placeholder': 'Example:\n- Model: ABC-123\n- Capacity: 500kg'
+        })
+    )
 
     class Meta:
         model = SaleItem
@@ -115,6 +122,27 @@ class SaleItemForm(forms.ModelForm):
             'boxes': forms.NumberInput(attrs={'class': 'form-control form-control-sm boxes-inv', 'min': 0, 'value': '0'}),
             'unit_price': forms.NumberInput(attrs={'class': 'form-control form-control-sm unit-price-inv unit-price-machine', 'step': '0.01', 'value': '0'}),
         }
+    
+    def clean(self):
+        """Validate that non_inventory items have a description."""
+        cleaned_data = super().clean()
+        item_type = cleaned_data.get('item_type')
+        description = cleaned_data.get('description', '').strip() if cleaned_data.get('description') else ''
+        inventory_item = cleaned_data.get('inventory_item')
+        
+        # Skip validation for completely blank rows
+        if not item_type:
+            return cleaned_data
+        
+        # For machine (non_inventory) items, description is required
+        if item_type == 'non_inventory' and not description:
+            self.add_error('description', 'Description is required for machine items.')
+        
+        # For inventory items, an inventory_item must be selected
+        if item_type == 'inventory' and not inventory_item:
+            self.add_error('inventory_item', 'Please select an inventory item.')
+        
+        return cleaned_data
 
 
 class CombinedSaleItemForm(forms.Form):

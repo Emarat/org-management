@@ -237,6 +237,11 @@
                 <div class="col-md-4">
                   <label class="form-label mb-1" style="font-size:.85rem;">Type</label>
                   {{ form.item_type }}
+                  {% if form.item_type.errors %}
+                    <div class="invalid-feedback" style="display:block;">
+                      {% for error in form.item_type.errors %}{{ error }}{% if not forloop.last %}<br>{% endif %}{% endfor %}
+                    </div>
+                  {% endif %}
                 </div>
               </div>
               <div class="inv-fields" style="display:{% if itype == 'non_inventory' %}none{% else %}block{% endif %};">
@@ -255,7 +260,8 @@
                 <div class="row g-3 mb-3">
                   <div class="col-12">
                     <label class="form-label mb-1" style="font-size:.85rem;">Machine Details</label>
-                    <textarea name="{{ form.description.name }}" class="form-control form-control-sm" placeholder="Example:&#10;- Model: ABC-123&#10;- Capacity: 500kg" rows="3">{{ form.description.value|default:'' }}</textarea>
+                    <textarea name="items-{{ forloop.counter0 }}-description" id="id_items-{{ forloop.counter0 }}-description" class="form-control form-control-sm machine-desc" placeholder="Example:&#10;- Model: ABC-123&#10;- Capacity: 500kg" rows="3" autocomplete="off">{{ form.description.value|default:'' }}</textarea>
+                    {% if form.description.errors %}<div class="text-danger small mt-2">{% for error in form.description.errors %}{{ error }}<br>{% endfor %}</div>{% endif %}
                   </div>
                 </div>
               </div>
