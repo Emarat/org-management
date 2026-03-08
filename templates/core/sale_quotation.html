@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Invoice {{ sale.invoice_number|default:sale.sale_number }} - {{ brand.name|default:'Fashion Express' }}</title>
+  <title>Quotation {{ sale.sale_number }} - {{ brand.name|default:'Fashion Express' }}</title>
   <style>
     :root {
       --text: #1a1a1a;
@@ -12,6 +12,7 @@
       --soft: #f9fafb;
       --accent: #1f2937;
       --primary: #2563eb;
+      --warning: #f59e0b;
     }
 
     html, body {
@@ -66,7 +67,7 @@
     .doc-title {
       font-size: 28px;
       font-weight: 900;
-      color: var(--accent);
+      color: var(--warning);
       letter-spacing: -0.5px;
       margin: 0;
     }
@@ -88,9 +89,7 @@
       margin-top: 8px;
     }
 
-    .pill.finalized { border-color: #10b981; color: #059669; background: #ecfdf5; }
-    .pill.draft { border-color: #f59e0b; color: #d97706; background: #fffbeb; }
-    .pill.cancelled { border-color: #ef4444; color: #dc2626; background: #fef2f2; }
+    .pill.quote { border-color: #f59e0b; color: #d97706; background: #fffbeb; }
 
     hr {
       border: 0;
@@ -154,6 +153,20 @@
 
     .k { color: var(--muted); font-weight: 500; }
     .v { font-weight: 700; color: var(--text); }
+
+    .notice {
+      border: 1px solid var(--warning);
+      background: #fffbeb;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-top: 14px;
+      font-size: 13px;
+      color: #92400e;
+    }
+
+    .notice strong {
+      color: #b45309;
+    }
 
     table {
       width: 100%;
@@ -243,12 +256,6 @@
       color: var(--accent);
     }
 
-    .totals-row.due {
-      border-top: 1px solid var(--border);
-      margin-top: 8px;
-      padding-top: 10px;
-    }
-
     .signatures {
       display: flex;
       justify-content: space-between;
@@ -291,7 +298,7 @@
       /* Flex/grid can reflow unpredictably in print; use table layout for the header */
       .row { display: table; width: 100%; table-layout: fixed; }
       .brand, .meta { display: table-cell; vertical-align: top; }
-      /* Fixed right column width keeps INVOICE aligned */
+      /* Fixed right column width */
       .meta { width: 240px; text-align: right; }
       .meta, .meta * { white-space: nowrap; }
       .brand { width: auto; }
@@ -343,7 +350,7 @@
       </div>
 
       <div class="meta">
-        <h2 class="doc-title" style="color: var(--accent);">INVOICE</h2>
+        <h2 class="doc-title">QUOTATION</h2>
         <div class="doc-no">{{ sale.sale_number }}</div>
       </div>
     </div>
@@ -365,18 +372,20 @@
       </div>
 
       <div class="card">
-        <div class="card-title">Invoice Details</div>
+        <div class="card-title">Quotation Details</div>
         <div class="kv">
           <div class="k">Created</div>
           <div class="v">{{ sale.created_at|date:"Y-m-d" }}</div>
-          {% if sale.finalized_at %}
-            <div class="k">Finalized</div>
-            <div class="v">{{ sale.finalized_at|date:"Y-m-d" }}</div>
-          {% endif %}
-          <div class="k">Sale No</div>
+          <div class="k">Valid Until</div>
+          <div class="v">{{ valid_until|date:"Y-m-d" }}</div>
+          <div class="k">Quotation No</div>
           <div class="v">{{ sale.sale_number }}</div>
         </div>
       </div>
+    </div>
+
+    <div class="notice">
+      <strong>Note:</strong> This is a quotation and is valid for review only. It does not constitute an invoice until accepted and converted.
     </div>
 
     <table>
@@ -410,16 +419,14 @@
 
     <div class="totals">
       <div class="totals-box">
-        <div class="totals-row total"><span>Total</span><span><strong>৳&nbsp;{{ sale.total_amount }}</strong></span></div>
-        <div class="totals-row"><span>Paid</span><span><strong>৳&nbsp;{{ sale.total_paid }}</strong></span></div>
-        <div class="totals-row due"><span>Due</span><span><strong>৳&nbsp;{{ sale.balance_due }}</strong></span></div>
+        <div class="totals-row total"><span>Estimated Total</span><span><strong>৳&nbsp;{{ sale.total_amount }}</strong></span></div>
       </div>
     </div>
 
     <div class="signatures">
       <div class="sig">
         <div class="line"></div>
-        <div class="label">Customer Signature</div>
+        <div class="label">Customer Signature / Approval</div>
       </div>
       <div class="sig" style="text-align:right;">
         <div class="line"></div>

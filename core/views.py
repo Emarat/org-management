@@ -1508,7 +1508,13 @@ def sale_invoice(request, pk):
         'sale': sale,
         'items': items,
     }
-    return render(request, 'core/sale_invoice.html', context)
+    # For quotations, calculate valid_until date (30 days from creation)
+    if sale.status == 'quote':
+        from datetime import timedelta
+        context['valid_until'] = sale.created_at + timedelta(days=30)
+    # Render quotation template for quotes, invoice template for all others
+    template = 'core/sale_quotation.html' if sale.status == 'quote' else 'core/sale_invoice.html'
+    return render(request, template, context)
 
 
 @login_required
