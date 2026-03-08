@@ -3,7 +3,7 @@
 ## Complete File Tree
 
 ```
-Org Management/
+Fashion Express/
 │
 ├── 📄 START_HERE.md              ← START HERE! Quick start guide
 ├── 📄 QUICKSTART.md              ← Fast setup instructions

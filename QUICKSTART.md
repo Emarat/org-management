@@ -7,7 +7,7 @@
 Run this command to create your login credentials:
 
 ```bash
-"/home/emarat/Org Management/.venv/bin/python" manage.py createsuperuser
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py createsuperuser
 ```
 
 **Enter:**
@@ -31,8 +31,8 @@ bash start.sh
 ### Option 2: Manual Start
 
 ```bash
-cd "/home/emarat/Org Management"
-"/home/emarat/Org Management/.venv/bin/python" manage.py runserver
+cd "/home/emarat/Fashion Express"
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py runserver
 ```
 
 ---
@@ -98,10 +98,10 @@ Press `Ctrl + C` in the terminal
 ## Troubleshooting
 
 **Can't login?**
-Create a new superuser: `"/home/emarat/Org Management/.venv/bin/python" manage.py createsuperuser`
+Create a new superuser: `"/home/emarat/Fashion Express/.venv/bin/python" manage.py createsuperuser`
 
 **Port 8000 in use?**
-Run on different port: `"/home/emarat/Org Management/.venv/bin/python" manage.py runserver 8080`
+Run on different port: `"/home/emarat/Fashion Express/.venv/bin/python" manage.py runserver 8080`
 Then access: `http://localhost:8080/`
 
 ---

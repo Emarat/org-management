@@ -2394,7 +2394,7 @@ def sales_export_pdf(request):
     from django.utils import timezone as django_tz
     local_now = django_tz.localtime(django_tz.now())
     header_data = [[
-        Paragraph("<b>ORG MANAGEMENT SYSTEM</b><br/><font size=8>Financial Report</font>", styles['CompanyHeader']),
+        Paragraph("<b>Fashion Express</b><br/><font size=8>Financial Report</font>", styles['CompanyHeader']),
         Paragraph(f"<font size=8>Report Date: {local_now.strftime('%B %d, %Y')}<br/>Generated: {local_now.strftime('%I:%M %p')}</font>", 
                  ParagraphStyle(name='HeaderRight', parent=styles['CompanyHeader'], alignment=TA_RIGHT))
     ]]
@@ -2510,7 +2510,7 @@ def sales_export_pdf(request):
         alignment=TA_CENTER,
         fontName='Times-Italic'
     )
-    footer_text = f"<b>CONFIDENTIAL</b> · This report contains proprietary information · Org Management System © {timezone.now().year}"
+    footer_text = f"<b>CONFIDENTIAL</b> · This report contains proprietary information · Fashion Express © {timezone.now().year}"
     elements.append(Paragraph(footer_text, footer_style))
     
     # Page number placeholder
