@@ -206,8 +206,15 @@ def customer_delete(request, pk):
 
 @login_required
 def customer_detail(request, pk):
+    from django.db.models import Sum
     customer = get_object_or_404(Customer, pk=pk)
     sales_qs = customer.sales.filter(status='finalized').select_related().prefetch_related('items__inventory_item', 'payments').order_by('-created_at')
+    
+    # Calculate aggregate totals for all finalized orders
+    total_amount = sales_qs.aggregate(total=Sum('total_amount'))['total'] or 0
+    total_paid = sum(sale.total_paid for sale in sales_qs)
+    total_due = total_amount - total_paid
+    
     paginator = Paginator(sales_qs, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
     context = {
@@ -215,6 +222,9 @@ def customer_detail(request, pk):
         'sales': page_obj.object_list,
         'page_obj': page_obj,
         'title': 'Customer Details',
+        'total_amount': total_amount,
+        'total_paid': total_paid,
+        'total_due': total_due,
     }
     return render(request, 'core/customer_detail.html', context)
 
