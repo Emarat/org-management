@@ -1508,7 +1508,9 @@ def sale_invoice(request, pk):
         'sale': sale,
         'items': items,
     }
-    return render(request, 'core/sale_invoice.html', context)
+    # Render quotation template for quotes, invoice template for all others
+    template = 'core/sale_quotation.html' if sale.status == 'quote' else 'core/sale_invoice.html'
+    return render(request, template, context)
 
 
 @login_required
