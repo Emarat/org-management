@@ -1,4 +1,4 @@
-# Organization Management System
+# Fashion Express
 
 A comprehensive web-based application to manage your organization's operations including employees, customers, inventory, expenses, and payments.
 
@@ -322,7 +322,7 @@ If you'd prefer a safer alternative, I can implement a scoped deletion (specific
 
 Edit `templates/base.html` and `templates/core/login.html` to update:
 
-- "Organization Management System" to your company name
+- "Fashion Express" to your company name
 - Logo and branding
 
 ### Add More Categories
@@ -397,4 +397,4 @@ docker compose exec web python manage.py createsuperuser
 
 ---
 
-**Made with ❤️ for efficient organization management**
+**Made with ❤️ for efficient Fashion Express**

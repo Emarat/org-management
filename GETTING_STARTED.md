@@ -1,4 +1,4 @@
-# 🎉 Your Organization Management System is Ready!
+# 🎉 Your Fashion Express is Ready!
 
 ## ✅ What's Been Created
 
@@ -36,10 +36,10 @@
 
 ```bash
 # 1. Create admin account (first time only)
-"/home/emarat/Org Management/.venv/bin/python" manage.py createsuperuser
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py createsuperuser
 
 # 2. Start server
-"/home/emarat/Org Management/.venv/bin/python" manage.py runserver
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py runserver
 
 # 3. Open browser
 http://localhost:8000/
@@ -83,7 +83,7 @@ Notes:
 ### Step 1: Create Your Admin Account
 
 ```bash
-"/home/emarat/Org Management/.venv/bin/python" manage.py createsuperuser
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py createsuperuser
 ```
 
 Choose a username and password you'll remember!
@@ -91,7 +91,7 @@ Choose a username and password you'll remember!
 ### Step 2: Start the Server
 
 ```bash
-"/home/emarat/Org Management/.venv/bin/python" manage.py runserver
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py runserver
 ```
 
 ### Step 3: Access the Application
@@ -118,7 +118,7 @@ Open browser: **http://localhost:8000/**
 ## 🏗️ Project Structure
 
 ```
-Org Management/
+Fashion Express/
 ├── core/                    # Main application
 │   ├── models.py           # Database structure
 │   ├── views.py            # Business logic
@@ -262,14 +262,14 @@ Org Management/
 
 ```bash
 # Check if port 8000 is busy
-"/home/emarat/Org Management/.venv/bin/python" manage.py runserver 8080
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py runserver 8080
 ```
 
 ### Forgot password?
 
 ```bash
 # Create new superuser
-"/home/emarat/Org Management/.venv/bin/python" manage.py createsuperuser
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py createsuperuser
 ```
 
 ### Changes not showing?
@@ -278,7 +278,7 @@ Org Management/
 # Clear cache and restart
 # Ctrl+C to stop server
 # Then start again
-"/home/emarat/Org Management/.venv/bin/python" manage.py runserver
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py runserver
 ```
 
 ### Import errors?
@@ -387,7 +387,7 @@ cp db.sqlite3 backup/db-$(date +%Y%m%d).sqlite3
 
 ## 🎉 You're All Set!
 
-Your organization management system is:
+Your Fashion Express is:
 
 - ✅ Fully configured
 - ✅ Database initialized
@@ -397,8 +397,8 @@ Your organization management system is:
 ### Start using it now:
 
 ```bash
-"/home/emarat/Org Management/.venv/bin/python" manage.py createsuperuser
-"/home/emarat/Org Management/.venv/bin/python" manage.py runserver
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py createsuperuser
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py runserver
 ```
 
 Then open: **http://localhost:8000/**

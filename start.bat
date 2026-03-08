@@ -1,6 +1,6 @@
 @echo off
 echo ======================================
-echo Organization Management System
+echo Fashion Express
 echo ======================================
 echo.
 
@@ -37,7 +37,7 @@ if /i "%create_user%"=="y" (
 REM Start server
 echo.
 echo ======================================
-echo Starting Organization Management System...
+echo Starting Fashion Express...
 echo ======================================
 echo Access the application at: http://localhost:8000/
 echo Press Ctrl+C to stop the server

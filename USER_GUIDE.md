@@ -1,4 +1,4 @@
-# 📖 User Guide - Organization Management System
+# 📖 User Guide - Fashion Express
 
 ## Table of Contents
 

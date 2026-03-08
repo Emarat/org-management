@@ -33,9 +33,9 @@ def run_command(cmd, description):
         return False
 
 def main():
-    python_cmd = '"/home/emarat/Org Management/.venv/bin/python"'
+    python_cmd = '"/home/emarat/Fashion Express/.venv/bin/python"'
     
-    print_header("Organization Management System - Helper")
+    print_header("Fashion Express - Helper")
     
     print("What would you like to do?\n")
     print("1. Create Admin User (Superuser)")

@@ -1,6 +1,6 @@
 # ✅ INSTALLATION COMPLETE!
 
-## 🎉 Your Organization Management System is LIVE!
+## 🎉 Your Fashion Express is LIVE!
 
 The server is currently running at: **http://127.0.0.1:8000/**
 
@@ -13,8 +13,8 @@ The server is currently running at: **http://127.0.0.1:8000/**
 Open a **NEW terminal** and run:
 
 ```bash
-cd "/home/emarat/Org Management"
-"/home/emarat/Org Management/.venv/bin/python" manage.py createsuperuser
+cd "/home/emarat/Fashion Express"
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py createsuperuser
 ```
 
 **You'll be asked for:**
@@ -106,8 +106,8 @@ When you're done for the day:
 To start again:
 
 ```bash
-cd "/home/emarat/Org Management"
-"/home/emarat/Org Management/.venv/bin/python" manage.py runserver
+cd "/home/emarat/Fashion Express"
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py runserver
 ```
 
 Or use the helper script:
@@ -134,13 +134,13 @@ Or use the helper script:
 ### Start Server
 
 ```bash
-"/home/emarat/Org Management/.venv/bin/python" manage.py runserver
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py runserver
 ```
 
 ### Create Admin User
 
 ```bash
-"/home/emarat/Org Management/.venv/bin/python" manage.py createsuperuser
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py createsuperuser
 ```
 
 ### Backup Database
@@ -211,7 +211,7 @@ python helper.py
 ### Forgot password?
 
 ```bash
-"/home/emarat/Org Management/.venv/bin/python" manage.py createsuperuser
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py createsuperuser
 ```
 
 Create a new admin account!
@@ -257,7 +257,7 @@ Before you start using:
 **Next Action:** Create your admin account and start adding data!
 
 ```bash
-"/home/emarat/Org Management/.venv/bin/python" manage.py createsuperuser
+"/home/emarat/Fashion Express/.venv/bin/python" manage.py createsuperuser
 ```
 
 ---

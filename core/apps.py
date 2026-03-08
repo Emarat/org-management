@@ -4,7 +4,7 @@ from django.apps import AppConfig
 class CoreConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'core'
-    verbose_name = 'Organization Management'
+    verbose_name = 'Fashion Express'
 
     def ready(self):
         # Import signal handlers to ensure they are registered. Use absolute path
