@@ -115,46 +115,73 @@
             <table class="table table-hover">
               <thead>
                 <tr>
-                  <th>Order #</th>
                   <th>Date</th>
-                  <th>Items</th>
+                  <th>Sale Number</th>
+                  <th>Product Name</th>
+                  <th>Quantity</th>
+                  <th>Unit Price</th>
+                  <th>Sub Total</th>
                   <th>Total</th>
                   <th>Paid</th>
                   <th>Due</th>
-                  <th>Status</th>
                   <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {% for sale in sales %}
-                <tr>
-                  <td><a href="{% url 'sale_detail' sale.pk %}?return_to={% url 'customer_detail' customer.pk %}%23orders">{{ sale.sale_number }}</a></td>
-                  <td>{{ sale.created_at|date:"M d, Y" }}</td>
-                  <td>
-                    <ul class="list-unstyled mb-0">
-                      {% for item in sale.items.all %}
-                      <li>{{ item.description }} ({{ item.quantity }})</li>
+                  {% with sale_items=sale.items.all %}
+                    {% if sale_items %}
+                      {% for item in sale_items %}
+                      <tr {% if forloop.last %}class="border-bottom border-2"{% endif %}>
+                        {% if forloop.first %}
+                        <td class="align-middle" rowspan="{{ sale_items|length }}">{{ sale.created_at|date:"M d, Y" }}</td>
+                        <td class="align-middle" rowspan="{{ sale_items|length }}">
+                          <a href="{% url 'sale_detail' sale.pk %}?return_to={% url 'customer_detail' customer.pk %}%23orders">{{ sale.sale_number }}</a>
+                        </td>
+                        {% endif %}
+                        <td>
+                          {% if item.item_type == 'inventory' and item.inventory_item %}
+                            {{ item.inventory_item.part_name }}
+                          {% else %}
+                            {{ item.description }}
+                          {% endif %}
+                        </td>
+                        <td>{{ item.quantity }}</td>
+                        <td>৳&nbsp;{{ item.unit_price|floatformat:2 }}</td>
+                        <td>৳&nbsp;{{ item.line_total|floatformat:2 }}</td>
+                        {% if forloop.first %}
+                        <td class="align-middle" rowspan="{{ sale_items|length }}">৳&nbsp;{{ sale.total_amount|floatformat:2 }}</td>
+                        <td class="align-middle" rowspan="{{ sale_items|length }}">৳&nbsp;{{ sale.total_paid|floatformat:2 }}</td>
+                        <td class="align-middle" rowspan="{{ sale_items|length }}">৳&nbsp;{{ sale.balance_due|floatformat:2 }}</td>
+                        <td class="align-middle" rowspan="{{ sale_items|length }}">
+                          <a href="{% url 'sale_detail' sale.pk %}?return_to={% url 'customer_detail' customer.pk %}%23orders" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i> View
+                          </a>
+                        </td>
+                        {% endif %}
+                      </tr>
                       {% endfor %}
-                    </ul>
-                  </td>
-                  <td>৳&nbsp;{{ sale.total_amount }}</td>
-                  <td>৳&nbsp;{{ sale.total_paid }}</td>
-                  <td>৳&nbsp;{{ sale.balance_due }}</td>
-                  <td>
-                    {% if sale.balance_due == 0 %}
-                      <span class="badge bg-success">Paid</span>
-                    {% elif sale.total_paid > 0 %}
-                      <span class="badge bg-warning">Partial</span>
                     {% else %}
-                      <span class="badge bg-danger">Unpaid</span>
+                      <tr class="border-bottom border-2">
+                        <td>{{ sale.created_at|date:"M d, Y" }}</td>
+                        <td>
+                          <a href="{% url 'sale_detail' sale.pk %}?return_to={% url 'customer_detail' customer.pk %}%23orders">{{ sale.sale_number }}</a>
+                        </td>
+                        <td>-</td>
+                        <td>0</td>
+                        <td>৳&nbsp;0.00</td>
+                        <td>৳&nbsp;0.00</td>
+                        <td>৳&nbsp;{{ sale.total_amount|floatformat:2 }}</td>
+                        <td>৳&nbsp;{{ sale.total_paid|floatformat:2 }}</td>
+                        <td>৳&nbsp;{{ sale.balance_due|floatformat:2 }}</td>
+                        <td>
+                          <a href="{% url 'sale_detail' sale.pk %}?return_to={% url 'customer_detail' customer.pk %}%23orders" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i> View
+                          </a>
+                        </td>
+                      </tr>
                     {% endif %}
-                  </td>
-                  <td>
-                    <a href="{% url 'sale_detail' sale.pk %}?return_to={% url 'customer_detail' customer.pk %}%23orders" class="btn btn-sm btn-outline-primary">
-                      <i class="fas fa-eye"></i> View
-                    </a>
-                  </td>
-                </tr>
+                  {% endwith %}
                 {% endfor %}
               </tbody>
             </table>
