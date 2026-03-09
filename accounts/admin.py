@@ -4,13 +4,16 @@ from .models import CustomUser
 
 @admin.register(CustomUser)
 class CustomUserAdmin(UserAdmin):
-    list_display = ('username', 'email', 'employee_id', 'first_name', 'last_name', 'is_staff', 'is_manager', 'status')
+    list_display = ('username', 'email', 'employee_id', 'first_name', 'last_name', 'is_staff', 'status')
+    
     fieldsets = UserAdmin.fieldsets + (
-        ('Employee Information', {'fields': ('position', 'department', 'phone', 'address', 'salary', 'join_date', 'status', 'notes', 'is_manager')}),
+        ('Employee Information', {'fields': ('position', 'department', 'phone', 'address', 'salary', 'join_date', 'status', 'notes')}),
     )
+    
     add_fieldsets = UserAdmin.add_fieldsets + (
-        ('Employee Information', {'fields': ('position', 'department', 'phone', 'address', 'salary', 'join_date', 'status', 'notes', 'is_manager')}),
+        ('Employee Information', {'fields': ('position', 'department', 'phone', 'address', 'salary', 'join_date', 'status', 'notes')}),
     )
+    
     readonly_fields = ('employee_id',)
     search_fields = ('username', 'employee_id', 'email', 'first_name', 'last_name')
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups', 'status', 'department', 'is_manager')
+    list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups', 'status', 'department')

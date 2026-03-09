@@ -226,7 +226,7 @@
                   <i class="fas fa-tachometer-alt"></i> Dashboard
                 </a>
               </li>
-              {% if user.is_superuser or perms.core.view_customers_menu %}
+              {% if user.is_superuser or perms.core.view_customer or perms.core.view_customers_menu %}
                 <li class="nav-item">
                   <a
                     class="nav-link {% if 'customer' in request.resolver_match.url_name %}active{% endif %}"
@@ -236,7 +236,7 @@
                   </a>
                 </li>
               {% endif %}
-              {% if user.is_superuser or perms.core.view_inventory_menu %}
+              {% if user.is_superuser or perms.core.view_inventoryitem or perms.core.view_inventory_menu %}
                 <li class="nav-item">
                   <a
                     class="nav-link {% if 'inventory' in request.resolver_match.url_name %}active{% endif %}"
@@ -246,7 +246,7 @@
                   </a>
                 </li>
               {% endif %}
-              {% if user.is_superuser or perms.core.view_expenses_menu %}
+              {% if user.is_superuser or perms.core.view_expense or perms.core.view_expenses_menu %}
                 <li class="nav-item">
                   <a
                     class="nav-link {% if 'expense' in request.resolver_match.url_name %}active{% endif %}"

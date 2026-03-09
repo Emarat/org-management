@@ -96,16 +96,20 @@
                   title="Stock History"
                   ><i class="fas fa-history"></i
                 ></a>
+                {% if perms.core.change_inventoryitem %}
                 <a
                   href="{% url 'inventory_edit' item.pk %}"
                   class="btn btn-sm btn-warning"
                   ><i class="fas fa-edit"></i
                 ></a>
+                {% endif %}
+                {% if perms.core.delete_inventoryitem %}
                 <a
                   href="{% url 'inventory_delete' item.pk %}"
                   class="btn btn-sm btn-danger"
                   ><i class="fas fa-trash"></i
                 ></a>
+                {% endif %}
               </div>
             </td>
           </tr>
@@ -119,14 +123,16 @@
     <div class="text-center py-5">
       <i class="fas fa-boxes fa-4x text-muted mb-3"></i>
       <p class="text-muted">No inventory items found.</p>
+      {% if perms.core.add_inventoryitem %}
       <a href="{% url 'inventory_add' %}" class="btn btn-warning"
         ><i class="fas fa-plus"></i> Add Inventory Item</a
       >
+      {% endif %}
     </div>
     {% endif %}
   </div>
 </div>
-{% if request.user.is_authenticated %}
+{% if request.user.is_authenticated and perms.core.add_inventoryitem %}
   <div class="fab-stack">
     {% url 'inventory_add' as inventory_add_url %}
     {% include 'partials/fab_add.html' with url=inventory_add_url label='Add Item' icon='fa-box' btn_class='btn-warning' %}
