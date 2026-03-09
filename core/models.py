@@ -29,6 +29,22 @@ class CustomerIdSequence(models.Model):
         verbose_name_plural = "Customer ID Sequences"
 
 
+class SaleIdSequence(models.Model):
+    """Date-based sequence tracker for sale number serials.
+    Tracks the sequence number per date to generate unique sale numbers like 09-03-2026-FE-0042.
+    Uses atomic transactions to ensure concurrency-safe increments.
+    """
+    date = models.DateField(unique=True)
+    sequence_num = models.PositiveIntegerField(default=0)
+
+    def __str__(self):
+        return f"SaleIdSequence({self.date}={self.sequence_num})"
+
+    class Meta:
+        verbose_name = "Sale ID Sequence"
+        verbose_name_plural = "Sale ID Sequences"
+
+
 class Customer(models.Model):
     """Customer Management Model"""
     STATUS_CHOICES = [
@@ -234,8 +250,20 @@ class Sale(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.sale_number:
-            today = timezone.now()
-            self.sale_number = f"S-{today.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+            today = timezone.now().date()
+            formatted_date = today.strftime('%d-%m-%Y')  # DD-MM-YYYY
+            
+            # Obtain/lock sequence row for today
+            with transaction.atomic():
+                seq, _created = SaleIdSequence.objects.select_for_update().get_or_create(
+                    date=today,
+                    defaults={'sequence_num': 0}
+                )
+                seq.sequence_num += 1
+                serial = seq.sequence_num
+                seq.save(update_fields=['sequence_num'])
+            
+            self.sale_number = f"{formatted_date}-FE-{serial:04d}"  # zero-padded 4-digit serial
         super().save(*args, **kwargs)
 
     def recalc_total(self, save=True):
