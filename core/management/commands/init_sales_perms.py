@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand, CommandError
-from django.contrib.auth.models import Group, Permission, User
+from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
+from django.contrib.auth import get_user_model
 
 
 class Command(BaseCommand):
@@ -11,6 +12,7 @@ class Command(BaseCommand):
         parser.add_argument("--user", type=str, help="Username to grant permissions to")
 
     def handle(self, *args, **options):
+        user_model = get_user_model()
         group_name = options.get("group")
         username = options.get("user")
         if not group_name and not username:
@@ -46,8 +48,8 @@ class Command(BaseCommand):
 
         if username:
             try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
+                user = user_model.objects.get(username=username)
+            except user_model.DoesNotExist:
                 raise CommandError(f"User '{username}' does not exist")
             user.user_permissions.add(*all_perms)
             self.stdout.write(self.style.SUCCESS(f"Granted {len(all_perms)} sales permissions to user '{username}'."))

@@ -1,7 +1,7 @@
 import logging
 
 from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
 from django.views.decorators.http import require_POST
 from django.core.exceptions import PermissionDenied
 from django.contrib.auth.views import redirect_to_login
@@ -37,7 +37,13 @@ def _get_visible_sale_or_404(request, pk):
     return get_object_or_404(_visible_sales_queryset(request.user), pk=pk)
 
 def is_manager(user):
-    return user.is_superuser or (user.is_authenticated and user.is_manager)
+    if not user.is_authenticated:
+        return False
+    return bool(
+        user.is_superuser
+        or getattr(user, 'is_manager', False)
+        or user.groups.filter(name='Manager').exists()
+    )
 
 # Custom decorator: redirect unauthenticated to login, raise 403 for authenticated non-managers
 def manager_required(view_func):
@@ -144,6 +150,7 @@ def dashboard(request):
 
 # Customer Views
 @login_required
+@permission_required('core.view_customer', raise_exception=True)
 def customer_list(request):
     query = request.GET.get('q', '')
     status_filter = request.GET.get('status', '')
@@ -168,6 +175,7 @@ def customer_list(request):
 
 
 @login_required
+@permission_required('core.add_customer', raise_exception=True)
 def customer_add(request):
     if request.method == 'POST':
         form = CustomerForm(request.POST)
@@ -181,6 +189,7 @@ def customer_add(request):
 
 
 @login_required
+@permission_required('core.change_customer', raise_exception=True)
 def customer_edit(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
     if request.method == 'POST':
@@ -195,6 +204,7 @@ def customer_edit(request, pk):
 
 
 @login_required
+@permission_required('core.delete_customer', raise_exception=True)
 def customer_delete(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
     if request.method == 'POST':
@@ -205,6 +215,7 @@ def customer_delete(request, pk):
 
 
 @login_required
+@permission_required('core.view_customer', raise_exception=True)
 def customer_detail(request, pk):
     from django.db.models import Sum
     customer = get_object_or_404(Customer, pk=pk)
@@ -231,6 +242,7 @@ def customer_detail(request, pk):
 
 # Inventory Views
 @login_required
+@permission_required('core.view_inventoryitem', raise_exception=True)
 def inventory_list(request):
     query = request.GET.get('q', '')
     category_filter = request.GET.get('category', '')
@@ -258,6 +270,7 @@ def inventory_list(request):
 
 
 @login_required
+@permission_required('core.add_inventoryitem', raise_exception=True)
 def inventory_add(request):
     if request.method == 'POST':
         form = InventoryItemForm(request.POST)
@@ -284,6 +297,7 @@ def inventory_add(request):
 
 
 @login_required
+@permission_required('core.change_inventoryitem', raise_exception=True)
 def inventory_edit(request, pk):
     item = get_object_or_404(InventoryItem, pk=pk)
     previous_quantity = item.quantity
@@ -320,6 +334,7 @@ def inventory_edit(request, pk):
 
 
 @login_required
+@permission_required('core.delete_inventoryitem', raise_exception=True)
 def inventory_delete(request, pk):
     item = get_object_or_404(InventoryItem, pk=pk)
     if request.method == 'POST':
@@ -330,6 +345,7 @@ def inventory_delete(request, pk):
 
 
 @login_required
+@permission_required('core.view_inventoryitem', raise_exception=True)
 def inventory_stock_history(request, pk):
     item = get_object_or_404(InventoryItem, pk=pk)
     history = item.stock_history.select_related().all()
@@ -344,6 +360,7 @@ def inventory_stock_history(request, pk):
 
 # Expense Views
 @login_required
+@permission_required('core.view_expense', raise_exception=True)
 def expense_list(request):
     query = request.GET.get('q', '')
     category_filter = request.GET.get('category', '')
@@ -405,6 +422,7 @@ def expense_list(request):
 
 
 @login_required
+@permission_required('core.add_expense', raise_exception=True)
 def expense_add(request):
     if request.method == 'POST':
         form = ExpenseForm(request.POST)
@@ -444,6 +462,7 @@ def expense_delete(request, pk):
 
 
 @login_required
+@permission_required('core.view_expense', raise_exception=True)
 def expense_detail(request, pk):
     """View expense details"""
     expense = get_object_or_404(Expense, pk=pk)
@@ -559,6 +578,7 @@ def expense_detail(request, pk):
 
 # Bill Claim Views
 @login_required
+@permission_required('core.submit_bill', raise_exception=True)
 def submit_bill_claim(request):
     """Employee submits a new bill claim"""
     if request.method == 'POST':
@@ -709,6 +729,7 @@ def reject_bill_claim(request, pk):
 
 # Reports
 @login_required
+@manager_required
 def reports(request):
     """Reports page with various statistics"""
     # Monthly expense breakdown
@@ -757,6 +778,7 @@ def ledger(request):
 
 
 @login_required
+@manager_required
 def export_excel(request):
     """Export all data to Excel"""
     wb = openpyxl.Workbook()
@@ -817,6 +839,7 @@ def export_excel(request):
 
 
 @login_required
+@manager_required
 def customer_report_excel(request):
     """Export customer financial summary to Excel with Total, Paid, and Due amounts"""
     from django.db.models import Sum, F, DecimalField
@@ -918,7 +941,6 @@ def customer_report_excel(request):
 # Sales Views (minimal UI)
 # =========================
 
-from django.contrib.auth.decorators import permission_required
 from django.forms import formset_factory
 
 

@@ -4,7 +4,7 @@
 
 {% block content %}
 {# Minimal dashboard for users with only bill permissions #}
-{% if not perms.core.view_customers_menu and not perms.core.view_inventory_menu and not perms.core.view_expenses_menu and not perms.core.view_payments_menu and not perms.core.view_reports_menu %}
+{% if not perms.core.view_customer and not perms.core.view_inventoryitem and not perms.core.view_expense and not perms.core.view_sales_menu and not perms.core.view_reports_menu and not perms.core.view_customers_menu and not perms.core.view_inventory_menu and not perms.core.view_expenses_menu and not perms.core.view_payments_menu %}
   <div class="content-header">
     <h1><i class="fas fa-tachometer-alt"></i> Dashboard</h1>
     <p class="text-muted">Welcome, {{ user.username }}. Quick actions for your work.</p>
@@ -293,12 +293,14 @@
                 </td>
                 <td>{{ item.minimum_stock }}</td>
                 <td>
+                  {% if perms.core.change_inventoryitem %}
                   <a
                     href="{% url 'inventory_edit' item.pk %}"
                     class="btn btn-sm btn-warning"
                   >
                     <i class="fas fa-edit"></i> Update Stock
                   </a>
+                  {% endif %}
                 </td>
               </tr>
               {% endfor %}
