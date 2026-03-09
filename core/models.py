@@ -30,9 +30,8 @@ class CustomerIdSequence(models.Model):
 
 
 class SaleIdSequence(models.Model):
-    """Date-based sequence tracker for sale number serials.
-    Tracks the sequence number per date to generate unique sale numbers like 09-03-2026-FE-0042.
-    Uses atomic transactions to ensure concurrency-safe increments.
+    """Sequence tracker for sale number serials.
+    Uses a singleton row (pk=1) for a global, never-reset serial counter.
     """
     date = models.DateField(unique=True)
     sequence_num = models.PositiveIntegerField(default=0)
@@ -252,17 +251,17 @@ class Sale(models.Model):
         if not self.sale_number:
             today = timezone.now().date()
             formatted_date = today.strftime('%d-%m-%Y')  # DD-MM-YYYY
-            
-            # Obtain/lock sequence row for today
+
+            # Use a singleton sequence row for global (never-reset) serials.
             with transaction.atomic():
                 seq, _created = SaleIdSequence.objects.select_for_update().get_or_create(
-                    date=today,
-                    defaults={'sequence_num': 0}
+                    pk=1,
+                    defaults={'date': today, 'sequence_num': 0}
                 )
                 seq.sequence_num += 1
                 serial = seq.sequence_num
                 seq.save(update_fields=['sequence_num'])
-            
+
             self.sale_number = f"{formatted_date}-FE-{serial:04d}"  # zero-padded 4-digit serial
         super().save(*args, **kwargs)
 
