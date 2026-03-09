@@ -112,6 +112,12 @@ class SaleItemForm(forms.ModelForm):
             'placeholder': 'Example:\n- Model: ABC-123\n- Capacity: 500kg'
         })
     )
+    boxes = forms.IntegerField(
+        required=False,
+        min_value=0,
+        initial=0,
+        widget=forms.NumberInput(attrs={'class': 'form-control form-control-sm boxes-inv', 'min': 0, 'value': '0'})
+    )
 
     class Meta:
         model = SaleItem
@@ -129,6 +135,11 @@ class SaleItemForm(forms.ModelForm):
         item_type = cleaned_data.get('item_type')
         description = cleaned_data.get('description', '').strip() if cleaned_data.get('description') else ''
         inventory_item = cleaned_data.get('inventory_item')
+        boxes = cleaned_data.get('boxes')
+
+        # Keep server-side behavior resilient when boxes is hidden/not posted.
+        if boxes in (None, ''):
+            cleaned_data['boxes'] = 0
         
         # Skip validation for completely blank rows
         if not item_type:

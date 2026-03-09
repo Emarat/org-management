@@ -1,6 +1,9 @@
 {% extends 'base.html' %}
 {% block title %}Sale {{ sale.sale_number }} - {{ brand.name|default:'Fashion Express' }}{% endblock %}
 {% block content %}
+{% if inventory_prices %}
+  {{ inventory_prices|json_script:'inv_prices_data' }}
+{% endif %}
 <div class="content-header d-flex justify-content-between align-items-center">
   <h1>Sale {{ sale.sale_number }}</h1>
   <div>
@@ -163,12 +166,12 @@
                   <label class="form-label">Item Type</label>
                   {{ add_item_form.item_type }}
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6" id="inventoryFieldCol">
                   <label class="form-label">Inventory Item</label>
                   {{ add_item_form.inventory_item }}
                 </div>
               </div>
-              <div class="row g-2 mt-2">
+              <div class="row g-2 mt-2" id="descriptionRow">
                 <div class="col-md-12">
                   <label class="form-label">Description (for non-inventory)</label>
                   {{ add_item_form.description }}
@@ -178,6 +181,10 @@
                 <div class="col-md-4">
                   <label class="form-label">Quantity</label>
                   {{ add_item_form.quantity }}
+                </div>
+                <div class="col-md-4" id="boxesFieldCol">
+                  <label class="form-label">Boxes</label>
+                  {{ add_item_form.boxes }}
                 </div>
                 <div class="col-md-4">
                   <label class="form-label">Unit Price</label>
@@ -246,9 +253,71 @@
 </div>
 
 <script>
-  // Initialize Bootstrap tooltips
-  document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
-    new bootstrap.Tooltip(el);
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips only if Bootstrap JS is present.
+    if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+      document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+        new bootstrap.Tooltip(el);
+      });
+    }
+
+    const typeEl = document.getElementById('id_item_type');
+    const inventoryEl = document.getElementById('id_inventory_item');
+    const descriptionEl = document.getElementById('id_description');
+    const unitPriceEl = document.getElementById('id_unit_price');
+    const boxesEl = document.getElementById('id_boxes');
+    const inventoryFieldCol = document.getElementById('inventoryFieldCol');
+    const descriptionRow = document.getElementById('descriptionRow');
+    const boxesCol = document.getElementById('boxesFieldCol');
+
+    if (!typeEl || !inventoryEl || !descriptionEl || !unitPriceEl || !inventoryFieldCol || !descriptionRow || !boxesCol) {
+      return;
+    }
+
+    let priceMap = {};
+    const priceDataEl = document.getElementById('inv_prices_data');
+    if (priceDataEl && priceDataEl.textContent) {
+      try {
+        priceMap = JSON.parse(priceDataEl.textContent);
+      } catch (e) {
+        priceMap = {};
+      }
+    }
+
+    function syncAddItemForm() {
+      const itemType = typeEl.value;
+      const isInventory = itemType === 'inventory';
+
+      inventoryFieldCol.style.display = isInventory ? '' : 'none';
+      boxesCol.style.display = isInventory ? '' : 'none';
+      descriptionRow.style.display = isInventory ? 'none' : '';
+
+      if (isInventory) {
+        const selectedId = inventoryEl.value;
+        if (selectedId && Object.prototype.hasOwnProperty.call(priceMap, selectedId)) {
+          unitPriceEl.value = priceMap[selectedId];
+        }
+        descriptionEl.required = false;
+      } else {
+        inventoryEl.value = '';
+        if (boxesEl) {
+          boxesEl.value = '0';
+        }
+        descriptionEl.required = true;
+      }
+    }
+
+    typeEl.addEventListener('change', syncAddItemForm);
+    inventoryEl.addEventListener('change', function() {
+      if (typeEl.value === 'inventory') {
+        const selectedId = inventoryEl.value;
+        if (selectedId && Object.prototype.hasOwnProperty.call(priceMap, selectedId)) {
+          unitPriceEl.value = priceMap[selectedId];
+        }
+      }
+    });
+
+    syncAddItemForm();
   });
 </script>
 {% endblock %}
