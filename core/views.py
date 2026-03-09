@@ -2299,7 +2299,7 @@ def sales_export_pdf(request):
     total_due = sum((float(s.balance_due or 0) for s in sales), start=0.0)
 
     # Build Executive/Financial Report style PDF
-    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.pagesizes import A4, landscape
     from reportlab.lib.units import cm, mm
     from reportlab.lib import colors
     from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -2309,7 +2309,7 @@ def sales_export_pdf(request):
     from xml.sax.saxutils import escape as xml_escape
 
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=1.5*cm, bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm)
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), topMargin=1.5*cm, bottomMargin=2*cm, leftMargin=2*cm, rightMargin=2*cm)
     styles = getSampleStyleSheet()
     
     # Executive report styles with serif fonts
@@ -2401,7 +2401,7 @@ def sales_export_pdf(request):
         Paragraph(f"<font size=8>Report Date: {local_now.strftime('%B %d, %Y')}<br/>Generated: {local_now.strftime('%I:%M %p')}</font>", 
                  ParagraphStyle(name='HeaderRight', parent=styles['CompanyHeader'], alignment=TA_RIGHT))
     ]]
-    header_table = Table(header_data, colWidths=[10*cm, 7*cm])
+    header_table = Table(header_data, colWidths=[15*cm, 10*cm])
     header_table.setStyle(TableStyle([
         ('VALIGN', (0,0), (-1,-1), 'TOP'),
         ('LEFTPADDING', (0,0), (-1,-1), 0),
@@ -2421,7 +2421,7 @@ def sales_export_pdf(request):
     elements.append(Spacer(1, 0.5*cm))
     
     # Horizontal line separator
-    line_table = Table([['']], colWidths=[17*cm])
+    line_table = Table([['']], colWidths=[25*cm])
     line_table.setStyle(TableStyle([
         ('LINEABOVE', (0,0), (-1,0), 2, colors.HexColor('#CBD5E1')),
         ('TOPPADDING', (0,0), (-1,-1), 0),
@@ -2487,8 +2487,8 @@ def sales_export_pdf(request):
         table_data.append(['TOTAL', '', '', '', '', '', money_cell(total_total), money_cell(total_paid), money_cell(total_due)])
         total_row_idx = len(table_data) - 1
 
-    # Column widths tuned for A4 so labels and numeric values do not overlap.
-    data_table = Table(table_data, colWidths=[1.7*cm, 2.6*cm, 3.2*cm, 1.2*cm, 1.85*cm, 1.85*cm, 1.85*cm, 1.85*cm, 1.85*cm], repeatRows=1)
+    # Column widths tuned for landscape A4 so labels and numeric values do not overlap.
+    data_table = Table(table_data, colWidths=[2.2*cm, 3.2*cm, 5.5*cm, 1.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.5*cm, 2.6*cm], repeatRows=1)
     data_table.setStyle(TableStyle([
         # Header styling
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#334155')),
@@ -2549,7 +2549,7 @@ def sales_export_pdf(request):
     elements.append(Spacer(1, 1.2*cm))
     
     # Footer line
-    footer_line = Table([['']], colWidths=[17*cm])
+    footer_line = Table([['']], colWidths=[25*cm])
     footer_line.setStyle(TableStyle([
         ('LINEABOVE', (0,0), (-1,0), 1, colors.HexColor('#E2E8F0')),
         ('TOPPADDING', (0,0), (-1,-1), 0),
