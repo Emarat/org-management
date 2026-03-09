@@ -2356,19 +2356,17 @@ def sales_export_pdf(request):
     elements = []
 
     def fmt_currency(val):
-        return f"৳\u00A0{float(val):,.2f}"
+        # Keep plain numeric values to avoid unsupported glyph rendering blocks in PDF cells.
+        return f"{float(val):,.2f}"
 
-    sale_cell_style = ParagraphStyle(
-        name='SaleCell',
-        fontSize=9,
-        leading=11,
-        fontName='Helvetica',
-        alignment=TA_LEFT,
-        wordWrap='CJK',
-    )
+    def fmt_quantity(val):
+        qty = float(val or 0)
+        if qty.is_integer():
+            return f"{int(qty)}"
+        return f"{qty:.3f}".rstrip('0').rstrip('.')
 
-    product_cell_style = ParagraphStyle(
-        name='ProductCell',
+    text_cell_style = ParagraphStyle(
+        name='TextCell',
         fontSize=9,
         leading=11,
         fontName='Helvetica',
@@ -2386,44 +2384,11 @@ def sales_export_pdf(request):
         splitLongWords=False,
     )
 
-    def sale_number_cell(sale: 'Sale') -> Paragraph:
-        # Allow wrapping at any character to avoid clipping long IDs.
-        return Paragraph(xml_escape(getattr(sale, 'sale_number', '') or ''), sale_cell_style)
+    def text_cell(value) -> Paragraph:
+        return Paragraph(xml_escape(str(value or '')), text_cell_style)
 
     def money_cell(value) -> Paragraph:
         return Paragraph(xml_escape(fmt_currency(value)), money_cell_style)
-
-    def sale_product_names(sale: 'Sale') -> str:
-        labels = []
-        for item in sale.items.all():
-            if item.item_type == 'inventory' and item.inventory_item:
-                label = (item.inventory_item.part_name or '').strip()
-            else:
-                label = (item.description or '').strip()
-            if label:
-                labels.append(label)
-
-        if not labels:
-            return ''
-
-        seen = set()
-        uniq = []
-        for label in labels:
-            if label not in seen:
-                seen.add(label)
-                uniq.append(label)
-
-        joined = ", ".join(uniq)
-        # Add wrap opportunities for strings that may have no spaces (e.g., "...item.Add...")
-        joined = joined.replace(".", ". ")
-        max_len = 55
-        if len(joined) > max_len:
-            return joined[: max_len - 3] + "..."
-        return joined
-
-    def product_cell(sale: 'Sale') -> Paragraph:
-        text = sale_product_names(sale)
-        return Paragraph(xml_escape(text or ""), product_cell_style)
 
     # Professional header with company area
     customer_obj = Customer.objects.filter(pk=customer_id).first() if customer_id else None
@@ -2465,28 +2430,65 @@ def sales_export_pdf(request):
     elements.append(line_table)
     elements.append(Spacer(1, 0.6*cm))
 
-    # Professional data table with thick borders
-    table_data = [['Sale Number', 'Product Name', 'Date', 'Total', 'Paid', 'Balance Due']]
+    # Professional data table with explicit item details per order line.
+    table_data = [['Date', 'Sale Number', 'Product Name', 'Quantity', 'Unit Price', 'Sub Total', 'Total', 'Paid', 'Due']]
+    span_configs = []  # Track which cells to span across multiple rows
+    
     for s in sales:
-        table_data.append([
-            sale_number_cell(s),
-            product_cell(s),
-            s.created_at.strftime('%Y-%m-%d'),
-            money_cell(s.total_amount),
-            money_cell(s.total_paid),
-            money_cell(s.balance_due)
-        ])
+        sale_items = list(s.items.all())
+        start_row = len(table_data)
+        
+        if not sale_items:
+            table_data.append([
+                s.created_at.strftime('%Y-%m-%d'),
+                text_cell(s.sale_number),
+                text_cell('-'),
+                text_cell('0'),
+                money_cell(0),
+                money_cell(0),
+                money_cell(s.total_amount),
+                money_cell(s.total_paid),
+                money_cell(s.balance_due),
+            ])
+            continue
+
+        for idx, item in enumerate(sale_items):
+            if item.item_type == 'inventory' and item.inventory_item:
+                product_name = (item.inventory_item.part_name or '').strip()
+            else:
+                product_name = (item.description or '').strip()
+
+            row = [
+                s.created_at.strftime('%Y-%m-%d') if idx == 0 else '',
+                text_cell(s.sale_number) if idx == 0 else '',
+                text_cell(product_name or '-'),
+                text_cell(fmt_quantity(item.quantity)),
+                money_cell(item.unit_price),
+                money_cell(item.line_total),
+                money_cell(s.total_amount) if idx == 0 else '',
+                money_cell(s.total_paid) if idx == 0 else '',
+                money_cell(s.balance_due) if idx == 0 else '',
+            ]
+            table_data.append(row)
+            
+            # Record span config: (col_idx, start_row, end_row) for cell merging
+            if idx == 0 and len(sale_items) > 1:
+                span_configs.append((0, start_row, start_row + len(sale_items) - 1))  # Date column
+                span_configs.append((1, start_row, start_row + len(sale_items) - 1))  # Sale Number column
+                span_configs.append((6, start_row, start_row + len(sale_items) - 1))  # Total column
+                span_configs.append((7, start_row, start_row + len(sale_items) - 1))  # Paid column
+                span_configs.append((8, start_row, start_row + len(sale_items) - 1))  # Due column
 
     if len(table_data) == 1:
-        table_data.append(['', '', 'No orders found', '', '', ''])
+        table_data.append(['', '', 'No orders found', '', '', '', '', '', ''])
 
     total_row_idx = None
     if has_orders:
-        table_data.append(['TOTAL', '', '', money_cell(total_total), money_cell(total_paid), money_cell(total_due)])
+        table_data.append(['TOTAL', '', '', '', '', '', money_cell(total_total), money_cell(total_paid), money_cell(total_due)])
         total_row_idx = len(table_data) - 1
 
-    # Column widths tuned for A4 so currency values stay on one line.
-    data_table = Table(table_data, colWidths=[4.0*cm, 3.9*cm, 2.1*cm, 2.3*cm, 2.35*cm, 2.35*cm], repeatRows=1)
+    # Column widths tuned for A4 so labels and numeric values do not overlap.
+    data_table = Table(table_data, colWidths=[1.7*cm, 2.6*cm, 3.2*cm, 1.2*cm, 1.85*cm, 1.85*cm, 1.85*cm, 1.85*cm, 1.85*cm], repeatRows=1)
     data_table.setStyle(TableStyle([
         # Header styling
         ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#334155')),
@@ -2495,33 +2497,48 @@ def sales_export_pdf(request):
         ('ALIGN', (3,0), (-1,-1), 'RIGHT'),
         ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
         ('FONTNAME', (0,1), (-1,-1), 'Helvetica'),
-        ('FONTSIZE', (0,0), (-1,0), 8),
-        ('FONTSIZE', (0,1), (-1,-1), 9),
-        
+        ('FONTSIZE', (0,0), (-1,0), 7),
+        ('FONTSIZE', (0,1), (-1,-1), 8),
+
         # Thick borders
         ('BOX', (0,0), (-1,-1), 2, colors.HexColor('#334155')),
         ('LINEBELOW', (0,0), (-1,0), 2, colors.white),
         ('INNERGRID', (0,0), (-1,-1), 0.5, colors.HexColor('#E2E8F0')),
-        
+
         # Row backgrounds
         ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, colors.HexColor('#F8FAFC')]),
-        
+
         # Padding (tighter header so labels don't clip)
-        ('TOPPADDING', (0,0), (-1,0), 8),
-        ('BOTTOMPADDING', (0,0), (-1,0), 8),
-        ('LEFTPADDING', (0,0), (-1,0), 4),
-        ('RIGHTPADDING', (0,0), (-1,0), 4),
-        ('TOPPADDING', (0,1), (-1,-1), 8),
-        ('BOTTOMPADDING', (0,1), (-1,-1), 8),
-        ('LEFTPADDING', (0,1), (-1,-1), 6),
-        ('RIGHTPADDING', (0,1), (-1,-1), 6),
+        ('TOPPADDING', (0,0), (-1,0), 7),
+        ('BOTTOMPADDING', (0,0), (-1,0), 7),
+        ('LEFTPADDING', (0,0), (-1,0), 3),
+        ('RIGHTPADDING', (0,0), (-1,0), 3),
+        ('TOPPADDING', (0,1), (-1,-1), 6),
+        ('BOTTOMPADDING', (0,1), (-1,-1), 6),
+        ('LEFTPADDING', (0,1), (-1,-1), 4),
+        ('RIGHTPADDING', (0,1), (-1,-1), 4),
         ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
     ]))
+    
+    # Apply cell spanning for Date and Sale Number columns across multiple items
+    # Also add dividers between sale groups
+    divider_rows = []
+    for col_idx, start_row, end_row in span_configs:
+        data_table.setStyle(TableStyle([
+            ('SPAN', (col_idx, start_row), (col_idx, end_row)),
+        ]))
+        divider_rows.append(end_row)
+    
+    # Add divider lines after each sale group
+    for divider_row in divider_rows:
+        data_table.setStyle(TableStyle([
+            ('LINEBELOW', (0, divider_row), (-1, divider_row), 1.5, colors.HexColor('#9CA3AF')),
+        ]))
 
     if total_row_idx is not None:
         data_table.setStyle(TableStyle([
-            ('SPAN', (0, total_row_idx), (2, total_row_idx)),
-            ('ALIGN', (0, total_row_idx), (2, total_row_idx), 'RIGHT'),
+            ('SPAN', (0, total_row_idx), (5, total_row_idx)),
+            ('ALIGN', (0, total_row_idx), (5, total_row_idx), 'RIGHT'),
             ('FONTNAME', (0, total_row_idx), (-1, total_row_idx), 'Helvetica-Bold'),
             ('BACKGROUND', (0, total_row_idx), (-1, total_row_idx), colors.HexColor('#E2E8F0')),
             ('LINEABOVE', (0, total_row_idx), (-1, total_row_idx), 1, colors.HexColor('#334155')),
