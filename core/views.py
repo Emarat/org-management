@@ -1767,331 +1767,334 @@ def sale_payments_export_pdf(request, pk):
     doc = SimpleDocTemplate(
         buffer, 
         pagesize=A4, 
-        topMargin=1.5*cm, 
-        bottomMargin=1.5*cm, 
-        leftMargin=1.5*cm, 
-        rightMargin=1.5*cm
+        topMargin=2*cm, 
+        bottomMargin=2*cm, 
+        leftMargin=2*cm, 
+        rightMargin=2*cm
     )
     
-    page_width = A4[0] - 3*cm  # Available width
+    page_width = A4[0] - 4*cm  # Available width
     styles = getSampleStyleSheet()
 
-    # Color palette - elegant dark gray/charcoal theme
-    primary_color = colors.HexColor('#374151')  # Charcoal gray
-    secondary_color = colors.HexColor('#4B5563')  # Medium gray
-    text_dark = colors.HexColor('#1F2937')
-    text_muted = colors.HexColor('#6B7280')
-    bg_light = colors.HexColor('#F9FAFB')
-    bg_header = colors.HexColor('#F3F4F6')
-    border_color = colors.HexColor('#D1D5DB')
-    success_color = colors.HexColor('#059669')
-    warning_color = colors.HexColor('#DC2626')
+    # Modern color palette - clean and professional
+    accent_color = colors.HexColor('#2563EB')  # Modern blue accent
+    text_primary = colors.HexColor('#111827')  # Deep black
+    text_secondary = colors.HexColor('#6B7280')  # Medium gray
+    text_light = colors.HexColor('#9CA3AF')  # Light gray
+    divider_color = colors.HexColor('#E5E7EB')  # Light divider
+    success_color = colors.HexColor('#10B981')  # Green
+    danger_color = colors.HexColor('#EF4444')  # Red
+    bg_subtle = colors.HexColor('#F9FAFB')  # Very light gray
 
-    # Custom styles
+    # Custom styles - modern typography
     styles.add(ParagraphStyle(
-        name='CompanyName',
+        name='BrandName',
+        fontSize=20,
+        textColor=text_primary,
+        fontName='Helvetica-Bold',
+        leading=24,
+        spaceAfter=4,
+        alignment=TA_LEFT
+    ))
+    styles.add(ParagraphStyle(
+        name='BrandInfo',
+        fontSize=9,
+        textColor=text_secondary,
+        fontName='Helvetica',
+        leading=13,
+        alignment=TA_LEFT
+    ))
+    styles.add(ParagraphStyle(
+        name='DocTitle',
+        fontSize=11,
+        textColor=text_secondary,
+        fontName='Helvetica',
+        spaceAfter=2,
+        alignment=TA_RIGHT,
+        textTransform='uppercase'
+    ))
+    styles.add(ParagraphStyle(
+        name='DocNumber',
         fontSize=16,
-        textColor=primary_color,
+        textColor=text_primary,
         fontName='Helvetica-Bold',
         leading=20,
+        alignment=TA_RIGHT
+    ))
+    styles.add(ParagraphStyle(
+        name='DocDate',
+        fontSize=9,
+        textColor=text_secondary,
+        fontName='Helvetica',
+        alignment=TA_RIGHT
+    ))
+    styles.add(ParagraphStyle(
+        name='SectionLabel',
+        fontSize=8,
+        textColor=text_light,
+        fontName='Helvetica-Bold',
+        spaceBefore=12,
         spaceAfter=6,
-        alignment=TA_LEFT
+        textTransform='uppercase',
+        letterSpacing=0.5
     ))
     styles.add(ParagraphStyle(
-        name='CompanyInfo',
-        fontSize=9,
-        textColor=text_muted,
-        fontName='Helvetica',
-        leading=12,
-        alignment=TA_LEFT
-    ))
-    styles.add(ParagraphStyle(
-        name='DocumentTitle',
+        name='CustomerName',
         fontSize=14,
-        textColor=text_dark,
+        textColor=text_primary,
         fontName='Helvetica-Bold',
-        spaceAfter=4,
-        alignment=TA_RIGHT
+        leading=18,
+        alignment=TA_LEFT
     ))
     styles.add(ParagraphStyle(
-        name='DocumentNumber',
-        fontSize=10,
-        textColor=text_muted,
-        fontName='Helvetica',
-        alignment=TA_RIGHT
-    ))
-    styles.add(ParagraphStyle(
-        name='SectionTitle',
-        fontSize=10,
-        textColor=primary_color,
-        fontName='Helvetica-Bold',
-        spaceBefore=10,
-        spaceAfter=5
-    ))
-    styles.add(ParagraphStyle(
-        name='LabelText',
+        name='InfoText',
         fontSize=9,
-        textColor=text_muted,
+        textColor=text_secondary,
         fontName='Helvetica',
-        leading=12
+        leading=14,
+        alignment=TA_LEFT
     ))
     styles.add(ParagraphStyle(
-        name='ValueText',
-        fontSize=10,
-        textColor=text_dark,
+        name='TableHeader',
+        fontSize=8,
+        textColor=text_secondary,
         fontName='Helvetica-Bold',
+        leading=11,
+        textTransform='uppercase'
+    ))
+    styles.add(ParagraphStyle(
+        name='TableCell',
+        fontSize=9,
+        textColor=text_primary,
+        fontName='Helvetica',
+        leading=13
+    ))
+    styles.add(ParagraphStyle(
+        name='TableCellBold',
+        fontSize=9,
+        textColor=text_primary,
+        fontName='Helvetica-Bold',
+        leading=13
+    ))
+    styles.add(ParagraphStyle(
+        name='TotalLabel',
+        fontSize=10,
+        textColor=text_secondary,
+        fontName='Helvetica',
         leading=14
     ))
     styles.add(ParagraphStyle(
-        name='FooterText',
-        fontSize=8,
-        textColor=text_muted,
-        fontName='Helvetica',
-        alignment=TA_CENTER,
-        leading=12
+        name='TotalValue',
+        fontSize=13,
+        textColor=text_primary,
+        fontName='Helvetica-Bold',
+        leading=16,
+        alignment=TA_RIGHT
     ))
     styles.add(ParagraphStyle(
-        name='ThankYou',
-        fontSize=11,
-        textColor=primary_color,
-        fontName='Helvetica-Bold',
-        alignment=TA_CENTER,
-        spaceBefore=10
+        name='FooterNote',
+        fontSize=8,
+        textColor=text_light,
+        fontName='Helvetica',
+        leading=12,
+        alignment=TA_LEFT
     ))
 
     elements = []
 
     def fmt_currency(val):
-        return f"৳\u00A0{float(val):,.2f}"
+        """Format currency without symbol"""
+        return f"{float(val):,.2f}"
 
     # ============== HEADER SECTION ==============
-    # Company info on left, document title on right
-    # Build company info as a nested table for proper row height calculation
-    company_rows = []
-    company_rows.append([Paragraph(xml_escape(brand_name), styles['CompanyName'])])
+    # Two-column header: Brand on left, Document info on right
+    header_left = []
+    header_left.append(Paragraph(xml_escape(brand_name), styles['BrandName']))
     if brand_address:
-        company_rows.append([Paragraph(xml_escape(brand_address), styles['CompanyInfo'])])
-    contact_parts = []
+        header_left.append(Paragraph(xml_escape(brand_address), styles['BrandInfo']))
+    contact_line = []
     if brand_phone:
-        contact_parts.append(f"Tel: {brand_phone}")
+        contact_line.append(f"{brand_phone}")
     if brand_email:
-        contact_parts.append(f"Email: {brand_email}")
-    if contact_parts:
-        company_rows.append([Paragraph(xml_escape(" | ".join(contact_parts)), styles['CompanyInfo'])])
+        contact_line.append(f"{brand_email}")
+    if contact_line:
+        header_left.append(Paragraph(" • ".join(contact_line), styles['BrandInfo']))
     
-    company_table = Table(company_rows, colWidths=[page_width * 0.48])
-    company_table.setStyle(TableStyle([
-        ('TOPPADDING', (0, 0), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (0, 0), 6),  # Space after company name
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-
-    doc_rows = []
-    doc_rows.append([Paragraph("PAYMENT&nbsp;STATEMENT", styles['DocumentTitle'])])
-    doc_rows.append([Paragraph(f"Statement #{sale.sale_number}", styles['DocumentNumber'])])
-    doc_rows.append([Paragraph(f"Date: {timezone.now().strftime('%B %d, %Y')}", styles['DocumentNumber'])])
+    header_right = []
+    header_right.append(Paragraph("PAYMENT STATEMENT", styles['DocTitle']))
+    header_right.append(Paragraph(f"#{sale.sale_number}", styles['DocNumber']))
+    header_right.append(Paragraph(timezone.now().strftime('%B %d, %Y'), styles['DocDate']))
     
-    doc_table = Table(doc_rows, colWidths=[page_width * 0.48])
-    doc_table.setStyle(TableStyle([
-        ('TOPPADDING', (0, 0), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 1),
-        ('BOTTOMPADDING', (0, 0), (0, 0), 4),  # Space after title
-        ('LEFTPADDING', (0, 0), (-1, -1), 0),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
-        ('ALIGN', (0, 0), (-1, -1), 'RIGHT'),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-    ]))
-
-    # Create header table with nested tables in each cell
     header_table = Table([
-        [company_table, doc_table]
-    ], colWidths=[page_width * 0.50, page_width * 0.50])
+        [
+            [p for p in header_left],
+            [p for p in header_right]
+        ]
+    ], colWidths=[page_width * 0.60, page_width * 0.40])
     header_table.setStyle(TableStyle([
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('ALIGN', (0, 0), (0, 0), 'LEFT'),
+        ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
         ('LEFTPADDING', (0, 0), (-1, -1), 0),
         ('RIGHTPADDING', (0, 0), (-1, -1), 0),
         ('TOPPADDING', (0, 0), (-1, -1), 0),
         ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
     ]))
     elements.append(header_table)
-    elements.append(Spacer(1, 0.3*cm))
-    elements.append(HRFlowable(width="100%", thickness=2, color=primary_color, spaceAfter=0.3*cm))
+    elements.append(Spacer(1, 0.6*cm))
+    elements.append(HRFlowable(width="100%", thickness=1, color=divider_color, spaceAfter=0.6*cm))
 
-    # ============== BILLING INFO SECTION ==============
-    elements.append(Paragraph("BILL TO", styles['SectionTitle']))
-    
+    # ============== BILL TO SECTION ==============
     customer_name = sale.customer.name if sale.customer else 'N/A'
     customer_phone = getattr(sale.customer, 'phone', '') if sale.customer else ''
     customer_address = getattr(sale.customer, 'address', '') if sale.customer else ''
     
-    billing_info = [[
-        Paragraph(xml_escape(customer_name), styles['ValueText']),
-    ]]
+    elements.append(Paragraph("BILL TO", styles['SectionLabel']))
+    elements.append(Paragraph(xml_escape(customer_name), styles['CustomerName']))
     if customer_phone:
-        billing_info.append([Paragraph(f"Phone: {customer_phone}", styles['LabelText'])])
+        elements.append(Paragraph(f"Phone: {customer_phone}", styles['InfoText']))
     if customer_address:
-        billing_info.append([Paragraph(xml_escape(customer_address), styles['LabelText'])])
+        elements.append(Paragraph(xml_escape(customer_address), styles['InfoText']))
+    
+    elements.append(Spacer(1, 0.6*cm))
 
-    billing_table = Table(billing_info, colWidths=[page_width * 0.4])
-    billing_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), bg_light),
-        ('BOX', (0, 0), (-1, -1), 0.5, border_color),
-        ('LEFTPADDING', (0, 0), (-1, -1), 8),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 8),
-        ('TOPPADDING', (0, 0), (-1, -1), 2),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
-        ('TOPPADDING', (0, 0), (0, 0), 6),  # Extra top padding for first row
-        ('BOTTOMPADDING', (0, -1), (0, -1), 6),  # Extra bottom padding for last row
-    ]))
-    elements.append(billing_table)
-
-    # ============== ORDER SUMMARY ==============
-    elements.append(Paragraph("ORDER SUMMARY", styles['SectionTitle']))
+    # ============== ORDER SUMMARY SECTION ==============
+    elements.append(Paragraph("ORDER SUMMARY", styles['SectionLabel']))
     
     # Get product names from sale items
     sale_items = sale.items.all()
     product_names = []
     for item in sale_items:
         if item.item_type == 'inventory' and item.inventory_item:
-            product_names.append(f"{item.inventory_item.part_name}")
+            product_names.append(item.inventory_item.part_name)
         elif item.description:
-            product_names.append(item.description[:50])
+            product_names.append(item.description[:60])
     product_name_str = ", ".join(product_names) if product_names else "N/A"
     
-    summary_data = [
+    order_summary_data = [
         [
-            Paragraph("Product Name", styles['LabelText']),
-            Paragraph("Order Date", styles['LabelText']),
-            Paragraph("Status", styles['LabelText']),
-            Paragraph("Total Amount", styles['LabelText']),
+            Paragraph("PRODUCT", styles['TableHeader']),
+            Paragraph("ORDER DATE", styles['TableHeader']),
+            Paragraph("STATUS", styles['TableHeader']),
+            Paragraph("AMOUNT", styles['TableHeader']),
         ],
         [
-            Paragraph(xml_escape(product_name_str), styles['ValueText']),
-            Paragraph(str(sale.created_at.strftime('%Y-%m-%d') if sale.created_at else '-'), styles['ValueText']),
-            Paragraph(sale.get_status_display(), styles['ValueText']),
-            Paragraph(fmt_currency(sale.total_amount), styles['ValueText']),
+            Paragraph(xml_escape(product_name_str), styles['TableCell']),
+            Paragraph(sale.created_at.strftime('%Y-%m-%d') if sale.created_at else '-', styles['TableCell']),
+            Paragraph(sale.get_status_display(), styles['TableCellBold']),
+            Paragraph(fmt_currency(sale.total_amount), styles['TableCellBold']),
         ],
     ]
     
-    summary_table = Table(summary_data, colWidths=[page_width * 0.30, page_width * 0.18, page_width * 0.18, page_width * 0.34])
-    summary_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), bg_header),
-        ('BACKGROUND', (0, 1), (-1, 1), colors.white),
-        ('BOX', (0, 0), (-1, -1), 0.5, border_color),
-        ('LINEBELOW', (0, 0), (-1, 0), 0.5, border_color),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+    order_table = Table(order_summary_data, colWidths=[
+        page_width * 0.40,
+        page_width * 0.20,
+        page_width * 0.20,
+        page_width * 0.20
+    ])
+    order_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), bg_subtle),
+        ('TOPPADDING', (0, 0), (-1, 0), 8),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+        ('TOPPADDING', (0, 1), (-1, 1), 12),
+        ('BOTTOMPADDING', (0, 1), (-1, 1), 12),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('LINEBELOW', (0, 0), (-1, 0), 1, divider_color),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
-    elements.append(summary_table)
+    elements.append(order_table)
+    elements.append(Spacer(1, 0.6*cm))
 
     # ============== PAYMENT HISTORY TABLE ==============
-    elements.append(Paragraph("PAYMENT HISTORY", styles['SectionTitle']))
+    elements.append(Paragraph("PAYMENT HISTORY", styles['SectionLabel']))
 
     if payments.exists():
-        # Table header
-        table_data = [[
-            Paragraph("<b>Receipt #</b>", styles['LabelText']),
-            Paragraph("<b>Date</b>", styles['LabelText']),
-            Paragraph("<b>Method</b>", styles['LabelText']),
-            Paragraph("<b>Notes</b>", styles['LabelText']),
-            Paragraph("<b>Amount</b>", styles['LabelText']),
+        payment_data = [[
+            Paragraph("RECEIPT", styles['TableHeader']),
+            Paragraph("DATE", styles['TableHeader']),
+            Paragraph("METHOD", styles['TableHeader']),
+            Paragraph("NOTES", styles['TableHeader']),
+            Paragraph("AMOUNT", styles['TableHeader']),
         ]]
         
-        for i, p in enumerate(payments):
-            notes_text = (p.notes[:40] + '...' if len(p.notes) > 40 else p.notes) if p.notes else '-'
-            table_data.append([
-                Paragraph(p.receipt_number, styles['LabelText']),
-                Paragraph(str(p.payment_date), styles['LabelText']),
-                Paragraph(p.get_method_display(), styles['LabelText']),
-                Paragraph(xml_escape(notes_text), styles['LabelText']),
-                Paragraph(f"<b>{fmt_currency(p.amount)}</b>", styles['LabelText']),
+        for p in payments:
+            notes_text = (p.notes[:45] + '...' if len(p.notes) > 45 else p.notes) if p.notes else '-'
+            payment_data.append([
+                Paragraph(p.receipt_number, styles['TableCell']),
+                Paragraph(str(p.payment_date), styles['TableCell']),
+                Paragraph(p.get_method_display(), styles['TableCell']),
+                Paragraph(xml_escape(notes_text), styles['TableCell']),
+                Paragraph(fmt_currency(p.amount), styles['TableCellBold']),
             ])
 
-        payments_table = Table(
-            table_data, 
-            colWidths=[page_width * 0.20, page_width * 0.14, page_width * 0.14, page_width * 0.26, page_width * 0.26]
-        )
+        payments_table = Table(payment_data, colWidths=[
+            page_width * 0.20,
+            page_width * 0.16,
+            page_width * 0.14,
+            page_width * 0.32,
+            page_width * 0.18
+        ])
         
-        # Alternating row colors
         table_style = [
-            ('BACKGROUND', (0, 0), (-1, 0), primary_color),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
-            ('ALIGN', (4, 0), (4, -1), 'RIGHT'),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-            ('LEFTPADDING', (0, 0), (-1, -1), 6),
-            ('BOX', (0, 0), (-1, -1), 0.5, border_color),
-            ('LINEBELOW', (0, 0), (-1, -2), 0.5, border_color),
+            ('BACKGROUND', (0, 0), (-1, 0), bg_subtle),
+            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('TOPPADDING', (0, 1), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 10),
+            ('LEFTPADDING', (0, 0), (-1, -1), 10),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+            ('LINEBELOW', (0, 0), (-1, 0), 1, divider_color),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]
         
-        # Add alternating row backgrounds
-        for i in range(1, len(table_data)):
-            if i % 2 == 0:
-                table_style.append(('BACKGROUND', (0, i), (-1, i), bg_light))
+        # Subtle dividers between rows
+        for i in range(1, len(payment_data) - 1):
+            table_style.append(('LINEBELOW', (0, i), (-1, i), 0.5, divider_color))
         
         payments_table.setStyle(TableStyle(table_style))
         elements.append(payments_table)
     else:
-        elements.append(Paragraph("No payments recorded for this sale.", styles['LabelText']))
+        elements.append(Paragraph("No payments recorded for this order.", styles['InfoText']))
 
-    elements.append(Spacer(1, 0.3*cm))
+    elements.append(Spacer(1, 0.8*cm))
 
-    # ============== TOTALS SUMMARY BOX ==============
-    balance_style = styles['ValueText']
-    balance_color = warning_color if sale.balance_due > 0 else success_color
-    
+    # ============== TOTALS SUMMARY ==============
     totals_data = [
         [
-            Paragraph("Total Amount:", styles['LabelText']),
-            Paragraph(fmt_currency(sale.total_amount), styles['ValueText']),
+            Paragraph("Total Amount", styles['TotalLabel']),
+            Paragraph(fmt_currency(sale.total_amount), styles['TotalValue']),
         ],
         [
-            Paragraph("Total Paid:", styles['LabelText']),
-            Paragraph(f'<font color="#059669">{fmt_currency(sale.total_paid)}</font>', styles['ValueText']),
-        ],
-        [
-            Paragraph("<b>Balance Due:</b>", styles['ValueText']),
-            Paragraph(
-                f'<font color="{"#DC2626" if sale.balance_due > 0 else "#059669"}"><b>{fmt_currency(sale.balance_due)}</b></font>', 
-                styles['ValueText']
-            ),
+            Paragraph("Total Paid", styles['TotalLabel']),
+            Paragraph(f'<font color="{success_color}">{fmt_currency(sale.total_paid)}</font>', styles['TotalValue']),
         ],
     ]
     
-    # Right-align the totals box - wider columns to prevent ৳ wrapping
-    totals_table = Table(totals_data, colWidths=[page_width * 0.15, page_width * 0.30])
+    # Balance due row with color coding
+    balance_color = danger_color if sale.balance_due > 0 else success_color
+    totals_data.append([
+        Paragraph("<b>Balance Due</b>", styles['TotalLabel']),
+        Paragraph(f'<font color="{balance_color}"><b>{fmt_currency(sale.balance_due)}</b></font>', styles['TotalValue']),
+    ])
+    
+    totals_table = Table(totals_data, colWidths=[page_width * 0.50, page_width * 0.50])
     totals_table.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
-        ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
-        ('TOPPADDING', (0, 0), (-1, -1), 6),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
-        ('LINEABOVE', (0, -1), (-1, -1), 1.5, text_dark),
-        ('BACKGROUND', (0, -1), (-1, -1), bg_header),
+        ('TOPPADDING', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+        ('LEFTPADDING', (0, 0), (-1, -1), 0),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ('LINEABOVE', (0, 0), (-1, 0), 1, divider_color),
+        ('LINEABOVE', (0, -1), (-1, -1), 2, text_primary),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
-    
-    # Wrap in another table - left-aligned
-    wrapper = Table([[totals_table, None]], colWidths=[page_width * 0.45, page_width * 0.55])
-    wrapper.setStyle(TableStyle([('ALIGN', (0, 0), (0, 0), 'LEFT')]))
-    elements.append(wrapper)
+    elements.append(totals_table)
 
-    # ============== THANK YOU MESSAGE & FOOTER ==============
-    # Keep footer elements together to prevent page break splitting
-    footer_elements = []
-    footer_elements.append(Spacer(1, 0.3*cm))
-    footer_elements.append(HRFlowable(width="100%", thickness=0.5, color=border_color, spaceBefore=0.2*cm, spaceAfter=0.2*cm))
-    footer_elements.append(Paragraph("Thank you for your business!", styles['ThankYou']))
-    footer_elements.append(Spacer(1, 0.2*cm))
-    footer_text = f"This is a computer-generated document. Generated on {timezone.now().strftime('%B %d, %Y at %H:%M')}"
-    footer_elements.append(Paragraph(xml_escape(footer_text), styles['FooterText']))
-    footer_elements.append(Paragraph("Please retain this statement for your records.", styles['FooterText']))
-    
-    elements.append(KeepTogether(footer_elements))
+    # ============== FOOTER ==============
+    elements.append(Spacer(1, 0.8*cm))
+    elements.append(HRFlowable(width="100%", thickness=1, color=divider_color, spaceAfter=0.4*cm))
+    footer_note = f"This is a computer-generated document. Generated on {timezone.now().strftime('%B %d, %Y at %H:%M')}."
+    elements.append(Paragraph(footer_note, styles['FooterNote']))
 
     doc.build(elements)
     pdf_bytes = buffer.getvalue()
