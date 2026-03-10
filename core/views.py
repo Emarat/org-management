@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, user_passes_test, permission_required
@@ -9,10 +10,12 @@ from functools import wraps
 
 logger = logging.getLogger(__name__)
 from django.contrib import messages
+from django.db import transaction
 from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
+from django.urls import reverse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
 from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry, StockHistory
@@ -217,7 +220,6 @@ def customer_delete(request, pk):
 @login_required
 @permission_required('core.view_customer', raise_exception=True)
 def customer_detail(request, pk):
-    from django.db.models import Sum
     customer = get_object_or_404(Customer, pk=pk)
     sales_qs = customer.sales.filter(status='finalized').select_related().prefetch_related('items__inventory_item', 'payments').order_by('-created_at')
     
@@ -236,8 +238,114 @@ def customer_detail(request, pk):
         'total_amount': total_amount,
         'total_paid': total_paid,
         'total_due': total_due,
+        'add_payment_form': SalePaymentForm(initial={'payment_date': timezone.localdate()}),
+        'customer_payment_error': request.session.pop('customer_payment_error', ''),
     }
     return render(request, 'core/customer_detail.html', context)
+
+
+@login_required
+@permission_required('core.add_salepayment', raise_exception=True)
+@require_POST
+def customer_add_payment(request, customer_id):
+    customer = get_object_or_404(Customer, pk=customer_id)
+    customer_url = reverse('customer_detail', kwargs={'pk': customer.pk})
+    form = SalePaymentForm(request.POST)
+
+    if not form.is_valid():
+        errors = []
+        for field, errs in form.errors.items():
+            label = form.fields.get(field).label if field in form.fields else field
+            for err in errs:
+                errors.append(f"{label}: {err}")
+        request.session['customer_payment_error'] = ' '.join(errors) if errors else 'Please correct the highlighted fields.'
+        return redirect(f"{customer_url}?open_customer_payment=1#orders")
+
+    cleaned = form.cleaned_data
+    try:
+        incoming_amount = Decimal(cleaned.get('amount') or 0)
+    except (TypeError, InvalidOperation):
+        incoming_amount = Decimal('0')
+
+    if incoming_amount <= 0:
+        request.session['customer_payment_error'] = 'Amount must be greater than zero.'
+        return redirect(f"{customer_url}?open_customer_payment=1#orders")
+
+    base_notes = (cleaned.get('notes') or '').strip()
+    note_prefix = 'Payment via customer account - FIFO allocation'
+    composed_notes = note_prefix if not base_notes else f"{note_prefix} | {base_notes}"
+
+    with transaction.atomic():
+        due_qs = (
+            customer.sales.filter(status='finalized')
+            .annotate(
+                paid_amount=Coalesce(
+                    Sum('payments__amount'),
+                    Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)),
+                ),
+            )
+            .annotate(
+                due_amount=ExpressionWrapper(
+                    F('total_amount') - F('paid_amount'),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                )
+            )
+            .filter(due_amount__gt=0)
+            .order_by('finalized_at', 'id')
+            .select_for_update()
+        )
+
+        due_sales = list(due_qs)
+        total_due = sum((sale.due_amount for sale in due_sales), Decimal('0'))
+        if total_due <= 0:
+            request.session['customer_payment_error'] = 'No unpaid finalized sales found for this customer.'
+            return redirect(f"{customer_url}#orders")
+
+        if incoming_amount > total_due:
+            request.session['customer_payment_error'] = f'Payment exceeds customer total due (Tk {total_due:.2f}).'
+            return redirect(f"{customer_url}?open_customer_payment=1#orders")
+
+        remaining = incoming_amount
+        allocations = []
+        payment_date = cleaned.get('payment_date')
+        method = cleaned.get('method')
+
+        for sale in due_sales:
+            if remaining <= 0:
+                break
+            allocation = min(remaining, sale.due_amount)
+            if allocation <= 0:
+                continue
+
+            payment = SalePayment.objects.create(
+                sale=sale,
+                amount=allocation,
+                payment_date=payment_date,
+                method=method,
+                notes=composed_notes,
+            )
+            try:
+                LedgerEntry.objects.update_or_create(
+                    source='sale_payment',
+                    reference=payment.receipt_number,
+                    defaults={
+                        'entry_type': 'credit',
+                        'description': f"Payment for {sale.sale_number}",
+                        'amount': payment.amount,
+                    },
+                )
+            except Exception:
+                logger.exception('Non-blocking ledger write failure for SalePayment receipt=%s', payment.receipt_number)
+
+            allocations.append((sale.sale_number, allocation))
+            remaining -= allocation
+
+    allocation_text = ', '.join([f"{sale_no}: Tk {amount:.2f}" for sale_no, amount in allocations])
+    messages.success(
+        request,
+        f"Payment recorded (Tk {incoming_amount:.2f}) across {len(allocations)} sale(s). Allocation: {allocation_text}",
+    )
+    return redirect(f"{customer_url}#orders")
 
 
 # Inventory Views
