@@ -422,6 +422,51 @@ class SalePayment(models.Model):
         super().save(*args, **kwargs)
 
 
+class CustomerPaymentBatch(models.Model):
+    """Represents one customer-level payment event that may allocate across multiple sales."""
+
+    customer = models.ForeignKey('Customer', on_delete=models.CASCADE, related_name='payment_batches')
+    batch_ref = models.CharField(max_length=60, unique=True, editable=False)
+    payment_date = models.DateField(default=timezone.now)
+    method = models.CharField(max_length=30, choices=SalePayment.METHOD_CHOICES, default='cash')
+    total_amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='created_customer_payment_batches')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Customer Payment Batch'
+        verbose_name_plural = 'Customer Payment Batches'
+
+    def __str__(self):
+        return f"{self.batch_ref} - {self.customer.name}"
+
+    def save(self, *args, **kwargs):
+        if not self.batch_ref:
+            now = timezone.now()
+            self.batch_ref = f"CUSTPMT-{now.strftime('%Y%m%d%H%M%S')}-{uuid.uuid4().hex[:6].upper()}"
+        super().save(*args, **kwargs)
+
+
+class CustomerPaymentAllocation(models.Model):
+    """Allocation rows linking a customer payment batch to generated sale payments."""
+
+    batch = models.ForeignKey('CustomerPaymentBatch', on_delete=models.CASCADE, related_name='allocations')
+    sale = models.ForeignKey('Sale', on_delete=models.PROTECT, related_name='customer_payment_allocations')
+    sale_payment = models.OneToOneField('SalePayment', on_delete=models.CASCADE, related_name='customer_allocation')
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['id']
+        verbose_name = 'Customer Payment Allocation'
+        verbose_name_plural = 'Customer Payment Allocations'
+
+    def __str__(self):
+        return f"{self.batch.batch_ref} -> {self.sale.sale_number}: {self.amount}"
+
+
 class BillClaim(models.Model):
     """Model for Employee Bill Claims"""
     STATUS_CHOICES = [

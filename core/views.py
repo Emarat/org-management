@@ -12,13 +12,14 @@ logger = logging.getLogger(__name__)
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWrapper
+from django.db.utils import OperationalError, ProgrammingError
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry, StockHistory
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry, StockHistory, CustomerPaymentBatch, CustomerPaymentAllocation
 from django.core.paginator import Paginator
 from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm
 import openpyxl
@@ -230,6 +231,32 @@ def customer_detail(request, pk):
     
     paginator = Paginator(sales_qs, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
+    can_view_customer_payment_receipts = bool(
+        request.user.is_superuser
+        or request.user.has_perm('core.view_salepayment')
+        or request.user.has_perm('core.add_salepayment')
+    )
+    can_record_customer_payment = bool(
+        total_due > 0 and (
+            request.user.is_superuser
+            or request.user.has_perm('core.add_salepayment')
+        )
+    )
+    payment_batches = []
+    latest_payment_batch = None
+    if can_view_customer_payment_receipts:
+        try:
+            payment_batches = list(
+                customer.payment_batches
+                .annotate(allocation_count=Count('allocations'))
+                .order_by('-created_at')[:10]
+            )
+            if payment_batches:
+                latest_payment_batch = payment_batches[0]
+        except (OperationalError, ProgrammingError):
+            # New receipt tables may not exist before migrations are applied.
+            payment_batches = []
+            latest_payment_batch = None
     context = {
         'customer': customer,
         'sales': page_obj.object_list,
@@ -240,6 +267,10 @@ def customer_detail(request, pk):
         'total_due': total_due,
         'add_payment_form': SalePaymentForm(initial={'payment_date': timezone.localdate()}),
         'customer_payment_error': request.session.pop('customer_payment_error', ''),
+        'payment_batches': payment_batches,
+        'latest_payment_batch': latest_payment_batch,
+        'can_view_customer_payment_receipts': can_view_customer_payment_receipts,
+        'can_record_customer_payment': can_record_customer_payment,
     }
     return render(request, 'core/customer_detail.html', context)
 
@@ -282,6 +313,21 @@ def customer_add_payment(request, customer_id):
         # Serialize customer-level allocations per customer in a Postgres-safe way.
         customer = Customer.objects.select_for_update().get(pk=customer.pk)
 
+        payment_date = cleaned.get('payment_date')
+        method = cleaned.get('method')
+        try:
+            batch = CustomerPaymentBatch.objects.create(
+                customer=customer,
+                payment_date=payment_date,
+                method=method,
+                total_amount=incoming_amount,
+                notes=base_notes,
+                created_by=request.user,
+            )
+        except (OperationalError, ProgrammingError):
+            request.session['customer_payment_error'] = 'Customer payment receipt tables are not ready yet. Please run migrations and try again.'
+            return redirect(f"{customer_url}?open_customer_payment=1#orders")
+
         candidate_sales = list(
             customer.sales.filter(status='finalized')
             .order_by('finalized_at', 'id')
@@ -300,17 +346,16 @@ def customer_add_payment(request, customer_id):
                 total_due += due_amount
 
         if total_due <= 0:
+            batch.delete()
             request.session['customer_payment_error'] = 'No unpaid finalized sales found for this customer.'
             return redirect(f"{customer_url}#orders")
 
         if incoming_amount > total_due:
+            batch.delete()
             request.session['customer_payment_error'] = f'Payment exceeds customer total due (Tk {total_due:.2f}).'
             return redirect(f"{customer_url}?open_customer_payment=1#orders")
 
         remaining = incoming_amount
-        allocations = []
-        payment_date = cleaned.get('payment_date')
-        method = cleaned.get('method')
 
         for sale in due_sales:
             if remaining <= 0:
@@ -324,7 +369,13 @@ def customer_add_payment(request, customer_id):
                 amount=allocation,
                 payment_date=payment_date,
                 method=method,
-                notes=composed_notes,
+                notes=f"{composed_notes} [Batch:{batch.batch_ref}]",
+            )
+            CustomerPaymentAllocation.objects.create(
+                batch=batch,
+                sale=sale,
+                sale_payment=payment,
+                amount=allocation,
             )
             try:
                 LedgerEntry.objects.update_or_create(
@@ -339,15 +390,55 @@ def customer_add_payment(request, customer_id):
             except Exception:
                 logger.exception('Non-blocking ledger write failure for SalePayment receipt=%s', payment.receipt_number)
 
-            allocations.append((sale.sale_number, allocation))
             remaining -= allocation
 
-    allocation_text = ', '.join([f"{sale_no}: Tk {amount:.2f}" for sale_no, amount in allocations])
-    messages.success(
-        request,
-        f"Payment recorded (Tk {incoming_amount:.2f}) across {len(allocations)} sale(s). Allocation: {allocation_text}",
+    return redirect(
+        reverse('customer_payment_receipt', kwargs={'customer_id': customer.pk, 'batch_ref': batch.batch_ref})
     )
-    return redirect(f"{customer_url}#orders")
+
+
+@login_required
+def customer_payment_receipt(request, customer_id, batch_ref):
+    if not (
+        request.user.is_superuser
+        or request.user.has_perm('core.view_salepayment')
+        or request.user.has_perm('core.add_salepayment')
+    ):
+        raise PermissionDenied
+
+    customer = get_object_or_404(Customer, pk=customer_id)
+    try:
+        batch = get_object_or_404(
+            CustomerPaymentBatch.objects.select_related('customer'),
+            customer=customer,
+            batch_ref=batch_ref,
+        )
+    except (OperationalError, ProgrammingError):
+        messages.error(request, 'Customer payment receipt tables are not ready yet. Please run migrations.')
+        return redirect(f"{reverse('customer_detail', kwargs={'pk': customer.pk})}#orders")
+    allocations = list(
+        batch.allocations.select_related('sale', 'sale_payment')
+        .order_by('sale__finalized_at', 'sale_id', 'id')
+    )
+
+    if not allocations:
+        messages.error(request, 'No payment records found for this receipt batch.')
+        return redirect(f"{reverse('customer_detail', kwargs={'pk': customer.pk})}#orders")
+
+    finalized_sales = customer.sales.filter(status='finalized').prefetch_related('payments')
+    customer_total_amount = finalized_sales.aggregate(total=Sum('total_amount')).get('total') or Decimal('0')
+    customer_total_paid = sum((sale.total_paid for sale in finalized_sales), Decimal('0'))
+    customer_total_due = customer_total_amount - customer_total_paid
+
+    context = {
+        'customer': customer,
+        'batch': batch,
+        'allocations': allocations,
+        'customer_total_amount': customer_total_amount,
+        'customer_total_paid': customer_total_paid,
+        'customer_total_due': customer_total_due,
+    }
+    return render(request, 'core/customer_payment_receipt.html', context)
 
 
 # Inventory Views
