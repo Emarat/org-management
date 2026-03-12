@@ -248,8 +248,6 @@ def customer_detail(request, pk):
 @permission_required('core.add_salepayment', raise_exception=True)
 @require_POST
 def customer_add_payment(request, customer_id):
-    customer = get_object_or_404(Customer, pk=customer_id)
-    customer_url = reverse('customer_detail', kwargs={'pk': customer.pk})
     form = SalePaymentForm(request.POST)
 
     if not form.is_valid():
@@ -258,6 +256,8 @@ def customer_add_payment(request, customer_id):
             label = form.fields.get(field).label if field in form.fields else field
             for err in errs:
                 errors.append(f"{label}: {err}")
+        customer = get_object_or_404(Customer, pk=customer_id)
+        customer_url = reverse('customer_detail', kwargs={'pk': customer.pk})
         request.session['customer_payment_error'] = ' '.join(errors) if errors else 'Please correct the highlighted fields.'
         return redirect(f"{customer_url}?open_customer_payment=1#orders")
 
@@ -266,6 +266,9 @@ def customer_add_payment(request, customer_id):
         incoming_amount = Decimal(cleaned.get('amount') or 0)
     except (TypeError, InvalidOperation):
         incoming_amount = Decimal('0')
+
+    customer = get_object_or_404(Customer, pk=customer_id)
+    customer_url = reverse('customer_detail', kwargs={'pk': customer.pk})
 
     if incoming_amount <= 0:
         request.session['customer_payment_error'] = 'Amount must be greater than zero.'
@@ -276,27 +279,26 @@ def customer_add_payment(request, customer_id):
     composed_notes = note_prefix if not base_notes else f"{note_prefix} | {base_notes}"
 
     with transaction.atomic():
-        due_qs = (
+        # Serialize customer-level allocations per customer in a Postgres-safe way.
+        customer = Customer.objects.select_for_update().get(pk=customer.pk)
+
+        candidate_sales = list(
             customer.sales.filter(status='finalized')
-            .annotate(
-                paid_amount=Coalesce(
-                    Sum('payments__amount'),
-                    Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)),
-                ),
-            )
-            .annotate(
-                due_amount=ExpressionWrapper(
-                    F('total_amount') - F('paid_amount'),
-                    output_field=DecimalField(max_digits=12, decimal_places=2),
-                )
-            )
-            .filter(due_amount__gt=0)
             .order_by('finalized_at', 'id')
             .select_for_update()
+            .prefetch_related('payments')
         )
 
-        due_sales = list(due_qs)
-        total_due = sum((sale.due_amount for sale in due_sales), Decimal('0'))
+        due_sales = []
+        total_due = Decimal('0')
+        for sale in candidate_sales:
+            paid_amount = sum((payment.amount for payment in sale.payments.all()), Decimal('0'))
+            due_amount = (sale.total_amount or Decimal('0')) - paid_amount
+            if due_amount > 0:
+                sale.due_amount = due_amount
+                due_sales.append(sale)
+                total_due += due_amount
+
         if total_due <= 0:
             request.session['customer_payment_error'] = 'No unpaid finalized sales found for this customer.'
             return redirect(f"{customer_url}#orders")
@@ -2225,29 +2227,34 @@ def sale_add_payment(request, pk):
         form = SalePaymentForm(request.POST)
         if form.is_valid():
             payment = form.save(commit=False)
-            payment.sale = sale
             # Prevent overpayment beyond balance due
             if payment.amount <= 0:
                 messages.error(request, 'Amount must be greater than zero.')
-            elif payment.amount > sale.balance_due:
-                messages.error(request, 'Payment exceeds remaining balance.')
             else:
-                payment.save()
-                # Log to ledger as a credit (inflow)
-                try:
-                    LedgerEntry.objects.update_or_create(
-                        source='sale_payment',
-                        reference=payment.receipt_number,
-                        defaults={
-                            'entry_type': 'credit',
-                            'description': f"Payment for {sale.sale_number}",
-                            'amount': payment.amount,
-                        }
-                    )
-                except Exception:
-                    logger.exception('Non-blocking ledger write failure for SalePayment receipt=%s', payment.receipt_number)
-                messages.success(request, f'Payment recorded. Receipt: {payment.receipt_number}')
-                return redirect('sale_detail', pk=sale.pk)
+                with transaction.atomic():
+                    locked_sale = _visible_sales_queryset(request.user).select_for_update().get(pk=sale.pk)
+                    Customer.objects.select_for_update().get(pk=locked_sale.customer_id)
+
+                    if payment.amount > locked_sale.balance_due:
+                        messages.error(request, 'Payment exceeds remaining balance.')
+                    else:
+                        payment.sale = locked_sale
+                        payment.save()
+                        # Log to ledger as a credit (inflow)
+                        try:
+                            LedgerEntry.objects.update_or_create(
+                                source='sale_payment',
+                                reference=payment.receipt_number,
+                                defaults={
+                                    'entry_type': 'credit',
+                                    'description': f"Payment for {locked_sale.sale_number}",
+                                    'amount': payment.amount,
+                                }
+                            )
+                        except Exception:
+                            logger.exception('Non-blocking ledger write failure for SalePayment receipt=%s', payment.receipt_number)
+                        messages.success(request, f'Payment recorded. Receipt: {payment.receipt_number}')
+                        return redirect('sale_detail', pk=locked_sale.pk)
         else:
             for field, errs in form.errors.items():
                 for err in errs:
@@ -2274,29 +2281,38 @@ def sale_edit_payment(request, pk, payment_pk):
                 messages.error(request, 'Amount must be greater than zero.')
                 return redirect('sale_edit_payment', pk=sale.pk, payment_pk=payment.pk)
 
-            other_paid = sale.payments.exclude(pk=payment.pk).aggregate(total=Sum('amount')).get('total') or 0
-            max_allowed = sale.total_amount - other_paid
-            if updated_payment.amount > max_allowed:
-                messages.error(request, 'Payment exceeds remaining balance.')
-                return redirect('sale_edit_payment', pk=sale.pk, payment_pk=payment.pk)
+            with transaction.atomic():
+                locked_sale = _visible_sales_queryset(request.user).select_for_update().get(pk=sale.pk)
+                Customer.objects.select_for_update().get(pk=locked_sale.customer_id)
+                locked_payment = get_object_or_404(SalePayment.objects.select_for_update(), pk=payment.pk, sale=locked_sale)
 
-            updated_payment.save()
+                other_paid = locked_sale.payments.exclude(pk=locked_payment.pk).aggregate(total=Sum('amount')).get('total') or 0
+                max_allowed = locked_sale.total_amount - other_paid
+                if updated_payment.amount > max_allowed:
+                    messages.error(request, 'Payment exceeds remaining balance.')
+                    return redirect('sale_edit_payment', pk=locked_sale.pk, payment_pk=locked_payment.pk)
 
-            try:
-                LedgerEntry.objects.update_or_create(
-                    source='sale_payment',
-                    reference=updated_payment.receipt_number,
-                    defaults={
-                        'entry_type': 'credit',
-                        'description': f"Payment for {sale.sale_number}",
-                        'amount': updated_payment.amount,
-                    }
-                )
-            except Exception:
-                logger.exception('Non-blocking ledger update failure for SalePayment receipt=%s', updated_payment.receipt_number)
+                locked_payment.amount = updated_payment.amount
+                locked_payment.payment_date = updated_payment.payment_date
+                locked_payment.method = updated_payment.method
+                locked_payment.notes = updated_payment.notes
+                locked_payment.save()
 
-            messages.success(request, f'Payment {updated_payment.receipt_number} updated successfully.')
-            return redirect('sale_detail', pk=sale.pk)
+                try:
+                    LedgerEntry.objects.update_or_create(
+                        source='sale_payment',
+                        reference=locked_payment.receipt_number,
+                        defaults={
+                            'entry_type': 'credit',
+                            'description': f"Payment for {locked_sale.sale_number}",
+                            'amount': locked_payment.amount,
+                        }
+                    )
+                except Exception:
+                    logger.exception('Non-blocking ledger update failure for SalePayment receipt=%s', locked_payment.receipt_number)
+
+                messages.success(request, f'Payment {locked_payment.receipt_number} updated successfully.')
+                return redirect('sale_detail', pk=locked_sale.pk)
         else:
             for field, errs in form.errors.items():
                 for err in errs:
@@ -2323,8 +2339,12 @@ def sale_delete_payment(request, pk, payment_pk):
         messages.error(request, 'Only admin users can delete sale payments.')
         return redirect('sale_detail', pk=sale.pk)
 
-    receipt_number = payment.receipt_number
-    payment.delete()
+    with transaction.atomic():
+        locked_sale = _visible_sales_queryset(request.user).select_for_update().get(pk=sale.pk)
+        Customer.objects.select_for_update().get(pk=locked_sale.customer_id)
+        locked_payment = get_object_or_404(SalePayment.objects.select_for_update(), pk=payment.pk, sale=locked_sale)
+        receipt_number = locked_payment.receipt_number
+        locked_payment.delete()
 
     try:
         LedgerEntry.objects.filter(source='sale_payment', reference=receipt_number).delete()
