@@ -199,7 +199,13 @@ def clean_all_data_view(request):
 
 	Access restricted to superusers. Shows a confirmation page on GET,
 	performs deletion on POST and redirects back to admin index.
+	Feature is disabled unless DEBUG=True or ALLOW_DATA_CLEANUP env is enabled.
 	"""
+	# Safety gate: only allow in debug or if explicitly enabled via env
+	allow_cleanup = getattr(settings, 'DEBUG', False) or os.getenv('ALLOW_DATA_CLEANUP', '').strip().lower() in ('1', 'true', 'yes', 'on')
+	if not allow_cleanup:
+		return HttpResponseForbidden('Data cleanup is disabled. Enable via ALLOW_DATA_CLEANUP=true or DEBUG=True.')
+
 	if not request.user.is_active or not request.user.is_superuser:
 		return HttpResponseForbidden('Only superusers may perform this action.')
 
@@ -220,6 +226,15 @@ def clean_all_data_view(request):
 				preview_warnings=preview_warnings,
 			)
 			return render(request, 'admin/clean_all_data_confirm.html', context)
+
+		# Require execute confirmation phrase for this destructive action
+		execute_confirm = (request.POST.get('execute_confirm') or '').strip()
+		if execute_confirm != 'CLEANUP_CONFIRMED':
+			messages.error(
+				request,
+				'To run cleanup, type CLEANUP_CONFIRMED exactly in the confirmation field.',
+			)
+			return redirect(reverse('admin-clean-all-data'))
 
 		if cleanup_options['delete_superusers'] and not cleanup_options['preserve_current_superuser']:
 			danger_phrase = (request.POST.get('danger_confirm') or '').strip()

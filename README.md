@@ -303,12 +303,14 @@ To restore:
 2. Replace `db.sqlite3` with your backup
 3. Start the server again
 
-## ⚠️ Admin — Clean Data (Selectable)
+## ⚠️ Admin — Clean Data (Selectable & Safe)
 
 An admin-only cleanup utility is available to remove selected data safely.
 
 - **Access:** Superusers only.
 - **URL:** `/admin/clean-all-data/` (open while logged in as a superuser)
+- **Safeguard 1 — Environment gate:** Feature is disabled by default in production (when `DEBUG=False`). To enable, set `ALLOW_DATA_CLEANUP=true` in your environment.
+- **Safeguard 2 — Execute confirmation:** Any destructive cleanup requires typing `CLEANUP_CONFIRMED` before running.
 - **Behavior:** `GET` shows cleanup options with record counts; `POST` deletes only the categories you select.
 - **Dry-run:** Use **Preview Selected Cleanup** to see what would be deleted before running the action.
 - **Superuser safety:** Superusers are not deleted unless explicitly selected. You can preserve the currently logged-in superuser with a checkbox (enabled by default).
