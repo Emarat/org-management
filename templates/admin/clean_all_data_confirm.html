@@ -2,12 +2,114 @@
 
 {% block content %}
   <h1>{{ title }}</h1>
-  <p>This will delete ALL database records for every model in this project (best-effort) and will remove files under <strong>{{ media_root }}</strong>.</p>
-  <p>Make sure you have a backup before proceeding. This action is irreversible.</p>
+  <p>Select exactly what to delete. This operation is irreversible.</p>
+  <p><strong>Safety default:</strong> superusers are preserved unless you explicitly choose to delete them.</p>
+
+  {% if preview_rows %}
+    <div class="messagelist" style="margin-top:1em;">
+      <div class="warning">
+        <strong>Preview only:</strong> Nothing has been deleted yet.
+      </div>
+    </div>
+    <fieldset style="margin:1rem 0;">
+      <legend><strong>Dry-run Preview</strong></legend>
+      {% if preview_warnings %}
+        {% for warning in preview_warnings %}
+          <div style="color:#b94a48; margin:0.35rem 0;">{{ warning }}</div>
+        {% endfor %}
+      {% endif %}
+      <table style="width:100%; border-collapse:collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #ddd;">Target</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #ddd;">Count</th>
+            <th style="text-align:left; padding:6px; border-bottom:1px solid #ddd;">Type</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in preview_rows %}
+            <tr>
+              <td style="padding:6px; border-bottom:1px solid #f0f0f0;"><code>{{ row.0 }}</code></td>
+              <td style="padding:6px; border-bottom:1px solid #f0f0f0;">{{ row.1|default:'-' }}</td>
+              <td style="padding:6px; border-bottom:1px solid #f0f0f0;">{{ row.2 }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </fieldset>
+  {% endif %}
 
   <form method="post" style="margin-top:1em;">
     {% csrf_token %}
-    <input type="submit" value="Yes — delete all data" class="default">
+    <fieldset style="margin-bottom:1rem;">
+      <legend><strong>Business Data</strong></legend>
+      <label style="display:block;margin:0.35rem 0;">
+        <input type="checkbox" name="delete_core_data" {% if cleanup_options.delete_core_data %}checked{% endif %}>
+        Delete all <code>core</code> app records
+      </label>
+      <div style="margin-left:1.5rem;">
+        {% for row in core_model_rows %}
+          <div><code>{{ row.label }}</code>: {{ row.count|default:'n/a' }}</div>
+        {% empty %}
+          <div>No core models found.</div>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <fieldset style="margin-bottom:1rem;">
+      <legend><strong>User Accounts</strong></legend>
+      <label style="display:block;margin:0.35rem 0;">
+        <input type="checkbox" name="delete_non_superusers" {% if cleanup_options.delete_non_superusers %}checked{% endif %}>
+        Delete non-superusers (current count: {{ non_superuser_count }})
+      </label>
+      <label style="display:block;margin:0.35rem 0;">
+        <input type="checkbox" name="delete_superusers" {% if cleanup_options.delete_superusers %}checked{% endif %}>
+        Delete superusers (current count: {{ superuser_count }})
+      </label>
+      <label style="display:block;margin:0.35rem 0 0.75rem 1.5rem;">
+        <input type="checkbox" name="preserve_current_superuser" {% if cleanup_options.preserve_current_superuser %}checked{% endif %}>
+        Preserve currently logged-in superuser (<code>{{ current_superuser.username }}</code>)
+      </label>
+      <div style="margin-left:1.5rem;">
+        <label for="id_danger_confirm">If deleting superusers without preserving current user, type <code>DELETE_SUPERUSERS</code>:</label>
+        <input id="id_danger_confirm" type="text" name="danger_confirm" style="width: 320px; max-width: 100%;">
+      </div>
+    </fieldset>
+
+    <fieldset style="margin-bottom:1rem;">
+      <legend><strong>System Data</strong></legend>
+      <label style="display:block;margin:0.35rem 0;">
+        <input type="checkbox" name="delete_groups" {% if cleanup_options.delete_groups %}checked{% endif %}>
+        Delete groups (current count: {{ group_count }})
+      </label>
+      <label style="display:block;margin:0.35rem 0;">
+        <input type="checkbox" name="delete_permissions" {% if cleanup_options.delete_permissions %}checked{% endif %}>
+        Delete permissions (current count: {{ permission_count }})
+      </label>
+      <label style="display:block;margin:0.35rem 0;">
+        <input type="checkbox" name="delete_sessions" {% if cleanup_options.delete_sessions %}checked{% endif %}>
+        Delete sessions (current count: {{ session_count }})
+      </label>
+      <label style="display:block;margin:0.35rem 0;">
+        <input type="checkbox" name="delete_admin_logs" {% if cleanup_options.delete_admin_logs %}checked{% endif %}>
+        Delete admin logs (current count: {{ admin_log_count }})
+      </label>
+      <label style="display:block;margin:0.35rem 0;">
+        <input type="checkbox" name="delete_axes_logs" {% if cleanup_options.delete_axes_logs %}checked{% endif %}>
+        Delete django-axes access/login logs
+      </label>
+    </fieldset>
+
+    <fieldset style="margin-bottom:1rem;">
+      <legend><strong>Files</strong></legend>
+      <label style="display:block;margin:0.35rem 0;">
+        <input type="checkbox" name="delete_media_files" {% if cleanup_options.delete_media_files %}checked{% endif %}>
+        Delete files under <code>{{ media_root }}</code>
+      </label>
+    </fieldset>
+
+    <button type="submit" name="action" value="preview" class="button" style="margin-right:0.5rem;">Preview Selected Cleanup</button>
+    <button type="submit" name="action" value="execute" class="default">Run Selected Cleanup</button>
     <a href="{% url 'admin:index' %}">Cancel</a>
   </form>
 {% endblock %}

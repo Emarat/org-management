@@ -303,18 +303,19 @@ To restore:
 2. Replace `db.sqlite3` with your backup
 3. Start the server again
 
-## ⚠️ Admin — Clean All Data
+## ⚠️ Admin — Clean Data (Selectable)
 
-A new admin-only utility is available to permanently remove all database records and media files (best-effort).
+An admin-only cleanup utility is available to remove selected data safely.
 
 - **Access:** Superusers only.
 - **URL:** `/admin/clean-all-data/` (open while logged in as a superuser)
-- **Behavior:** `GET` shows a confirmation page; `POST` deletes all objects for every model and removes files under `MEDIA_ROOT`. The operation is irreversible and is performed with best-effort error tolerance.
-- **Media cleanup:** Files under the project `MEDIA_ROOT` will be deleted (best-effort).
+- **Behavior:** `GET` shows cleanup options with record counts; `POST` deletes only the categories you select.
+- **Dry-run:** Use **Preview Selected Cleanup** to see what would be deleted before running the action.
+- **Superuser safety:** Superusers are not deleted unless explicitly selected. You can preserve the currently logged-in superuser with a checkbox (enabled by default).
+- **Danger confirmation:** If you choose to delete superusers and uncheck preserve-current-user, you must type `DELETE_SUPERUSERS`.
+- **Media cleanup:** Optional checkbox to remove files under `MEDIA_ROOT` (best-effort).
 
-Before using this feature, make a full backup of your database and `media/` folder. This tool is intended for development, test, or full-reset workflows — use with extreme caution in production.
-
-If you'd prefer a safer alternative, I can implement a scoped deletion (specific apps/models), a dry-run mode, or require an extra confirmation token.
+Before using this feature, make a full backup of your database and `media/` folder. This tool is intended for development/test reset workflows and should be used with caution in production.
 
 ## 🎨 Customization
 
