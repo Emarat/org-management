@@ -108,6 +108,14 @@
       </label>
     </fieldset>
 
+    <fieldset style="margin-bottom:1rem; padding:1rem; background-color:#f9f9f9; border:1px solid #ccc;">
+      <legend><strong>Execute Confirmation</strong></legend>
+      <p style="margin:0.5rem 0;"><strong>To run cleanup, type exactly:</strong> <code>CLEANUP_CONFIRMED</code></p>
+      <label for="id_execute_confirm" style="display:block;margin:0.5rem 0;">
+        <input id="id_execute_confirm" type="text" name="execute_confirm" style="width: 320px; max-width: 100%;">
+      </label>
+    </fieldset>
+
     <button type="submit" name="action" value="preview" class="button" style="margin-right:0.5rem;">Preview Selected Cleanup</button>
     <button type="submit" name="action" value="execute" class="default">Run Selected Cleanup</button>
     <a href="{% url 'admin:index' %}">Cancel</a>
