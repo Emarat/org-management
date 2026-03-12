@@ -81,7 +81,7 @@
         <div class="d-flex justify-content-between align-items-center">
           <h5 class="mb-0">Order History</h5>
           <div class="d-flex gap-2 align-items-center">
-          {% if total_due > 0 and user.is_superuser or total_due > 0 and perms.core.add_salepayment %}
+          {% if can_record_customer_payment %}
             <button
               type="button"
               class="btn btn-sm btn-primary"
@@ -90,6 +90,16 @@
             >
               <i class="fas fa-money-bill-wave"></i> Record Payment
             </button>
+          {% endif %}
+          {% if can_record_customer_payment and latest_payment_batch %}
+            <a
+              href="{% url 'customer_payment_receipt' customer.pk latest_payment_batch.batch_ref %}"
+              class="btn btn-sm btn-outline-primary"
+              target="_blank"
+              title="Latest combined receipt"
+            >
+              <i class="fas fa-download"></i> Receipt
+            </a>
           {% endif %}
           {% if user.is_superuser or perms.core.view_sale %}
             <a href="{% url 'sales_export_pdf' %}?customer_id={{ customer.pk }}" class="btn btn-sm btn-outline-secondary">

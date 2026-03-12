@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment Receipt {{ batch.batch_ref }}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+    }
+    .page {
+      width: 100%;
+      max-width: 600px;
+      margin: 20px auto;
+      padding: 30px;
+      background: white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #333;
+      padding-bottom: 15px;
+    }
+    .header h1 {
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+    .header p {
+      font-size: 12px;
+      color: #666;
+      margin: 3px 0;
+    }
+    .ref {
+      font-weight: bold;
+      color: #0f766e;
+      font-size: 14px;
+      margin-top: 5px;
+    }
+    .section {
+      margin-bottom: 20px;
+      page-break-inside: avoid;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .row {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 13px;
+    }
+    .label {
+      color: #666;
+    }
+    .value {
+      font-weight: 500;
+    }
+    .divider {
+      height: 1px;
+      background: #ddd;
+      margin: 15px 0;
+    }
+    .amount-box {
+      background: #f9fafb;
+      padding: 15px;
+      border-left: 3px solid #0f766e;
+      margin: 15px 0;
+      font-size: 14px;
+    }
+    .amount-box .label {
+      display: block;
+      margin-bottom: 3px;
+    }
+    .amount-box .value {
+      font-size: 22px;
+      font-weight: bold;
+      color: #0f766e;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin: 10px 0;
+    }
+    th {
+      background: #f0f0f0;
+      padding: 8px;
+      text-align: left;
+      font-weight: bold;
+      border-bottom: 1px solid #ddd;
+    }
+    td {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+    }
+    .text-right {
+      text-align: right;
+    }
+    .total-row {
+      font-weight: bold;
+      background: #f9fafb;
+      border-top: 1px solid #ddd;
+    }
+    .signature-area {
+      margin-top: 30px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+    }
+    .sig-block {
+      text-align: center;
+      font-size: 12px;
+    }
+    .sig-line {
+      border-top: 1px solid #333;
+      margin-bottom: 3px;
+      height: 40px;
+    }
+    .sig-label {
+      font-weight: bold;
+      margin-top: 5px;
+    }
+    .footer {
+      text-align: center;
+      margin-top: 20px;
+      padding-top: 15px;
+      border-top: 1px solid #ddd;
+      font-size: 11px;
+      color: #999;
+    }
+    .actions {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .btn {
+      padding: 8px 15px;
+      margin: 0 5px;
+      background: white;
+      border: 1px solid #ddd;
+      cursor: pointer;
+      font-size: 12px;
+      border-radius: 4px;
+    }
+    .btn:hover {
+      background: #f5f5f5;
+    }
+    @media print {
+      body { background: white; }
+      .page { box-shadow: none; margin: 0; max-width: 100%; }
+      .actions { display: none; }
+      .footer { font-size: 10px; }
+    }
+    @media (max-width: 600px) {
+      .page { padding: 20px; }
+      .signature-area { grid-template-columns: 1fr; gap: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="actions">
+      <button class="btn" onclick="window.print()">Print</button>
+      <a class="btn" href="{% url 'customer_detail' customer.pk %}#orders">Back</a>
+    </div>
+
+    <div class="header">
+      <h1>{{ brand.name|default:'Fashion Express' }}</h1>
+      <p>Payment Receipt</p>
+      <div class="ref">{{ batch.batch_ref }}</div>
+    </div>
+
+    <div class="section">
+      <div class="row">
+        <span class="label">Date:</span>
+        <span class="value">{{ batch.payment_date|date:"M d, Y" }}</span>
+      </div>
+      <div class="row">
+        <span class="label">Method:</span>
+        <span class="value">{{ batch.get_method_display }}</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section">
+      <div class="section-title">Bill To</div>
+      <div class="row">
+        <span class="value">{{ customer.name }}</span>
+      </div>
+      <div class="row">
+        <span class="label">ID: {{ customer.customer_id }}</span>
+      </div>
+      {% if customer.phone %}
+      <div class="row">
+        <span class="label">Phone: {{ customer.phone }}</span>
+      </div>
+      {% endif %}
+      {% if customer.company %}
+      <div class="row">
+        <span class="label">Company: {{ customer.company }}</span>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section">
+      <table>
+        <thead>
+          <tr>
+            <th>Sale</th>
+            <th>Receipt #</th>
+            <th class="text-right">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in allocations %}
+          <tr>
+            <td>{{ row.sale.sale_number }}</td>
+            <td>{{ row.sale_payment.receipt_number }}</td>
+            <td class="text-right">Tk {{ row.amount|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+          <tr class="total-row">
+            <td colspan="2" class="text-right">Total Paid:</td>
+            <td class="text-right">Tk {{ batch.total_amount|floatformat:2 }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    {% if batch.notes %}
+    <div class="divider"></div>
+    <div class="section">
+      <div class="section-title">Notes</div>
+      <div style="font-size: 13px; line-height: 1.5;">{{ batch.notes }}</div>
+    </div>
+    {% endif %}
+
+    <div class="signature-area">
+      <div class="sig-block">
+        <div class="sig-line"></div>
+        <div class="sig-label">Authorized Signature</div>
+      </div>
+      <div class="sig-block">
+        <div class="sig-line"></div>
+        <div class="sig-label">Customer Signature</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      {% now "M d, Y H:i" %} | Ref: {{ batch.batch_ref }} | Thank you for your business
+    </div>
+  </div>
+</body>
+</html>
