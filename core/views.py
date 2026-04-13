@@ -211,11 +211,34 @@ def customer_edit(request, pk):
 @permission_required('core.delete_customer', raise_exception=True)
 def customer_delete(request, pk):
     customer = get_object_or_404(Customer, pk=pk)
+    
+    # Collect counts of related data
+    sales_count = customer.sales.count()
+    payments_count = customer.payments.count()
+    payment_batches_count = customer.payment_batches.count()
+    
+    context = {
+        'object': customer,
+        'type': 'Customer',
+        'sales_count': sales_count,
+        'payments_count': payments_count,
+        'payment_batches_count': payment_batches_count,
+        'has_related_data': sales_count > 0 or payments_count > 0 or payment_batches_count > 0,
+    }
+    
     if request.method == 'POST':
+        acknowledge = request.POST.get('acknowledge_deletion') == 'on'
+        
+        # If customer has related data, require acknowledgment
+        if context['has_related_data'] and not acknowledge:
+            context['error_message'] = 'You must acknowledge the data loss before deleting.'
+            return render(request, 'core/confirm_delete.html', context)
+        
         customer.delete()
         messages.success(request, 'Customer deleted successfully!')
         return redirect('customer_list')
-    return render(request, 'core/confirm_delete.html', {'object': customer, 'type': 'Customer'})
+    
+    return render(request, 'core/confirm_delete.html', context)
 
 
 @login_required

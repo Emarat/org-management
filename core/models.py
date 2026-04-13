@@ -226,7 +226,7 @@ class Sale(models.Model):
         ("cancelled", "Cancelled"),
     ]
 
-    customer = models.ForeignKey('Customer', on_delete=models.PROTECT, related_name='sales')
+    customer = models.ForeignKey('Customer', on_delete=models.CASCADE, related_name='sales')
     sale_number = models.CharField(max_length=100, unique=True, editable=False)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
     notes = models.TextField(blank=True)

@@ -21,26 +21,32 @@
           <i class="fas fa-exclamation-triangle"></i>
           <strong>{{ object }}</strong>
         </div>
-        <p class="text-muted">This action cannot be undone.</p>
+        
         {% if error_message %}
         <div class="alert alert-warning border-warning">
-          <h5 class="mb-2"><strong>Deletion blocked</strong></h5>
-          <div class="mb-2">{{ error_message }}</div>
-          {% if orders_url %}
-            <a href="{{ orders_url }}" class="btn btn-sm btn-outline-primary">Review Orders</a>
-          {% endif %}
+          <h5 class="mb-2"><strong>⚠️ {{ error_message }}</strong></h5>
         </div>
         {% endif %}
 
-        <form method="post">
+        <form method="post" id="deleteForm">
           {% csrf_token %}
+          
+          {% if has_related_data %}
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="acknowledgeDeleteCheckbox" name="acknowledge_deletion">
+            <label class="form-check-label" for="acknowledgeDeleteCheckbox">
+              I understand that deleting this {{ type|lower }} will permanently remove all related data and this action cannot be undone.
+            </label>
+          </div>
+          {% endif %}
+          
           <div class="d-flex justify-content-between align-items-center">
             <a href="{% url 'customer_list' %}" class="btn btn-secondary">
               <i class="fas fa-times"></i> Cancel
             </a>
-            {% if blocking %}
-              <button type="button" class="btn btn-danger disabled" aria-disabled="true" title="Deletion blocked: resolve orders/payments first">
-                <i class="fas fa-trash"></i> Yes, Delete
+            {% if has_related_data %}
+              <button type="submit" class="btn btn-danger" id="deleteBtn" disabled>
+                <i class="fas fa-trash"></i> Yes, Delete Everything
               </button>
             {% else %}
               <button type="submit" class="btn btn-danger">
@@ -49,6 +55,17 @@
             {% endif %}
           </div>
         </form>
+        
+        <script>
+          {% if has_related_data %}
+          const checkbox = document.getElementById('acknowledgeDeleteCheckbox');
+          const deleteBtn = document.getElementById('deleteBtn');
+          
+          checkbox.addEventListener('change', function() {
+            deleteBtn.disabled = !this.checked;
+          });
+          {% endif %}
+        </script>
       </div>
     </div>
   </div>
