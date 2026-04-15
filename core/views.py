@@ -1939,6 +1939,15 @@ def sale_delete_item(request, pk, item_pk):
             sale.recalc_total(save=True)
         except Exception:
             logger.exception('Failed to recalc total after deleting item from Sale pk=%s', pk)
+        
+        # Auto un-finalize if all items have been deleted from a finalized sale
+        if sale.status == 'finalized' and sale.items.count() == 0:
+            sale.status = 'draft'
+            sale.finalized_at = None
+            sale.finalized_by = None
+            sale.save(update_fields=['status', 'finalized_at', 'finalized_by', 'updated_at'])
+            messages.info(request, 'Sale reverted to Draft status (all items removed). You can now modify or delete it.')
+    
     return redirect('sale_detail', pk=sale.pk)
 
 
