@@ -1942,11 +1942,20 @@ def sale_delete_item(request, pk, item_pk):
         
         # Auto un-finalize if all items have been deleted from a finalized sale
         if sale.status == 'finalized' and sale.items.count() == 0:
+            # Delete all payments to prevent orphaned overpaid state
+            payment_count = sale.payments.count()
+            sale.payments.all().delete()
+            
+            # Revert sale to draft
             sale.status = 'draft'
             sale.finalized_at = None
             sale.finalized_by = None
             sale.save(update_fields=['status', 'finalized_at', 'finalized_by', 'updated_at'])
-            messages.info(request, 'Sale reverted to Draft status (all items removed). You can now modify or delete it.')
+            
+            if payment_count > 0:
+                messages.info(request, f'Sale reverted to Draft status (all items removed). {payment_count} payment(s) deleted. You can now modify or delete it.')
+            else:
+                messages.info(request, 'Sale reverted to Draft status (all items removed). You can now modify or delete it.')
     
     return redirect('sale_detail', pk=sale.pk)
 
