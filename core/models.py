@@ -105,7 +105,7 @@ class InventoryItem(models.Model):
     box_count = models.IntegerField(default=0, validators=[MinValueValidator(0)], help_text='Optional. Number of boxes/drums/batches on hand')
     unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default='pcs')
     purchase_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=True, blank=True, help_text="Optional. Unit purchase cost.")
-    unit_price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)], null=True, blank=True, help_text="Optional. Leave blank if unknown.")
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)], help_text="Unit selling price.")
     location = models.CharField(max_length=100, blank=True, help_text="Warehouse location/shelf")
     minimum_stock = models.IntegerField(default=10, validators=[MinValueValidator(0)])
     supplier = models.CharField(max_length=200, blank=True)
