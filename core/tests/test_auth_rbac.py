@@ -239,6 +239,38 @@ class RBACAccessTests(TestCase):
         self.assertEqual(delete_response.status_code, 302)
         self.assertFalse(Customer.objects.filter(pk=created.pk).exists())
 
+    def test_manager_can_delete_customer_with_payment_allocations(self):
+        """Test that customer deletion works when sales have payment allocations (cascade delete enabled)."""
+        from core.models import Sale, SalePayment, CustomerPaymentBatch, CustomerPaymentAllocation
+        
+        self.client.login(username='mgr1', password='pass123')
+
+        customer = Customer.objects.create(name='Customer with Allocations', phone='01888888888')
+        sale = Sale.objects.create(customer=customer, total_amount=500)
+        sale_payment = SalePayment.objects.create(sale=sale, amount=100, method='cash')
+        batch = CustomerPaymentBatch.objects.create(customer=customer, total_amount=100, method='cash')
+        allocation = CustomerPaymentAllocation.objects.create(
+            batch=batch,
+            sale=sale,
+            sale_payment=sale_payment,
+            amount=100,
+        )
+
+        # Delete the customer with acknowledge checkbox checked
+        response = self.client.post(
+            reverse('customer_delete', args=[customer.pk]),
+            {'acknowledge_deletion': 'on'},
+        )
+
+        # Should redirect successfully (302)
+        self.assertEqual(response.status_code, 302)
+        # Customer should be deleted
+        self.assertFalse(Customer.objects.filter(pk=customer.pk).exists())
+        # Sale should be cascade-deleted
+        self.assertFalse(Sale.objects.filter(pk=sale.pk).exists())
+        # Allocations should be cascade-deleted
+        self.assertFalse(CustomerPaymentAllocation.objects.filter(pk=allocation.pk).exists())
+
     def test_manager_can_perform_inventory_and_expense_crud(self):
         self.client.login(username='mgr1', password='pass123')
 

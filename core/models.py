@@ -453,7 +453,7 @@ class CustomerPaymentAllocation(models.Model):
     """Allocation rows linking a customer payment batch to generated sale payments."""
 
     batch = models.ForeignKey('CustomerPaymentBatch', on_delete=models.CASCADE, related_name='allocations')
-    sale = models.ForeignKey('Sale', on_delete=models.PROTECT, related_name='customer_payment_allocations')
+    sale = models.ForeignKey('Sale', on_delete=models.CASCADE, related_name='customer_payment_allocations')
     sale_payment = models.OneToOneField('SalePayment', on_delete=models.CASCADE, related_name='customer_allocation')
     amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0)])
     created_at = models.DateTimeField(auto_now_add=True)
