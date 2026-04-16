@@ -3,185 +3,228 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Invoice {{ sale.invoice_number|default:sale.sale_number }} - {{ brand.name|default:'Fashion Express' }}</title>
+  <title>Invoice {{ sale.sale_number }} - {{ brand.name|default:'Fashion Express' }}</title>
   <style>
     :root {
+      --accent: #2563eb;
+      --accent-dark: #1e40af;
+      --accent-light: #dbeafe;
       --text: #1a1a1a;
       --muted: #6b7280;
       --border: #e5e7eb;
-      --soft: #f9fafb;
-      --accent: #1f2937;
-      --primary: #2563eb;
+      --soft: #f8fafc;
+      --row-alt: #f1f5f9;
     }
 
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
     html, body {
-      font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
       color: var(--text);
-      margin: 0;
-      padding: 0;
       background: #fff;
+      font-size: 14px;
+      line-height: 1.5;
     }
 
     .page {
-      max-width: 920px;
-      margin: 16px auto;
-      padding: 24px 28px;
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 0;
     }
 
-    .row {
+    /* ── Accent bar ── */
+    .accent-bar {
+      height: 8px;
+      background: var(--accent);
+    }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      padding: 28px 32px 20px;
+      gap: 24px;
+    }
+
+    .header-left {
       display: flex;
       align-items: flex-start;
-      justify-content: space-between;
-      gap: 20px;
-      flex-wrap: nowrap;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
       gap: 14px;
-      min-width: 0;
       flex: 1 1 auto;
+      min-width: 0;
     }
 
-    .brand img { height: 56px; width: auto; }
+    .header-left img {
+      height: 52px;
+      width: auto;
+      flex-shrink: 0;
+    }
 
-    .brand-title {
-      font-size: 24px;
-      font-weight: 900;
-      letter-spacing: -0.5px;
+    .brand-name {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--text);
       line-height: 1.2;
       overflow-wrap: anywhere;
-      color: var(--accent);
     }
 
-    .muted { color: var(--muted); }
+    .brand-details {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.7;
+      margin-top: 6px;
+    }
 
-    .meta {
+    .header-right {
       text-align: right;
-      min-width: 240px;
-      flex: 0 1 280px;
+      flex-shrink: 0;
     }
 
     .doc-title {
-      font-size: 28px;
+      font-size: 32px;
       font-weight: 900;
       color: var(--accent);
       letter-spacing: -0.5px;
-      margin: 0;
+      line-height: 1;
     }
 
-    .doc-no {
+    .doc-number {
       font-size: 13px;
-      margin-top: 6px;
       color: var(--muted);
-    }
-
-    .pill {
-      display: inline-block;
-      border: 1.5px solid var(--border);
-      border-radius: 20px;
-      padding: 4px 12px;
-      font-size: 12px;
-      font-weight: 600;
-      white-space: nowrap;
       margin-top: 8px;
+      font-weight: 500;
     }
 
-    .pill.finalized { border-color: #10b981; color: #059669; background: #ecfdf5; }
-    .pill.draft { border-color: #f59e0b; color: #d97706; background: #fffbeb; }
-    .pill.cancelled { border-color: #ef4444; color: #dc2626; background: #fef2f2; }
+    .doc-number strong {
+      color: var(--text);
+      font-weight: 700;
+    }
 
-    hr {
+    /* ── Divider ── */
+    .divider {
       border: 0;
       border-top: 1px solid var(--border);
-      margin: 20px 0;
+      margin: 0 32px;
     }
 
-    .actions {
+    /* ── Info Section (Bill To + Invoice Details) ── */
+    .info-section {
       display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin: 12px 0 0;
+      justify-content: space-between;
+      padding: 20px 32px;
+      gap: 32px;
     }
 
-    .btn {
-      border: 1px solid var(--border);
-      background: #ffffff;
-      color: var(--text);
-      padding: 8px 14px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 14px;
-      transition: all 0.2s;
-    }
+    .info-block { flex: 1; }
 
-    .btn:hover {
-      background: var(--soft);
-      border-color: var(--primary);
-    }
-
-    .two-col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 14px 20px;
-      margin-top: 16px;
-    }
-
-    .card {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 16px;
-      background: var(--soft);
-    }
-
-    .card-title {
-      font-size: 12px;
-      font-weight: 800;
-      letter-spacing: 0.5px;
-      color: var(--muted);
+    .info-label {
+      font-size: 11px;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--accent);
       margin-bottom: 10px;
     }
 
-    .kv {
+    .customer-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .customer-company {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .customer-detail {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .detail-grid {
       display: grid;
-      grid-template-columns: 100px 1fr;
-      gap: 8px 12px;
+      grid-template-columns: auto 1fr;
+      gap: 6px 16px;
       font-size: 13px;
     }
 
-    .k { color: var(--muted); font-weight: 500; }
-    .v { font-weight: 700; color: var(--text); }
+    .detail-grid .label {
+      color: var(--muted);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .detail-grid .value {
+      color: var(--text);
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .status-badge.finalized { background: #dcfce7; color: #15803d; }
+    .status-badge.draft { background: #fef9c3; color: #a16207; }
+    .status-badge.cancelled { background: #fee2e2; color: #dc2626; }
+
+    /* ── Items Table ── */
+    .table-wrapper {
+      padding: 0 32px;
+      margin-top: 8px;
+    }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 16px;
     }
 
     thead th {
-      font-size: 12px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      background: transparent;
-      color: var(--accent);
-      border-bottom: 2px solid var(--accent);
-      padding: 12px 10px;
-      font-weight: 800;
+      padding: 10px 12px;
       text-align: right;
+      border: none;
     }
 
     thead th:first-child {
+      text-align: center;
+      border-radius: 4px 0 0 4px;
+      width: 40px;
+    }
+
+    thead th:nth-child(2) {
       text-align: left;
     }
 
+    thead th:last-child {
+      border-radius: 0 4px 4px 0;
+    }
+
     tbody td {
+      padding: 10px 12px;
+      font-size: 13px;
+      vertical-align: top;
       border-bottom: 1px solid var(--border);
-      padding: 12px 10px;
-      font-size: 14px;
-      vertical-align: middle;
+    }
+
+    tbody tr:nth-child(even) {
+      background: var(--row-alt);
     }
 
     tbody tr:last-child td {
@@ -189,241 +232,445 @@
     }
 
     tbody td:first-child {
-      text-align: left;
+      text-align: center;
+      color: var(--muted);
       font-weight: 500;
     }
 
-    tbody td:not(:first-child) {
+    tbody td:nth-child(2) {
+      text-align: left;
+    }
+
+    tbody td:nth-child(n+3) {
       text-align: right;
       font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-      font-size: 13px;
+      font-size: 12px;
     }
 
-    .text-end { text-align: right; white-space: nowrap; }
+    .item-name {
+      font-weight: 600;
+      color: var(--text);
+    }
 
-    .totals {
+    .item-code {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .empty-row td {
+      text-align: center !important;
+      color: var(--muted);
+      padding: 20px;
+      font-style: italic;
+    }
+
+    /* ── Totals ── */
+    .totals-section {
       display: flex;
       justify-content: flex-end;
-      margin-top: 20px;
-      gap: 0;
+      padding: 16px 32px 0;
     }
 
-    .totals-box {
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 16px;
-      min-width: 280px;
-      background: var(--soft);
+    .totals-table {
+      width: 280px;
     }
 
     .totals-row {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
+      align-items: center;
       padding: 8px 0;
-      font-size: 14px;
+      font-size: 13px;
     }
 
-    .totals-row span:first-child {
+    .totals-row .t-label {
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .totals-row .t-value {
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-weight: 600;
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .totals-row.sub-total {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 10px;
+    }
+
+    .totals-row.grand-total {
+      border-top: 2px solid var(--text);
+      padding-top: 10px;
+      margin-top: 2px;
+    }
+
+    .totals-row.grand-total .t-label {
       font-weight: 700;
       color: var(--text);
-    }
-
-    .totals-row span:last-child {
-      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-      text-align: right;
-      min-width: 100px;
-    }
-
-    .totals-row strong { font-weight: 900; }
-    .totals-row.total { 
-      margin-top: 8px; 
-      padding-top: 10px;
       font-size: 14px;
-      color: var(--accent);
     }
 
-    .totals-row.due {
-      border-top: 1px solid var(--border);
-      margin-top: 8px;
-      padding-top: 10px;
+    .totals-row.grand-total .t-value {
+      font-weight: 800;
+      font-size: 14px;
     }
 
-    .signatures {
+    .balance-due-box {
+      background: var(--accent);
+      color: #fff;
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin-top: 12px;
       display: flex;
       justify-content: space-between;
-      gap: 32px;
-      margin-top: 40px;
+      align-items: center;
     }
 
-    .sig {
-      width: 45%;
-    }
-
-    .sig .line {
-      height: 60px;
-      border-bottom: 1.5px solid var(--text);
-      margin-bottom: 8px;
-    }
-
-    .sig .label {
-      font-size: 12px;
-      color: var(--text);
-      font-weight: 800;
+    .balance-due-box .bd-label {
+      font-size: 13px;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
 
-    .sig[style*="text-align:right"] .label {
-      text-align: right;
+    .balance-due-box .bd-value {
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 18px;
+      font-weight: 800;
     }
 
+    /* ── Notes / Footer ── */
+    .notes-section {
+      padding: 24px 32px 0;
+    }
+
+    .notes-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--accent);
+      margin-bottom: 6px;
+    }
+
+    .notes-text {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .thank-you {
+      text-align: center;
+      padding: 32px 32px 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--muted);
+      font-style: italic;
+    }
+
+    /* ── Signatures ── */
+    .signatures {
+      display: flex;
+      justify-content: space-between;
+      gap: 48px;
+      padding: 24px 32px 32px;
+    }
+
+    .sig {
+      flex: 1;
+    }
+
+    .sig .line {
+      height: 50px;
+      border-bottom: 1.5px solid var(--text);
+      margin-bottom: 8px;
+    }
+
+    .sig .sig-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+    }
+
+    .sig.right { text-align: right; }
+    .sig.right .sig-label { text-align: right; }
+
+    /* ── Actions (screen only) ── */
+    .actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 16px 32px 0;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      transition: all 0.15s;
+    }
+
+    .btn:hover {
+      background: var(--soft);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-dark);
+      border-color: var(--accent-dark);
+      color: #fff;
+    }
+
+    /* ── Print ── */
     @media print {
       html, body {
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
+        font-size: 12px;
       }
+
       .actions { display: none !important; }
-      @page { size: A4; margin: 12mm; }
-      /* Avoid fixed mm widths; browser print scaling differs across engines. */
+
+      @page { size: A4; margin: 10mm; }
+
       .page { margin: 0; padding: 0; max-width: none; width: auto; }
+      .accent-bar { height: 6px; }
 
-      /* Flex/grid can reflow unpredictably in print; use table layout for the header */
-      .row { display: table; width: 100%; table-layout: fixed; }
-      .brand, .meta { display: table-cell; vertical-align: top; }
-      /* Fixed right column width keeps INVOICE aligned */
-      .meta { width: 240px; text-align: right; }
-      .meta, .meta * { white-space: nowrap; }
-      .brand { width: auto; }
+      .header {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+        padding: 20px 24px 16px;
+      }
+      .header-left, .header-right {
+        display: table-cell;
+        vertical-align: top;
+      }
+      .header-right { width: 220px; text-align: right; }
+      .header-left { width: auto; }
 
-      .brand img { height: 44px; }
-      .brand-title { font-size: 17px; }
+      .divider { margin: 0 24px; }
 
-      /* Tighten vertical rhythm for print */
-      /* Use table layout for the two cards as well (grid/flex can break in print) */
-      .two-col { display: table; width: 100%; table-layout: fixed; margin-top: 14px; border-collapse: separate; border-spacing: 16px 0; }
-      .two-col .card { display: table-cell; width: 50%; padding: 12px 14px; }
-      table { margin-top: 14px; }
-      .totals { margin-top: 14px; }
-      .signatures { margin-top: 28px; }
-      thead th { padding: 10px 8px; }
-      tbody td { padding: 10px 8px; }
+      .info-section {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+        padding: 16px 24px;
+      }
+      .info-block { display: table-cell; vertical-align: top; width: 50%; }
+
+      .table-wrapper { padding: 0 24px; }
+      .totals-section { padding: 12px 24px 0; }
+      .notes-section { padding: 16px 24px 0; }
+      .thank-you { padding: 20px 24px 8px; }
+      .signatures { padding: 20px 24px 24px; gap: 32px; }
+
+      .brand-name { font-size: 17px; }
+      .doc-title { font-size: 26px; }
+
+      thead th { padding: 8px 10px; }
+      tbody td { padding: 8px 10px; }
 
       thead { display: table-header-group; }
       tfoot { display: table-footer-group; }
-      tr, .card, .totals-box, .sig { page-break-inside: avoid; }
+      tr, .totals-table, .sig, .balance-due-box { page-break-inside: avoid; }
+
+      .signatures { page-break-before: avoid; }
     }
 
-    @media (max-width: 720px) {
-      .two-col { grid-template-columns: 1fr; }
-      .meta { text-align: left; min-width: 0; }
-      .row { flex-direction: column; }
-      .signatures { flex-direction: column; }
-      .sig { width: 100%; }
+    /* ── Mobile ── */
+    @media (max-width: 640px) {
+      .header { flex-direction: column; padding: 20px 16px 16px; }
+      .header-right { text-align: left; }
+      .info-section { flex-direction: column; padding: 16px; gap: 20px; }
+      .detail-grid .value { text-align: left; }
+      .table-wrapper { padding: 0 16px; overflow-x: auto; }
+      .totals-section { padding: 12px 16px 0; }
+      .totals-table { width: 100%; }
+      .notes-section { padding: 16px 16px 0; }
+      .thank-you { padding: 24px 16px 8px; }
+      .signatures { flex-direction: column; gap: 24px; padding: 16px 16px 24px; }
+      .sig, .sig.right { text-align: left; }
+      .sig.right .sig-label { text-align: left; }
+      .actions { padding: 12px 16px 0; }
+      .divider { margin: 0 16px; }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="row">
-      <div class="brand">
+    <!-- Accent Bar -->
+    <div class="accent-bar"></div>
+
+    <!-- Header: Brand + Invoice Title -->
+    <div class="header">
+      <div class="header-left">
         {% if brand.logo_url %}
           <img src="{{ brand.logo_url }}" alt="Logo" />
         {% endif %}
         <div style="min-width:0;">
-          <div class="brand-title">{{ brand.name|default:'Fashion Express' }}</div>
+          <div class="brand-name">{{ brand.name|default:'Fashion Express' }}</div>
           {% if brand.address or brand.phone or brand.email %}
-            <div class="muted" style="font-size:12px; margin-top:8px; line-height:1.6;">
-              {% if brand.address %}<div>{{ brand.address }}</div>{% endif %}
-              {% if brand.phone %}<div>Phone: {{ brand.phone }}</div>{% endif %}
-              {% if brand.email %}<div>Email: {{ brand.email }}</div>{% endif %}
+            <div class="brand-details">
+              {% if brand.address %}{{ brand.address }}<br>{% endif %}
+              {% if brand.phone %}Phone: {{ brand.phone }}<br>{% endif %}
+              {% if brand.email %}Email: {{ brand.email }}{% endif %}
             </div>
           {% endif %}
         </div>
       </div>
-
-      <div class="meta">
-        <h2 class="doc-title" style="color: var(--accent);">INVOICE</h2>
-        <div class="doc-no">{{ sale.sale_number }}</div>
+      <div class="header-right">
+        <div class="doc-title">INVOICE</div>
+        <div class="doc-number"># <strong>{{ sale.sale_number }}</strong></div>
       </div>
     </div>
 
+    <!-- Actions (screen only) -->
     <div class="actions">
-      <button class="btn" onclick="window.print()">Print</button>
+      <button class="btn" onclick="window.print()">&#128438; Print</button>
     </div>
 
-    <div class="two-col">
-      <div class="card">
-        <div class="card-title">Bill To</div>
-        <div style="font-weight:800; color: var(--accent); font-size: 15px;">{{ sale.customer.name }}</div>
-        {% if sale.customer.company %}<div class="muted" style="margin-top:4px; font-size: 13px;">{{ sale.customer.company }}</div>{% endif %}
-        {% if sale.customer.address or sale.customer.city %}
-          <div class="muted" style="margin-top:8px; font-size: 13px;">{{ sale.customer.address }}{% if sale.customer.city %}<br>{{ sale.customer.city }}{% endif %}</div>
-        {% endif %}
-        {% if sale.customer.phone %}<div class="muted" style="margin-top:6px; font-size: 13px;">Phone: {{ sale.customer.phone }}</div>{% endif %}
-        {% if sale.customer.email %}<div class="muted" style="font-size: 13px;">Email: {{ sale.customer.email }}</div>{% endif %}
-      </div>
+    <hr class="divider">
 
-      <div class="card">
-        <div class="card-title">Invoice Details</div>
-        <div class="kv">
-          <div class="k">Created</div>
-          <div class="v">{{ sale.created_at|date:"Y-m-d" }}</div>
+    <!-- Bill To + Invoice Details -->
+    <div class="info-section">
+      <div class="info-block">
+        <div class="info-label">Bill To</div>
+        <div class="customer-name">{{ sale.customer.name }}</div>
+        {% if sale.customer.company %}
+          <div class="customer-company">{{ sale.customer.company }}</div>
+        {% endif %}
+        <div class="customer-detail">
+          {% if sale.customer.address %}{{ sale.customer.address }}<br>{% endif %}
+          {% if sale.customer.city %}{{ sale.customer.city }}<br>{% endif %}
+          {% if sale.customer.phone %}Phone: {{ sale.customer.phone }}<br>{% endif %}
+          {% if sale.customer.email %}Email: {{ sale.customer.email }}{% endif %}
+        </div>
+      </div>
+      <div class="info-block">
+        <div class="info-label">Invoice Details</div>
+        <div class="detail-grid">
+          <span class="label">Invoice #</span>
+          <span class="value">{{ sale.sale_number }}</span>
+
+          <span class="label">Date</span>
+          <span class="value">{{ sale.created_at|date:"d M Y" }}</span>
+
           {% if sale.finalized_at %}
-            <div class="k">Finalized</div>
-            <div class="v">{{ sale.finalized_at|date:"Y-m-d" }}</div>
+            <span class="label">Finalized</span>
+            <span class="value">{{ sale.finalized_at|date:"d M Y" }}</span>
           {% endif %}
-          <div class="k">Sale No</div>
-          <div class="v">{{ sale.sale_number }}</div>
+
+          <span class="label">Status</span>
+          <span class="value">
+            <span class="status-badge {{ sale.status }}">{{ sale.get_status_display }}</span>
+          </span>
         </div>
       </div>
     </div>
 
-    <table>
-      <thead>
-        <tr>
-          <th style="width: 40%">Product/Description</th>
-          <th class="text-end" style="width: 15%">Qty</th>
-          <th class="text-end" style="width: 20%">Unit Price</th>
-          <th class="text-end" style="width: 25%">Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in items %}
-        <tr>
-          <td>
-            {% if item.item_type == 'inventory' and item.inventory_item %}
-              <strong>{{ item.inventory_item.part_name }}</strong> <span class="muted">({{ item.inventory_item.part_code }})</span>
-            {% else %}
-              <strong>{{ item.description }}</strong>
-            {% endif %}
-          </td>
-          <td class="text-end">{{ item.quantity }}{% if item.item_type == 'inventory' and item.inventory_item %} <small>{{ item.inventory_item.get_unit_display }}</small>{% endif %}</td>
-          <td class="text-end">৳&nbsp;{{ item.unit_price }}</td>
-          <td class="text-end">৳&nbsp;{{ item.line_total }}</td>
-        </tr>
-        {% empty %}
-        <tr><td colspan="4" class="text-end">No items.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <hr class="divider">
 
-    <div class="totals">
-      <div class="totals-box">
-        <div class="totals-row total"><span>Total</span><span><strong>৳&nbsp;{{ sale.total_amount }}</strong></span></div>
-        <div class="totals-row"><span>Paid</span><span><strong>৳&nbsp;{{ sale.total_paid }}</strong></span></div>
-        <div class="totals-row due"><span>Due</span><span><strong>৳&nbsp;{{ sale.balance_due }}</strong></span></div>
+    <!-- Items Table -->
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Item &amp; Description</th>
+            <th>Qty</th>
+            <th>Rate</th>
+            <th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td>
+              {% if item.item_type == 'inventory' and item.inventory_item %}
+                <div class="item-name">{{ item.inventory_item.part_name }}</div>
+                <div class="item-code">{{ item.inventory_item.part_code }}</div>
+              {% else %}
+                <div class="item-name">{{ item.description }}</div>
+              {% endif %}
+            </td>
+            <td>{{ item.quantity }}{% if item.item_type == 'inventory' and item.inventory_item %} {{ item.inventory_item.get_unit_display }}{% endif %}</td>
+            <td>{{ item.unit_price }}</td>
+            <td>{{ item.line_total }}</td>
+          </tr>
+          {% empty %}
+          <tr class="empty-row">
+            <td colspan="5">No items added.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals -->
+    <div class="totals-section">
+      <div class="totals-table">
+        <div class="totals-row sub-total">
+          <span class="t-label">Sub Total</span>
+          <span class="t-value">৳ {{ sale.total_amount }}</span>
+        </div>
+        <div class="totals-row grand-total">
+          <span class="t-label">Total</span>
+          <span class="t-value">৳ {{ sale.total_amount }}</span>
+        </div>
+        <div class="totals-row">
+          <span class="t-label">Paid</span>
+          <span class="t-value">(-) ৳ {{ sale.total_paid }}</span>
+        </div>
+        <div class="balance-due-box">
+          <span class="bd-label">Balance Due</span>
+          <span class="bd-value">৳ {{ sale.balance_due }}</span>
+        </div>
       </div>
     </div>
 
+    <!-- Notes -->
+    {% if sale.notes %}
+    <div class="notes-section">
+      <div class="notes-label">Notes</div>
+      <div class="notes-text">{{ sale.notes }}</div>
+    </div>
+    {% endif %}
+
+    <!-- Thank You -->
+    <div class="thank-you">Thank you for your business!</div>
+
+    <!-- Signatures -->
     <div class="signatures">
       <div class="sig">
         <div class="line"></div>
-        <div class="label">Customer Signature</div>
+        <div class="sig-label">Customer Signature</div>
       </div>
-      <div class="sig" style="text-align:right;">
+      <div class="sig right">
         <div class="line"></div>
-        <div class="label">Authorized Signature</div>
+        <div class="sig-label">Authorized Signature</div>
       </div>
     </div>
   </div>
