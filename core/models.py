@@ -561,3 +561,43 @@ class LedgerEntry(models.Model):
 
     def __str__(self):
         return f"{self.timestamp:%Y-%m-%d %H:%M} {self.entry_type} {self.amount} ({self.source})"
+
+
+class Supplier(models.Model):
+    name = models.CharField(max_length=200)
+    address = models.TextField(blank=True)
+    phone = models.CharField(max_length=20)
+    email = models.EmailField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Supplier"
+        verbose_name_plural = "Suppliers"
+
+    def __str__(self):
+        return self.name
+
+
+class SupplierPurchase(models.Model):
+    supplier = models.ForeignKey(Supplier, on_delete=models.CASCADE, related_name="purchases")
+    product_name = models.CharField(max_length=200)
+    price = models.DecimalField(max_digits=12, decimal_places=2)
+    paid_amount = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    purchase_date = models.DateField(default=timezone.now)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-purchase_date", "-created_at"]
+        verbose_name = "Supplier Purchase"
+        verbose_name_plural = "Supplier Purchases"
+
+    def __str__(self):
+        return f"{self.product_name} - {self.supplier.name}"
+
+    @property
+    def due(self):
+        return (self.price or 0) - (self.paid_amount or 0)

@@ -19,9 +19,9 @@ from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry, StockHistory, CustomerPaymentBatch, CustomerPaymentAllocation
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry, StockHistory, CustomerPaymentBatch, CustomerPaymentAllocation, Supplier, SupplierPurchase
 from django.core.paginator import Paginator
-from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm
+from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm, SupplierForm, SupplierPurchaseForm
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
@@ -2876,4 +2876,157 @@ def sale_delete(request, pk):
         return redirect('sale_list')
     # Confirm page reuse generic confirm template
     return render(request, 'core/confirm_delete.html', {'object': sale, 'type': 'Sale'})
+
+
+@login_required
+@permission_required('core.view_supplier', raise_exception=True)
+def supplier_list(request):
+    query = request.GET.get('q', '')
+    qs = Supplier.objects.all().annotate(
+        total_purchases=Coalesce(Sum('purchases__price'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))),
+        total_due=Coalesce(
+            Sum(
+                ExpressionWrapper(
+                    F('purchases__price') - F('purchases__paid_amount'),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                )
+            ),
+            Value(0, output_field=DecimalField(max_digits=12, decimal_places=2)),
+        ),
+    )
+    if query:
+        qs = qs.filter(Q(name__icontains=query) | Q(phone__icontains=query))
+
+    paginator = Paginator(qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'core/supplier_list.html', {
+        'suppliers': page_obj.object_list,
+        'page_obj': page_obj,
+        'query': query,
+    })
+
+
+@login_required
+@permission_required('core.add_supplier', raise_exception=True)
+def supplier_add(request):
+    if request.method == 'POST':
+        form = SupplierForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Supplier added successfully!')
+            return redirect('supplier_list')
+    else:
+        form = SupplierForm()
+
+    return render(request, 'core/supplier_form.html', {'form': form, 'title': 'Add Supplier'})
+
+
+@login_required
+@permission_required('core.change_supplier', raise_exception=True)
+def supplier_edit(request, pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    if request.method == 'POST':
+        form = SupplierForm(request.POST, instance=supplier)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Supplier updated successfully!')
+            return redirect('supplier_detail', pk=supplier.pk)
+    else:
+        form = SupplierForm(instance=supplier)
+
+    return render(request, 'core/supplier_form.html', {'form': form, 'title': 'Edit Supplier'})
+
+
+@login_required
+@permission_required('core.view_supplier', raise_exception=True)
+def supplier_detail(request, pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    purchases_qs = supplier.purchases.all().order_by('-purchase_date', '-created_at')
+
+    total_price = purchases_qs.aggregate(total=Sum('price'))['total'] or 0
+    total_paid = purchases_qs.aggregate(total=Sum('paid_amount'))['total'] or 0
+    total_due = total_price - total_paid
+
+    paginator = Paginator(purchases_qs, 10)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'core/supplier_detail.html', {
+        'supplier': supplier,
+        'purchases': page_obj.object_list,
+        'page_obj': page_obj,
+        'total_price': total_price,
+        'total_paid': total_paid,
+        'total_due': total_due,
+    })
+
+
+@login_required
+@permission_required('core.delete_supplier', raise_exception=True)
+def supplier_delete(request, pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    if request.method == 'POST':
+        supplier.delete()
+        messages.success(request, 'Supplier deleted successfully!')
+        return redirect('supplier_list')
+
+    return render(request, 'core/confirm_delete.html', {'object': supplier, 'type': 'Supplier'})
+
+
+@login_required
+@permission_required('core.add_supplierpurchase', raise_exception=True)
+def supplier_add_purchase(request, pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    if request.method == 'POST':
+        form = SupplierPurchaseForm(request.POST)
+        if form.is_valid():
+            purchase = form.save(commit=False)
+            purchase.supplier = supplier
+            purchase.save()
+            messages.success(request, 'Supplier purchase added successfully!')
+            return redirect('supplier_detail', pk=supplier.pk)
+    else:
+        form = SupplierPurchaseForm()
+
+    return render(request, 'core/supplier_purchase_form.html', {
+        'form': form,
+        'supplier': supplier,
+        'title': 'Add Supplier Purchase',
+    })
+
+
+@login_required
+@permission_required('core.change_supplierpurchase', raise_exception=True)
+def supplier_edit_purchase(request, pk, purchase_pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    purchase = get_object_or_404(SupplierPurchase, pk=purchase_pk, supplier=supplier)
+
+    if request.method == 'POST':
+        form = SupplierPurchaseForm(request.POST, instance=purchase)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Supplier purchase updated successfully!')
+            return redirect('supplier_detail', pk=supplier.pk)
+    else:
+        form = SupplierPurchaseForm(instance=purchase)
+
+    return render(request, 'core/supplier_purchase_form.html', {
+        'form': form,
+        'supplier': supplier,
+        'title': 'Edit Supplier Purchase',
+    })
+
+
+@login_required
+@permission_required('core.delete_supplierpurchase', raise_exception=True)
+def supplier_delete_purchase(request, pk, purchase_pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    purchase = get_object_or_404(SupplierPurchase, pk=purchase_pk, supplier=supplier)
+
+    if request.method == 'POST':
+        purchase.delete()
+        messages.success(request, 'Supplier purchase deleted successfully!')
+        return redirect('supplier_detail', pk=supplier.pk)
+
+    return render(request, 'core/confirm_delete.html', {'object': purchase, 'type': 'Supplier Purchase'})
 

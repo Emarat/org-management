@@ -1,5 +1,5 @@
 from django import forms
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, Supplier, SupplierPurchase
 from django import forms
 
 
@@ -204,4 +204,31 @@ class SalePaymentForm(forms.ModelForm):
             'payment_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
             'method': forms.Select(attrs={'class': 'form-control', 'id': 'payment-method-select'}),
             'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': '2', 'placeholder': 'Payment details (optional)', 'id': 'payment-notes'}),
+        }
+
+
+class SupplierForm(forms.ModelForm):
+    class Meta:
+        model = Supplier
+        fields = ['name', 'address', 'phone', 'email']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'address': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'phone': forms.TextInput(attrs={'class': 'form-control'}),
+            'email': forms.EmailInput(attrs={'class': 'form-control'}),
+        }
+
+
+class SupplierPurchaseForm(forms.ModelForm):
+    class Meta:
+        model = SupplierPurchase
+        fields = ['product_name', 'price', 'paid_amount', 'purchase_date']
+        labels = {
+            'product_name': 'Product Description',
+        }
+        widgets = {
+            'product_name': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Describe the product/item details...'}),
+            'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'paid_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
+            'purchase_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
         }

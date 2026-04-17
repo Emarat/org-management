@@ -246,6 +246,16 @@
                   </a>
                 </li>
               {% endif %}
+              {% if user.is_superuser or perms.core.view_supplier %}
+                <li class="nav-item">
+                  <a
+                    class="nav-link {% if 'supplier' in request.resolver_match.url_name %}active{% endif %}"
+                    href="{% url 'supplier_list' %}"
+                  >
+                    <i class="fas fa-truck"></i> Suppliers
+                  </a>
+                </li>
+              {% endif %}
               {% if user.is_superuser or perms.core.view_expense or perms.core.view_expenses_menu %}
                 <li class="nav-item">
                   <a

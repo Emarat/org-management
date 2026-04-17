@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ supplier.name }} - Supplier Details{% endblock %}
+
+{% block content %}
+<div class="content-header d-flex justify-content-between align-items-center">
+  <h1><i class="fas fa-truck"></i> {{ supplier.name }}</h1>
+  <div>
+    {% if perms.core.add_supplierpurchase %}
+    <a href="{% url 'supplier_add_purchase' supplier.pk %}" class="btn btn-primary">
+      <i class="fas fa-plus"></i> Add Purchase
+    </a>
+    {% endif %}
+    {% if perms.core.change_supplier %}
+    <a href="{% url 'supplier_edit' supplier.pk %}" class="btn btn-warning">
+      <i class="fas fa-edit"></i> Edit
+    </a>
+    {% endif %}
+    <a href="{% url 'supplier_list' %}" class="btn btn-outline-secondary">
+      <i class="fas fa-arrow-left"></i> Back to Suppliers
+    </a>
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header">
+    <h5 class="mb-0">Supplier Information</h5>
+  </div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-6">
+        <p><strong>Name:</strong> {{ supplier.name }}</p>
+        <p><strong>Phone:</strong> {{ supplier.phone }}</p>
+      </div>
+      <div class="col-md-6">
+        <p><strong>Email:</strong> {{ supplier.email|default:"-" }}</p>
+        <p><strong>Created:</strong> {{ supplier.created_at|date:"M d, Y" }}</p>
+      </div>
+    </div>
+    {% if supplier.address %}
+    <p><strong>Address:</strong><br>{{ supplier.address }}</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card mt-3">
+  <div class="card-header">
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Purchase History</h5>
+      <div>
+        <span class="badge bg-primary">Total: ৳ {{ total_price|floatformat:2 }}</span>
+        <span class="badge bg-success">Paid: ৳ {{ total_paid|floatformat:2 }}</span>
+        <span class="badge bg-danger">Due: ৳ {{ total_due|floatformat:2 }}</span>
+      </div>
+    </div>
+  </div>
+  <div class="card-body">
+    {% if purchases %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Product</th>
+            <th>Price</th>
+            <th>Paid</th>
+            <th>Due</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for purchase in purchases %}
+          <tr>
+            <td>{{ purchase.purchase_date|date:"M d, Y" }}</td>
+            <td>{{ purchase.product_name }}</td>
+            <td>৳ {{ purchase.price|floatformat:2 }}</td>
+            <td>৳ {{ purchase.paid_amount|floatformat:2 }}</td>
+            <td>৳ {{ purchase.due|floatformat:2 }}</td>
+            <td>
+              {% if perms.core.change_supplierpurchase %}
+              <a href="{% url 'supplier_edit_purchase' supplier.pk purchase.pk %}" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+              {% endif %}
+              {% if perms.core.delete_supplierpurchase %}
+              <a href="{% url 'supplier_delete_purchase' supplier.pk purchase.pk %}" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'partials/pagination.html' %}
+    {% else %}
+    <div class="text-center py-4">
+      <p class="text-muted">No purchases found for this supplier.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -33,6 +33,16 @@ urlpatterns = [
     path('expenses/<int:pk>/', views.expense_detail, name='expense_detail'),
     path('expenses/<int:pk>/edit/', views.expense_edit, name='expense_edit'),
     path('expenses/<int:pk>/delete/', views.expense_delete, name='expense_delete'),
+
+    # Supplier URLs
+    path('suppliers/', views.supplier_list, name='supplier_list'),
+    path('suppliers/add/', views.supplier_add, name='supplier_add'),
+    path('suppliers/<int:pk>/', views.supplier_detail, name='supplier_detail'),
+    path('suppliers/<int:pk>/edit/', views.supplier_edit, name='supplier_edit'),
+    path('suppliers/<int:pk>/delete/', views.supplier_delete, name='supplier_delete'),
+    path('suppliers/<int:pk>/add-purchase/', views.supplier_add_purchase, name='supplier_add_purchase'),
+    path('suppliers/<int:pk>/purchases/<int:purchase_pk>/edit/', views.supplier_edit_purchase, name='supplier_edit_purchase'),
+    path('suppliers/<int:pk>/purchases/<int:purchase_pk>/delete/', views.supplier_delete_purchase, name='supplier_delete_purchase'),
     
     # Payment URLs - DEPRECATED: Legacy payment system, replaced by SalePayment
     # path('payments/', views.payment_list, name='payment_list'),

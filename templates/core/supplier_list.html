@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+
+{% block title %}Suppliers - Fashion Express{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h1><i class="fas fa-truck"></i> Suppliers</h1>
+      <p class="text-muted">Manage your supplier relationships</p>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-3">
+  <div class="card-body">
+    <form method="get" class="row g-3">
+      <div class="col-md-10">
+        <input
+          type="text"
+          name="q"
+          class="form-control"
+          placeholder="Search suppliers by name or phone..."
+          value="{{ query }}"
+        />
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="fas fa-search"></i> Search
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-body">
+    {% if suppliers %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Email</th>
+            <th>Total Purchases</th>
+            <th>Total Due</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for supplier in suppliers %}
+          <tr>
+            <td><strong>{{ supplier.name }}</strong></td>
+            <td>{{ supplier.phone }}</td>
+            <td>{{ supplier.email|default:"-" }}</td>
+            <td>৳ {{ supplier.total_purchases|floatformat:2 }}</td>
+            <td>৳ {{ supplier.total_due|floatformat:2 }}</td>
+            <td>
+              {% if perms.core.view_supplier %}
+              <a href="{% url 'supplier_detail' supplier.pk %}" class="btn btn-sm btn-info"><i class="fas fa-eye"></i></a>
+              {% endif %}
+              {% if perms.core.change_supplier %}
+              <a href="{% url 'supplier_edit' supplier.pk %}" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+              {% endif %}
+              {% if perms.core.delete_supplier %}
+              <a href="{% url 'supplier_delete' supplier.pk %}" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% include 'partials/pagination.html' %}
+    {% else %}
+    <div class="text-center py-5">
+      <i class="fas fa-truck fa-4x text-muted mb-3"></i>
+      <p class="text-muted">No suppliers found.</p>
+      {% if perms.core.add_supplier %}
+      <a href="{% url 'supplier_add' %}" class="btn btn-success"><i class="fas fa-plus"></i> Add Supplier</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% if request.user.is_authenticated and perms.core.add_supplier %}
+  <div class="fab-stack">
+    {% url 'supplier_add' as supplier_add_url %}
+    {% include 'partials/fab_add.html' with url=supplier_add_url label='Add Supplier' icon='fa-truck' btn_class='btn-success' %}
+  </div>
+{% endif %}
+{% endblock %}
