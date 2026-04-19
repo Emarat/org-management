@@ -3,7 +3,7 @@ import logging
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
-from .models import Expense, SalePayment, LedgerEntry, Payment
+from .models import Expense, SalePayment, LedgerEntry, Payment, SupplierPurchasePayment
 
 logger = logging.getLogger(__name__)
 
@@ -89,3 +89,21 @@ def create_ledger_for_payment(sender, instance: Payment, created, **kwargs):
             )
     except Exception:
         logger.exception('Ledger entry failed for Payment id=%s', instance.pk)
+
+
+@receiver(post_save, sender=SupplierPurchasePayment)
+def create_ledger_for_supplier_purchase_payment(sender, instance: SupplierPurchasePayment, created, **kwargs):
+    """Ensure every SupplierPurchasePayment creates a matching debit ledger entry."""
+    try:
+        if created:
+            reference = instance.receipt_number
+            description = f"Payment to {instance.purchase.supplier.name}"
+            _safe_create_ledger(
+                entry_type='debit',
+                source='supplier_payment',
+                reference=reference,
+                description=description,
+                amount=instance.amount,
+            )
+    except Exception:
+        logger.exception('Ledger entry failed for SupplierPurchasePayment id=%s', instance.pk)

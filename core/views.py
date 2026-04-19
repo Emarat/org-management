@@ -19,9 +19,9 @@ from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from datetime import datetime, timedelta
 from accounts.models import CustomUser
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry, StockHistory, CustomerPaymentBatch, CustomerPaymentAllocation, Supplier, SupplierPurchase
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, LedgerEntry, StockHistory, CustomerPaymentBatch, CustomerPaymentAllocation, Supplier, SupplierPurchase, SupplierPurchasePayment
 from django.core.paginator import Paginator
-from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm, SupplierForm, SupplierPurchaseForm
+from .forms import CustomerForm, InventoryItemForm, ExpenseForm, PaymentForm, BillClaimForm, SaleForm, SaleItemForm, CombinedSaleItemForm, SalePaymentForm, SupplierForm, SupplierPurchaseForm, SupplierPurchasePaymentForm
 import openpyxl
 from openpyxl.styles import Font, Alignment, PatternFill
 
@@ -2907,6 +2907,13 @@ def supplier_list(request):
     })
 
 
+def _recalculate_supplier_purchase_paid_amount(purchase: SupplierPurchase):
+    total_paid = purchase.payments.aggregate(total=Coalesce(Sum('amount'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))))['total'] or 0
+    if purchase.paid_amount != total_paid:
+        purchase.paid_amount = total_paid
+        purchase.save(update_fields=['paid_amount', 'updated_at'])
+
+
 @login_required
 @permission_required('core.add_supplier', raise_exception=True)
 def supplier_add(request):
@@ -2958,6 +2965,21 @@ def supplier_detail(request, pk):
         'total_price': total_price,
         'total_paid': total_paid,
         'total_due': total_due,
+        'purchase_count': purchases_qs.count(),
+    })
+
+
+@login_required
+@permission_required('core.view_supplierpurchase', raise_exception=True)
+def supplier_purchase_detail(request, pk, purchase_pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    purchase = get_object_or_404(SupplierPurchase, pk=purchase_pk, supplier=supplier)
+    payments = purchase.payments.all().order_by('-payment_date', '-created_at')
+
+    return render(request, 'core/supplier_purchase_detail.html', {
+        'supplier': supplier,
+        'purchase': purchase,
+        'payments': payments,
     })
 
 
@@ -2996,6 +3018,54 @@ def supplier_add_purchase(request, pk):
 
 
 @login_required
+@permission_required('core.add_supplierpurchasepayment', raise_exception=True)
+def supplier_add_payment(request, pk, purchase_pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    purchase = get_object_or_404(SupplierPurchase, pk=purchase_pk, supplier=supplier)
+
+    if request.method == 'POST':
+        form = SupplierPurchasePaymentForm(request.POST)
+        if form.is_valid():
+            new_payment = form.save(commit=False)
+            with transaction.atomic():
+                locked_purchase = get_object_or_404(
+                    SupplierPurchase.objects.select_for_update().select_related('supplier'),
+                    pk=purchase.pk,
+                    supplier=supplier,
+                )
+                if new_payment.amount > locked_purchase.due:
+                    messages.error(request, 'Payment exceeds remaining due amount.')
+                else:
+                    new_payment.purchase = locked_purchase
+                    new_payment.save()
+                    _recalculate_supplier_purchase_paid_amount(locked_purchase)
+                    try:
+                        LedgerEntry.objects.update_or_create(
+                            source='supplier_payment',
+                            reference=new_payment.receipt_number,
+                            defaults={
+                                'entry_type': 'debit',
+                                'description': f"Payment to {locked_purchase.supplier.name}",
+                                'amount': new_payment.amount,
+                            },
+                        )
+                    except Exception:
+                        logger.exception('Non-blocking ledger write failure for SupplierPurchasePayment receipt=%s', new_payment.receipt_number)
+
+                    messages.success(request, f'Payment recorded. Receipt: {new_payment.receipt_number}')
+                    return redirect('supplier_purchase_detail', pk=supplier.pk, purchase_pk=locked_purchase.pk)
+    else:
+        form = SupplierPurchasePaymentForm()
+
+    return render(request, 'core/supplier_payment_form.html', {
+        'form': form,
+        'supplier': supplier,
+        'purchase': purchase,
+        'title': 'Add Supplier Payment',
+    })
+
+
+@login_required
 @permission_required('core.change_supplierpurchase', raise_exception=True)
 def supplier_edit_purchase(request, pk, purchase_pk):
     supplier = get_object_or_404(Supplier, pk=pk)
@@ -3018,6 +3088,66 @@ def supplier_edit_purchase(request, pk, purchase_pk):
 
 
 @login_required
+@permission_required('core.change_supplierpurchasepayment', raise_exception=True)
+def supplier_edit_payment(request, pk, purchase_pk, payment_pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    purchase = get_object_or_404(SupplierPurchase, pk=purchase_pk, supplier=supplier)
+    payment = get_object_or_404(SupplierPurchasePayment, pk=payment_pk, purchase=purchase)
+
+    if request.method == 'POST':
+        form = SupplierPurchasePaymentForm(request.POST, instance=payment)
+        if form.is_valid():
+            updated_payment = form.save(commit=False)
+            with transaction.atomic():
+                locked_purchase = get_object_or_404(
+                    SupplierPurchase.objects.select_for_update().select_related('supplier'),
+                    pk=purchase.pk,
+                    supplier=supplier,
+                )
+                locked_payment = get_object_or_404(SupplierPurchasePayment.objects.select_for_update(), pk=payment.pk, purchase=locked_purchase)
+
+                other_paid = locked_purchase.payments.exclude(pk=locked_payment.pk).aggregate(total=Coalesce(Sum('amount'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))))['total'] or 0
+                max_allowed = (locked_purchase.price or 0) - other_paid
+                if updated_payment.amount > max_allowed:
+                    messages.error(request, 'Payment exceeds remaining due amount.')
+                    return redirect('supplier_edit_payment', pk=supplier.pk, purchase_pk=purchase.pk, payment_pk=payment.pk)
+
+                locked_payment.amount = updated_payment.amount
+                locked_payment.payment_date = updated_payment.payment_date
+                locked_payment.method = updated_payment.method
+                locked_payment.reference_number = updated_payment.reference_number
+                locked_payment.notes = updated_payment.notes
+                locked_payment.save()
+                _recalculate_supplier_purchase_paid_amount(locked_purchase)
+
+                try:
+                    LedgerEntry.objects.update_or_create(
+                        source='supplier_payment',
+                        reference=locked_payment.receipt_number,
+                        defaults={
+                            'entry_type': 'debit',
+                            'description': f"Payment to {locked_purchase.supplier.name}",
+                            'amount': locked_payment.amount,
+                        },
+                    )
+                except Exception:
+                    logger.exception('Non-blocking ledger update failure for SupplierPurchasePayment receipt=%s', locked_payment.receipt_number)
+
+                messages.success(request, f'Payment {locked_payment.receipt_number} updated successfully.')
+                return redirect('supplier_purchase_detail', pk=supplier.pk, purchase_pk=locked_purchase.pk)
+    else:
+        form = SupplierPurchasePaymentForm(instance=payment)
+
+    return render(request, 'core/supplier_payment_form.html', {
+        'form': form,
+        'supplier': supplier,
+        'purchase': purchase,
+        'payment': payment,
+        'title': 'Edit Supplier Payment',
+    })
+
+
+@login_required
 @permission_required('core.delete_supplierpurchase', raise_exception=True)
 def supplier_delete_purchase(request, pk, purchase_pk):
     supplier = get_object_or_404(Supplier, pk=pk)
@@ -3029,4 +3159,34 @@ def supplier_delete_purchase(request, pk, purchase_pk):
         return redirect('supplier_detail', pk=supplier.pk)
 
     return render(request, 'core/confirm_delete.html', {'object': purchase, 'type': 'Supplier Purchase'})
+
+
+@login_required
+@permission_required('core.delete_supplierpurchasepayment', raise_exception=True)
+def supplier_delete_payment(request, pk, purchase_pk, payment_pk):
+    supplier = get_object_or_404(Supplier, pk=pk)
+    purchase = get_object_or_404(SupplierPurchase, pk=purchase_pk, supplier=supplier)
+    payment = get_object_or_404(SupplierPurchasePayment, pk=payment_pk, purchase=purchase)
+
+    if request.method == 'POST':
+        with transaction.atomic():
+            locked_purchase = get_object_or_404(
+                SupplierPurchase.objects.select_for_update(),
+                pk=purchase.pk,
+                supplier=supplier,
+            )
+            locked_payment = get_object_or_404(SupplierPurchasePayment.objects.select_for_update(), pk=payment.pk, purchase=locked_purchase)
+            receipt_number = locked_payment.receipt_number
+            locked_payment.delete()
+            _recalculate_supplier_purchase_paid_amount(locked_purchase)
+
+        try:
+            LedgerEntry.objects.filter(source='supplier_payment', reference=receipt_number).delete()
+        except Exception:
+            logger.exception('Non-blocking ledger cleanup failure for SupplierPurchasePayment receipt=%s', receipt_number)
+
+        messages.success(request, f'Payment {receipt_number} deleted successfully.')
+        return redirect('supplier_purchase_detail', pk=supplier.pk, purchase_pk=purchase.pk)
+
+    return render(request, 'core/confirm_delete.html', {'object': payment, 'type': 'Supplier Payment'})
 

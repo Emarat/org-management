@@ -22,42 +22,42 @@
   </div>
 </div>
 
-<div class="card mt-3">
-  <div class="card-header">
-    <h5 class="mb-0">Supplier Information</h5>
-  </div>
-  <div class="card-body">
-    <div class="row">
-      <div class="col-md-6">
-        <p><strong>Name:</strong> {{ supplier.name }}</p>
-        <p><strong>Phone:</strong> {{ supplier.phone }}</p>
-      </div>
-      <div class="col-md-6">
-        <p><strong>Email:</strong> {{ supplier.email|default:"-" }}</p>
-        <p><strong>Created:</strong> {{ supplier.created_at|date:"M d, Y" }}</p>
+<div class="row mt-3 mb-3">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <div class="text-muted small">Total Purchase</div>
+        <div class="h5 mb-0">৳ {{ total_price|floatformat:2 }}</div>
       </div>
     </div>
-    {% if supplier.address %}
-    <p><strong>Address:</strong><br>{{ supplier.address }}</p>
-    {% endif %}
+  </div>
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-body">
+        <div class="text-muted small">Total Paid</div>
+        <div class="h5 mb-0 text-success">৳ {{ total_paid|floatformat:2 }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card {% if total_due > 0 %}border-danger{% endif %}">
+      <div class="card-body">
+        <div class="text-muted small">Total Due</div>
+        <div class="h5 mb-0 {% if total_due > 0 %}text-danger{% else %}text-success{% endif %}">৳ {{ total_due|floatformat:2 }}</div>
+      </div>
+    </div>
   </div>
 </div>
 
 <div class="card mt-3">
-  <div class="card-header">
-    <div class="d-flex justify-content-between align-items-center">
-      <h5 class="mb-0">Purchase History</h5>
-      <div>
-        <span class="badge bg-primary">Total: ৳ {{ total_price|floatformat:2 }}</span>
-        <span class="badge bg-success">Paid: ৳ {{ total_paid|floatformat:2 }}</span>
-        <span class="badge bg-danger">Due: ৳ {{ total_due|floatformat:2 }}</span>
-      </div>
-    </div>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">Purchase List</h5>
+    <span class="badge bg-primary">{{ purchase_count }}</span>
   </div>
   <div class="card-body">
     {% if purchases %}
     <div class="table-responsive">
-      <table class="table table-hover">
+      <table class="table table-hover align-middle">
         <thead>
           <tr>
             <th>Date</th>
@@ -75,14 +75,23 @@
             <td>{{ purchase.product_name }}</td>
             <td>৳ {{ purchase.price|floatformat:2 }}</td>
             <td>৳ {{ purchase.paid_amount|floatformat:2 }}</td>
-            <td>৳ {{ purchase.due|floatformat:2 }}</td>
             <td>
-              {% if perms.core.change_supplierpurchase %}
-              <a href="{% url 'supplier_edit_purchase' supplier.pk purchase.pk %}" class="btn btn-sm btn-warning"><i class="fas fa-edit"></i></a>
+              {% if purchase.due > 0 %}
+              <span class="badge bg-danger">৳ {{ purchase.due|floatformat:2 }}</span>
+              {% else %}
+              <span class="badge bg-success">৳ 0.00</span>
               {% endif %}
-              {% if perms.core.delete_supplierpurchase %}
-              <a href="{% url 'supplier_delete_purchase' supplier.pk purchase.pk %}" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></a>
-              {% endif %}
+            </td>
+            <td>
+              <div class="d-flex flex-wrap gap-1">
+                <a href="{% url 'supplier_purchase_detail' supplier.pk purchase.pk %}" class="btn btn-sm btn-info" title="View"><i class="fas fa-eye"></i></a>
+                {% if perms.core.change_supplierpurchase %}
+                <a href="{% url 'supplier_edit_purchase' supplier.pk purchase.pk %}" class="btn btn-sm btn-warning" title="Edit"><i class="fas fa-edit"></i></a>
+                {% endif %}
+                {% if perms.core.delete_supplierpurchase %}
+                <a href="{% url 'supplier_delete_purchase' supplier.pk purchase.pk %}" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></a>
+                {% endif %}
+              </div>
             </td>
           </tr>
           {% endfor %}
@@ -92,7 +101,7 @@
     {% include 'partials/pagination.html' %}
     {% else %}
     <div class="text-center py-4">
-      <p class="text-muted">No purchases found for this supplier.</p>
+      <p class="text-muted mb-0">No purchases found for this supplier.</p>
     </div>
     {% endif %}
   </div>

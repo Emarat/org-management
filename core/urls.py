@@ -41,8 +41,12 @@ urlpatterns = [
     path('suppliers/<int:pk>/edit/', views.supplier_edit, name='supplier_edit'),
     path('suppliers/<int:pk>/delete/', views.supplier_delete, name='supplier_delete'),
     path('suppliers/<int:pk>/add-purchase/', views.supplier_add_purchase, name='supplier_add_purchase'),
+    path('suppliers/<int:pk>/purchases/<int:purchase_pk>/', views.supplier_purchase_detail, name='supplier_purchase_detail'),
+    path('suppliers/<int:pk>/purchases/<int:purchase_pk>/add-payment/', views.supplier_add_payment, name='supplier_add_payment'),
     path('suppliers/<int:pk>/purchases/<int:purchase_pk>/edit/', views.supplier_edit_purchase, name='supplier_edit_purchase'),
     path('suppliers/<int:pk>/purchases/<int:purchase_pk>/delete/', views.supplier_delete_purchase, name='supplier_delete_purchase'),
+    path('suppliers/<int:pk>/purchases/<int:purchase_pk>/payments/<int:payment_pk>/edit/', views.supplier_edit_payment, name='supplier_edit_payment'),
+    path('suppliers/<int:pk>/purchases/<int:purchase_pk>/payments/<int:payment_pk>/delete/', views.supplier_delete_payment, name='supplier_delete_payment'),
     
     # Payment URLs - DEPRECATED: Legacy payment system, replaced by SalePayment
     # path('payments/', views.payment_list, name='payment_list'),

@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Purchase Details - {{ supplier.name }}{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <div class="d-flex justify-content-between align-items-center">
+    <div>
+      <h1><i class="fas fa-receipt"></i> Purchase Details</h1>
+      <p class="text-muted mb-0">{{ supplier.name }} - {{ purchase.product_name }}</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      {% if perms.core.change_supplierpurchase %}
+      <a href="{% url 'supplier_edit_purchase' supplier.pk purchase.pk %}" class="btn btn-warning">
+        <i class="fas fa-edit"></i> Edit
+      </a>
+      {% endif %}
+      <a href="{% url 'supplier_detail' supplier.pk %}" class="btn btn-outline-secondary">
+        <i class="fas fa-arrow-left"></i> Back
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-header">Purchase Information</div>
+      <div class="card-body">
+        <table class="table table-borderless mb-0">
+          <tbody>
+            <tr>
+              <td class="text-muted fw-semibold w-25">Product:</td>
+              <td>{{ purchase.product_name }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted fw-semibold">Purchase Date:</td>
+              <td>{{ purchase.purchase_date|date:"M d, Y" }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted fw-semibold">Price:</td>
+              <td class="fw-semibold">৳ {{ purchase.price|floatformat:2 }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted fw-semibold">Notes:</td>
+              <td>{{ purchase.notes|default:"-" }}</td>
+            </tr>
+            <tr>
+              <td class="text-muted fw-semibold">Created:</td>
+              <td>{{ purchase.created_at|date:"M d, Y" }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3">
+      <div class="card-header">Payment Status</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <div class="text-muted small mb-1">Total Amount</div>
+          <div class="h5 mb-0">৳ {{ purchase.price|floatformat:2 }}</div>
+        </div>
+        <div class="mb-3">
+          <div class="text-muted small mb-1">Amount Paid</div>
+          <div class="h5 mb-0 text-success">৳ {{ purchase.paid_amount|floatformat:2 }}</div>
+        </div>
+        <div>
+          <div class="text-muted small mb-1">Amount Due</div>
+          <div class="h5 mb-0 {% if purchase.due > 0 %}text-danger{% else %}text-success{% endif %}">
+            ৳ {{ purchase.due|floatformat:2 }}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if perms.core.add_supplierpurchasepayment and purchase.due > 0 %}
+    <a href="{% url 'supplier_add_payment' supplier.pk purchase.pk %}" class="btn btn-success w-100">
+      <i class="fas fa-money-check-alt"></i> Add Payment
+    </a>
+    {% else %}
+    <div class="alert alert-success mb-0" role="alert">
+      <i class="fas fa-check-circle"></i> Fully paid
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <h5 class="mb-0">Payment History ({{ payments|length }})</h5>
+  </div>
+  <div class="card-body">
+    {% if payments %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Receipt</th>
+            <th>Method</th>
+            <th>Amount</th>
+            <th>Reference</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for payment in payments %}
+          <tr>
+            <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+            <td>{{ payment.receipt_number }}</td>
+            <td><span class="badge bg-info">{{ payment.get_method_display }}</span></td>
+            <td class="fw-semibold">৳ {{ payment.amount|floatformat:2 }}</td>
+            <td>{{ payment.reference_number|default:"-" }}</td>
+            <td>
+              <div class="d-flex flex-wrap gap-1">
+                {% if perms.core.change_supplierpurchasepayment %}
+                <a href="{% url 'supplier_edit_payment' supplier.pk purchase.pk payment.pk %}" class="btn btn-sm btn-warning" title="Edit Payment"><i class="fas fa-edit"></i></a>
+                {% endif %}
+                {% if perms.core.delete_supplierpurchasepayment %}
+                <a href="{% url 'supplier_delete_payment' supplier.pk purchase.pk payment.pk %}" class="btn btn-sm btn-danger" title="Delete Payment"><i class="fas fa-trash"></i></a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="text-center py-4">
+      <p class="text-muted mb-0">No payments recorded for this purchase.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

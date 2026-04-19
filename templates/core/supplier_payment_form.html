@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ title }} - Organization Management{% endblock %}
+
+{% block content %}
+<div class="content-header d-flex justify-content-between align-items-center">
+  <div>
+    <h1><i class="fas fa-money-bill-wave"></i> {{ title }}</h1>
+    <p class="text-muted mb-0">Supplier: {{ supplier.name }} | Purchase: {{ purchase.product_name }}</p>
+  </div>
+  <a href="{% url 'supplier_purchase_detail' supplier.pk purchase.pk %}" class="btn btn-outline-secondary">
+    <i class="fas fa-arrow-left"></i> Back to Supplier
+  </a>
+</div>
+
+<div class="row">
+  <div class="col-md-8 offset-md-2">
+    <div class="card">
+      <div class="card-header">Payment Information</div>
+      <div class="card-body">
+        <div class="mb-3">
+          <span class="badge bg-primary">Purchase: ৳ {{ purchase.price|floatformat:2 }}</span>
+          <span class="badge bg-success">Paid: ৳ {{ purchase.paid_amount|floatformat:2 }}</span>
+          <span class="badge bg-danger">Due: ৳ {{ purchase.due|floatformat:2 }}</span>
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">{{ form.amount.label }}</label>
+              {{ form.amount }}
+              {% if form.amount.errors %}<div class="text-danger small">{{ form.amount.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">{{ form.payment_date.label }}</label>
+              {{ form.payment_date }}
+              {% if form.payment_date.errors %}<div class="text-danger small">{{ form.payment_date.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">{{ form.method.label }}</label>
+              {{ form.method }}
+              {% if form.method.errors %}<div class="text-danger small">{{ form.method.errors }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="row g-3 mt-1" id="reference-wrapper">
+            <div class="col-md-8">
+              <label class="form-label" id="reference-label">Reference Number</label>
+              {{ form.reference_number }}
+              <small class="text-muted" id="reference-help">Required for LC, Check, TT, and Bank payments.</small>
+              {% if form.reference_number.errors %}<div class="text-danger small">{{ form.reference_number.errors }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="row g-3 mt-1">
+            <div class="col-12">
+              <label class="form-label">{{ form.notes.label }}</label>
+              {{ form.notes }}
+              {% if form.notes.errors %}<div class="text-danger small">{{ form.notes.errors }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between mt-3">
+            <a href="{% url 'supplier_purchase_detail' supplier.pk purchase.pk %}" class="btn btn-secondary"><i class="fas fa-times"></i> Cancel</a>
+            <button type="submit" class="btn btn-success">
+              <i class="fas fa-save"></i> {% if payment %}Update Payment{% else %}Save Payment{% endif %}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const methodEl = document.getElementById('supplier-payment-method');
+    const referenceEl = document.getElementById('supplier-reference-number');
+    const referenceLabel = document.getElementById('reference-label');
+    const referenceHelp = document.getElementById('reference-help');
+
+    if (!methodEl || !referenceEl || !referenceLabel || !referenceHelp) {
+      return;
+    }
+
+    function updateReferenceField() {
+      const method = methodEl.value;
+      const labels = {
+        lc: 'LC Number',
+        check: 'Check Number',
+        tt: 'TT Number',
+        bank: 'Bank Number',
+        cash: 'Reference Number (optional)'
+      };
+
+      referenceLabel.textContent = labels[method] || 'Reference Number';
+
+      if (method === 'cash') {
+        referenceEl.required = false;
+        referenceHelp.textContent = 'Optional for cash payments.';
+      } else {
+        referenceEl.required = true;
+        referenceHelp.textContent = 'Required for LC, Check, TT, and Bank payments.';
+      }
+    }
+
+    methodEl.addEventListener('change', updateReferenceField);
+    updateReferenceField();
+  });
+</script>
+{% endblock %}

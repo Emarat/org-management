@@ -1,6 +1,7 @@
 import logging
 
 from django.db import models, transaction
+from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator, FileExtensionValidator
 from django.utils import timezone
 import uuid
@@ -544,6 +545,7 @@ class LedgerEntry(models.Model):
     SOURCES = [
         ("sale_payment", "Sale Payment"),
         ("expense", "Expense"),
+        ("supplier_payment", "Supplier Payment"),
         ("other", "Other"),
     ]
 
@@ -601,3 +603,42 @@ class SupplierPurchase(models.Model):
     @property
     def due(self):
         return (self.price or 0) - (self.paid_amount or 0)
+
+
+class SupplierPurchasePayment(models.Model):
+    METHOD_CHOICES = [
+        ('lc', 'LC'),
+        ('check', 'Check'),
+        ('tt', 'TT'),
+        ('cash', 'Cash'),
+        ('bank', 'Bank'),
+    ]
+
+    purchase = models.ForeignKey(SupplierPurchase, on_delete=models.CASCADE, related_name='payments')
+    receipt_number = models.CharField(max_length=100, unique=True, editable=False)
+    amount = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(0.01)])
+    payment_date = models.DateField(default=timezone.now)
+    method = models.CharField(max_length=20, choices=METHOD_CHOICES, default='cash')
+    reference_number = models.CharField(max_length=100, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-payment_date', '-created_at']
+        verbose_name = 'Supplier Purchase Payment'
+        verbose_name_plural = 'Supplier Purchase Payments'
+
+    def __str__(self):
+        return f"{self.receipt_number} - {self.purchase.supplier.name}"
+
+    def clean(self):
+        super().clean()
+        if self.method in {'lc', 'check', 'tt', 'bank'} and not (self.reference_number or '').strip():
+            raise ValidationError({'reference_number': 'Reference number is required for this payment method.'})
+
+    def save(self, *args, **kwargs):
+        if not self.receipt_number:
+            now = timezone.now()
+            self.receipt_number = f"SPAY-{now.strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
+        super().save(*args, **kwargs)

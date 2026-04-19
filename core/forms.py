@@ -1,6 +1,5 @@
 from django import forms
-from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, Supplier, SupplierPurchase
-from django import forms
+from .models import Customer, InventoryItem, Expense, Payment, BillClaim, Sale, SaleItem, SalePayment, Supplier, SupplierPurchase, SupplierPurchasePayment
 
 
 class CustomerForm(forms.ModelForm):
@@ -222,13 +221,34 @@ class SupplierForm(forms.ModelForm):
 class SupplierPurchaseForm(forms.ModelForm):
     class Meta:
         model = SupplierPurchase
-        fields = ['product_name', 'price', 'paid_amount', 'purchase_date']
+        fields = ['product_name', 'price', 'purchase_date', 'notes']
         labels = {
             'product_name': 'Product Description',
         }
         widgets = {
             'product_name': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Describe the product/item details...'}),
             'price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'paid_amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
             'purchase_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Optional notes...'}),
         }
+
+
+class SupplierPurchasePaymentForm(forms.ModelForm):
+    class Meta:
+        model = SupplierPurchasePayment
+        fields = ['amount', 'payment_date', 'method', 'reference_number', 'notes']
+        widgets = {
+            'amount': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01', 'min': '0.01'}),
+            'payment_date': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'method': forms.Select(attrs={'class': 'form-control', 'id': 'supplier-payment-method'}),
+            'reference_number': forms.TextInput(attrs={'class': 'form-control', 'id': 'supplier-reference-number', 'placeholder': 'Reference number'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 2, 'placeholder': 'Optional payment notes...'}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        method = cleaned.get('method')
+        reference_number = (cleaned.get('reference_number') or '').strip()
+        if method in {'lc', 'check', 'tt', 'bank'} and not reference_number:
+            self.add_error('reference_number', 'Reference number is required for LC, Check, TT, and Bank payments.')
+        return cleaned

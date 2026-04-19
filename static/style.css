@@ -124,3 +124,77 @@
     top: 70px;
   }
 }
+
+/* Supplier modern detail layout */
+.supplier-modern .supplier-topbar {
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 6px 22px rgba(30, 41, 59, 0.08);
+}
+
+.supplier-modern .card {
+  border: 0;
+  border-radius: 12px;
+  box-shadow: 0 6px 22px rgba(30, 41, 59, 0.08);
+}
+
+.supplier-modern .card-header {
+  background: linear-gradient(90deg, #edf6ff 0%, #f7fbff 100%);
+  border-bottom: 1px solid #dbe7f3;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+
+.supplier-modern .supplier-kpi {
+  min-height: 124px;
+}
+
+.supplier-modern .supplier-kpi-due {
+  background: linear-gradient(180deg, #fff4f4 0%, #ffffff 100%);
+}
+
+.supplier-modern .supplier-kpi-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.supplier-modern .supplier-kpi-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.2;
+}
+
+.supplier-modern .supplier-kpi-date {
+  font-size: 1rem;
+}
+
+.supplier-modern .btn-group .btn.is-active {
+  background-color: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}
+
+.supplier-modern .supplier-meta-list p {
+  margin-bottom: 0.7rem;
+}
+
+.supplier-modern .supplier-code {
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.86rem;
+  color: #334155;
+}
+
+.supplier-modern #payment-method-filter,
+.supplier-modern #payment-search-filter {
+  min-width: 155px;
+}
+
+@media (max-width: 992px) {
+  .supplier-modern .supplier-kpi {
+    min-height: 112px;
+  }
+}
