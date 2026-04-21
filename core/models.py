@@ -608,7 +608,7 @@ class SupplierPurchase(models.Model):
 class SupplierPurchasePayment(models.Model):
     METHOD_CHOICES = [
         ('lc', 'LC'),
-        ('check', 'Check'),
+        ('check', 'Cheque'),
         ('tt', 'TT'),
         ('cash', 'Cash'),
         ('bank', 'Bank'),

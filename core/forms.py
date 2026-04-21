@@ -250,5 +250,5 @@ class SupplierPurchasePaymentForm(forms.ModelForm):
         method = cleaned.get('method')
         reference_number = (cleaned.get('reference_number') or '').strip()
         if method in {'lc', 'check', 'tt', 'bank'} and not reference_number:
-            self.add_error('reference_number', 'Reference number is required for LC, Check, TT, and Bank payments.')
+            self.add_error('reference_number', 'Reference number is required for LC, Cheque, TT, and Bank payments.')
         return cleaned

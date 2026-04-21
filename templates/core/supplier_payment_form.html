@@ -48,7 +48,7 @@
             <div class="col-md-8">
               <label class="form-label" id="reference-label">Reference Number</label>
               {{ form.reference_number }}
-              <small class="text-muted" id="reference-help">Required for LC, Check, TT, and Bank payments.</small>
+              <small class="text-muted" id="reference-help">Required for LC, Cheque, TT, and Bank payments.</small>
               {% if form.reference_number.errors %}<div class="text-danger small">{{ form.reference_number.errors }}</div>{% endif %}
             </div>
           </div>
@@ -88,7 +88,7 @@
       const method = methodEl.value;
       const labels = {
         lc: 'LC Number',
-        check: 'Check Number',
+        check: 'Cheque Number',
         tt: 'TT Number',
         bank: 'Bank Number',
         cash: 'Reference Number (optional)'
@@ -101,7 +101,7 @@
         referenceHelp.textContent = 'Optional for cash payments.';
       } else {
         referenceEl.required = true;
-        referenceHelp.textContent = 'Required for LC, Check, TT, and Bank payments.';
+        referenceHelp.textContent = 'Required for LC, Cheque, TT, and Bank payments.';
       }
     }
 

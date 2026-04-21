@@ -15,27 +15,66 @@
       <div class="card-body">
         <form method="post">
           {% csrf_token %}
+          {% if form.non_field_errors %}
+          <div class="alert alert-danger py-2">
+            {{ form.non_field_errors }}
+          </div>
+          {% endif %}
           <div class="mb-3">
             <label class="form-label">{{ form.product_name.label }}</label>
             {{ form.product_name }}
+            {% if form.product_name.errors %}<div class="text-danger small">{{ form.product_name.errors }}</div>{% endif %}
           </div>
           <div class="row">
             <div class="col-md-6 mb-3">
               <label class="form-label">{{ form.price.label }}</label>
               {{ form.price }}
+              {% if form.price.errors %}<div class="text-danger small">{{ form.price.errors }}</div>{% endif %}
             </div>
             <div class="col-md-6 mb-3">
               <label class="form-label">{{ form.purchase_date.label }}</label>
               {{ form.purchase_date }}
+              {% if form.purchase_date.errors %}<div class="text-danger small">{{ form.purchase_date.errors }}</div>{% endif %}
             </div>
           </div>
           <div class="mb-3">
             <label class="form-label">{{ form.notes.label }}</label>
             {{ form.notes }}
+            {% if form.notes.errors %}<div class="text-danger small">{{ form.notes.errors }}</div>{% endif %}
           </div>
-          <div class="alert alert-info mb-3" role="alert">
-            Record payments from supplier details using <strong>Add Payment</strong>. This supports LC, Check, TT, Cash, and Bank with partial payments.
+
+          <hr>
+          <h5 class="mb-2"><i class="fas fa-money-check-alt"></i> Optional Payment Record</h5>
+          <p class="text-muted small mb-3">Leave this section empty to save only the purchase. Payment date will use purchase date automatically.</p>
+
+          {% if payment_form.non_field_errors %}
+          <div class="alert alert-danger py-2">
+            {{ payment_form.non_field_errors }}
           </div>
+          {% endif %}
+
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">{{ payment_form.amount.label }}</label>
+              {{ payment_form.amount }}
+              {% if payment_form.amount.errors %}<div class="text-danger small">{{ payment_form.amount.errors }}</div>{% endif %}
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">{{ payment_form.method.label }}</label>
+              {{ payment_form.method }}
+              {% if payment_form.method.errors %}<div class="text-danger small">{{ payment_form.method.errors }}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="row g-3 mt-1">
+            <div class="col-md-8">
+              <label class="form-label" id="purchase-reference-label">Reference Number</label>
+              {{ payment_form.reference_number }}
+              <small class="text-muted" id="purchase-reference-help">Required for LC, Cheque, TT, and Bank payments.</small>
+              {% if payment_form.reference_number.errors %}<div class="text-danger small">{{ payment_form.reference_number.errors }}</div>{% endif %}
+            </div>
+          </div>
+
           <div class="d-flex justify-content-between">
             <a href="{% url 'supplier_detail' supplier.pk %}" class="btn btn-secondary"><i class="fas fa-times"></i> Cancel</a>
             <button type="submit" class="btn btn-success">
@@ -47,4 +86,42 @@
     </div>
   </div>
 </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const methodEl = document.getElementById('supplier-payment-method');
+    const referenceEl = document.getElementById('supplier-reference-number');
+    const referenceLabel = document.getElementById('purchase-reference-label');
+    const referenceHelp = document.getElementById('purchase-reference-help');
+
+    if (!methodEl || !referenceEl || !referenceLabel || !referenceHelp) {
+      return;
+    }
+
+    function updateReferenceField() {
+      const method = methodEl.value;
+      const labels = {
+        lc: 'LC Number',
+        check: 'Cheque Number',
+        tt: 'TT Number',
+        bank: 'Bank Number',
+        cash: 'Reference Number (optional)',
+        '': 'Reference Number'
+      };
+
+      referenceLabel.textContent = labels[method] || 'Reference Number';
+
+      if (method === 'lc' || method === 'check' || method === 'tt' || method === 'bank') {
+        referenceEl.required = true;
+        referenceHelp.textContent = 'Required for LC, Cheque, TT, and Bank payments.';
+      } else {
+        referenceEl.required = false;
+        referenceHelp.textContent = 'Optional for empty or cash payment rows.';
+      }
+    }
+
+    methodEl.addEventListener('change', updateReferenceField);
+    updateReferenceField();
+  });
+</script>
 {% endblock %}
