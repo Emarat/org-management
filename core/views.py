@@ -2999,19 +2999,77 @@ def supplier_delete(request, pk):
 @permission_required('core.add_supplierpurchase', raise_exception=True)
 def supplier_add_purchase(request, pk):
     supplier = get_object_or_404(Supplier, pk=pk)
+
+    def _configure_purchase_payment_form(payment_form):
+        method_field = payment_form.fields.get('method')
+        if method_field:
+            existing_choices = list(method_field.choices)
+            if not existing_choices or existing_choices[0][0] != '':
+                method_field.choices = [('', 'Select payment method')] + existing_choices
+
+    payment_field_names = ['amount', 'method', 'reference_number']
+
     if request.method == 'POST':
-        form = SupplierPurchaseForm(request.POST)
-        if form.is_valid():
-            purchase = form.save(commit=False)
-            purchase.supplier = supplier
-            purchase.save()
-            messages.success(request, 'Supplier purchase added successfully!')
+        post_data = request.POST.copy()
+        form = SupplierPurchaseForm(post_data)
+        payment_entered = any((post_data.get(f'pay-{name}') or '').strip() for name in payment_field_names)
+        if payment_entered and not (post_data.get('pay-payment_date') or '').strip():
+            post_data['pay-payment_date'] = (post_data.get('purchase_date') or '').strip() or timezone.localdate().isoformat()
+        payment_form = SupplierPurchasePaymentForm(post_data, prefix='pay')
+        _configure_purchase_payment_form(payment_form)
+
+        form_valid = form.is_valid()
+        payment_valid = True
+        if payment_entered:
+            payment_valid = payment_form.is_valid()
+
+        if form_valid and payment_entered and payment_valid:
+            payment_amount = payment_form.cleaned_data.get('amount') or Decimal('0')
+            purchase_amount = form.cleaned_data.get('price') or Decimal('0')
+            if payment_amount > purchase_amount:
+                payment_form.add_error('amount', 'Payment exceeds purchase amount.')
+                payment_valid = False
+
+        if form_valid and payment_valid:
+            with transaction.atomic():
+                purchase = form.save(commit=False)
+                purchase.supplier = supplier
+                purchase.save()
+
+                payment = None
+                if payment_entered:
+                    payment = payment_form.save(commit=False)
+                    payment.purchase = purchase
+                    payment.save()
+                    _recalculate_supplier_purchase_paid_amount(purchase)
+                    try:
+                        LedgerEntry.objects.update_or_create(
+                            source='supplier_payment',
+                            reference=payment.receipt_number,
+                            defaults={
+                                'entry_type': 'debit',
+                                'description': f"Payment to {purchase.supplier.name}",
+                                'amount': payment.amount,
+                            },
+                        )
+                    except Exception:
+                        logger.exception('Non-blocking ledger write failure for SupplierPurchasePayment receipt=%s', payment.receipt_number)
+
+            if payment:
+                messages.success(request, f'Supplier purchase and payment saved. Receipt: {payment.receipt_number}')
+            else:
+                messages.success(request, 'Supplier purchase added successfully!')
             return redirect('supplier_detail', pk=supplier.pk)
+
+        messages.error(request, 'Please correct the highlighted fields.')
     else:
         form = SupplierPurchaseForm()
+        payment_form = SupplierPurchasePaymentForm(prefix='pay')
+        _configure_purchase_payment_form(payment_form)
 
     return render(request, 'core/supplier_purchase_form.html', {
         'form': form,
+        'payment_form': payment_form,
         'supplier': supplier,
         'title': 'Add Supplier Purchase',
     })
