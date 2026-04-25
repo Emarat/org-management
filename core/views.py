@@ -15,6 +15,7 @@ from django.db.models import Sum, Count, Q, F, Value, DecimalField, ExpressionWr
 from django.db.utils import OperationalError, ProgrammingError
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.http import HttpResponse, JsonResponse
 from django.urls import reverse
 from datetime import datetime, timedelta
@@ -2957,15 +2958,29 @@ def supplier_detail(request, pk):
 
     paginator = Paginator(purchases_qs, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
+    purchases = list(page_obj.object_list)
+    due_purchases = [purchase for purchase in purchases if purchase.due > 0]
+
+    open_payment_purchase_id = request.GET.get('open_payment_purchase_id') or request.session.pop('supplier_payment_open_purchase_id', '')
+    supplier_payment_error = request.session.pop('supplier_payment_error', '')
+    supplier_payment_form_data = request.session.pop('supplier_payment_form_data', {})
+    if not isinstance(supplier_payment_form_data, dict):
+        supplier_payment_form_data = {}
 
     return render(request, 'core/supplier_detail.html', {
         'supplier': supplier,
-        'purchases': page_obj.object_list,
+        'purchases': purchases,
         'page_obj': page_obj,
         'total_price': total_price,
         'total_paid': total_paid,
         'total_due': total_due,
         'purchase_count': purchases_qs.count(),
+        'due_purchases': due_purchases,
+        'payment_method_choices': SupplierPurchasePayment.METHOD_CHOICES,
+        'today': timezone.localdate(),
+        'open_payment_purchase_id': str(open_payment_purchase_id or ''),
+        'supplier_payment_error': supplier_payment_error,
+        'supplier_payment_form_data': supplier_payment_form_data,
     })
 
 
@@ -3081,37 +3096,168 @@ def supplier_add_payment(request, pk, purchase_pk):
     supplier = get_object_or_404(Supplier, pk=pk)
     purchase = get_object_or_404(SupplierPurchase, pk=purchase_pk, supplier=supplier)
 
+    def _is_modal_source():
+        return (request.POST.get('source') or '').strip() == 'supplier_detail'
+
+    def _get_next_url():
+        next_url = (request.POST.get('next') or '').strip()
+        if next_url and url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            return next_url
+        return reverse('supplier_detail', kwargs={'pk': supplier.pk})
+
+    def _redirect_modal_with_error(form_obj, message_text=''):
+        if message_text:
+            request.session['supplier_payment_error'] = message_text
+        else:
+            errors = []
+            if form_obj.non_field_errors():
+                errors.extend(str(err) for err in form_obj.non_field_errors())
+            for field, errs in form_obj.errors.items():
+                if field == '__all__':
+                    continue
+                label = form_obj.fields.get(field).label if field in form_obj.fields else field
+                for err in errs:
+                    errors.append(f"{label}: {err}")
+            request.session['supplier_payment_error'] = ' '.join(errors) if errors else 'Please correct the highlighted fields.'
+
+        request.session['supplier_payment_open_purchase_id'] = str(purchase.pk)
+        request.session['supplier_payment_form_data'] = {
+            'amount': (request.POST.get('amount') or '').strip(),
+            'payment_date': (request.POST.get('payment_date') or '').strip(),
+            'method': (request.POST.get('method') or '').strip(),
+            'reference_number': (request.POST.get('reference_number') or '').strip(),
+            'notes': (request.POST.get('notes') or '').strip(),
+        }
+
+        next_url = _get_next_url()
+        separator = '&' if '?' in next_url else '?'
+        return redirect(f"{next_url}{separator}open_payment_purchase_id={purchase.pk}")
+
     if request.method == 'POST':
         form = SupplierPurchasePaymentForm(request.POST)
         if form.is_valid():
-            new_payment = form.save(commit=False)
+            is_modal = _is_modal_source()
             with transaction.atomic():
-                locked_purchase = get_object_or_404(
-                    SupplierPurchase.objects.select_for_update().select_related('supplier'),
-                    pk=purchase.pk,
-                    supplier=supplier,
-                )
-                if new_payment.amount > locked_purchase.due:
-                    messages.error(request, 'Payment exceeds remaining due amount.')
-                else:
-                    new_payment.purchase = locked_purchase
-                    new_payment.save()
-                    _recalculate_supplier_purchase_paid_amount(locked_purchase)
-                    try:
-                        LedgerEntry.objects.update_or_create(
-                            source='supplier_payment',
-                            reference=new_payment.receipt_number,
-                            defaults={
-                                'entry_type': 'debit',
-                                'description': f"Payment to {locked_purchase.supplier.name}",
-                                'amount': new_payment.amount,
-                            },
+                if is_modal:
+                    # FIFO allocation across multiple purchases
+                    incoming_amount = form.cleaned_data['amount']
+                    payment_date = form.cleaned_data['payment_date']
+                    method = form.cleaned_data['method']
+                    reference_number = form.cleaned_data.get('reference_number', '')
+                    notes = form.cleaned_data.get('notes', '')
+                    
+                    # Get all supplier purchases with due amount, sorted by date (FIFO)
+                    locked_supplier = get_object_or_404(
+                        Supplier.objects.select_for_update(),
+                        pk=supplier.pk
+                    )
+                    
+                    candidate_purchases = list(
+                        locked_supplier.purchases.filter()
+                        .order_by('purchase_date', 'id')
+                        .select_for_update()
+                    )
+                    
+                    # Calculate total supplier due
+                    total_supplier_due = Decimal('0')
+                    for purch in candidate_purchases:
+                        purch_due = (purch.price or Decimal('0')) - (purch.paid_amount or Decimal('0'))
+                        if purch_due > 0:
+                            total_supplier_due += purch_due
+                    
+                    # Validate total payment doesn't exceed total due
+                    if incoming_amount > total_supplier_due:
+                        if is_modal:
+                            return _redirect_modal_with_error(form, 'Payment exceeds total remaining due amount.')
+                        messages.error(request, 'Payment exceeds total remaining due amount.')
+                        return redirect('supplier_detail', pk=supplier.pk)
+                    
+                    # Allocate payment in FIFO order
+                    remaining = incoming_amount
+                    created_receipts = []
+                    
+                    for purch in candidate_purchases:
+                        if remaining <= 0:
+                            break
+                        
+                        # Recalculate current due (fresh from database)
+                        current_paid = (purch.payments.aggregate(total=Coalesce(Sum('amount'), Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))))['total'] or Decimal('0'))
+                        current_due = (purch.price or Decimal('0')) - current_paid
+                        
+                        if current_due <= 0:
+                            continue
+                        
+                        allocation = min(remaining, current_due)
+                        
+                        # Create payment record
+                        new_payment = SupplierPurchasePayment(
+                            purchase=purch,
+                            amount=allocation,
+                            payment_date=payment_date,
+                            method=method,
+                            reference_number=reference_number,
+                            notes=notes
                         )
-                    except Exception:
-                        logger.exception('Non-blocking ledger write failure for SupplierPurchasePayment receipt=%s', new_payment.receipt_number)
+                        new_payment.save()
+                        created_receipts.append(new_payment.receipt_number)
+                        
+                        # Update purchase paid amount
+                        _recalculate_supplier_purchase_paid_amount(purch)
+                        
+                        # Create ledger entry
+                        try:
+                            LedgerEntry.objects.update_or_create(
+                                source='supplier_payment',
+                                reference=new_payment.receipt_number,
+                                defaults={
+                                    'entry_type': 'debit',
+                                    'description': f"Payment to {locked_supplier.name}",
+                                    'amount': new_payment.amount,
+                                },
+                            )
+                        except Exception:
+                            logger.exception('Non-blocking ledger write failure for SupplierPurchasePayment receipt=%s', new_payment.receipt_number)
+                        
+                        remaining -= allocation
+                    
+                    if created_receipts:
+                        messages.success(request, f'Payment recorded. Receipts: {", ".join(created_receipts)}')
+                    return redirect(_get_next_url())
+                else:
+                    # Single purchase payment (from purchase detail page)
+                    new_payment = form.save(commit=False)
+                    locked_purchase = get_object_or_404(
+                        SupplierPurchase.objects.select_for_update().select_related('supplier'),
+                        pk=purchase.pk,
+                        supplier=supplier,
+                    )
+                    if new_payment.amount > locked_purchase.due:
+                        messages.error(request, 'Payment exceeds remaining due amount.')
+                    else:
+                        new_payment.purchase = locked_purchase
+                        new_payment.save()
+                        _recalculate_supplier_purchase_paid_amount(locked_purchase)
+                        try:
+                            LedgerEntry.objects.update_or_create(
+                                source='supplier_payment',
+                                reference=new_payment.receipt_number,
+                                defaults={
+                                    'entry_type': 'debit',
+                                    'description': f"Payment to {locked_purchase.supplier.name}",
+                                    'amount': new_payment.amount,
+                                },
+                            )
+                        except Exception:
+                            logger.exception('Non-blocking ledger write failure for SupplierPurchasePayment receipt=%s', new_payment.receipt_number)
 
-                    messages.success(request, f'Payment recorded. Receipt: {new_payment.receipt_number}')
-                    return redirect('supplier_purchase_detail', pk=supplier.pk, purchase_pk=locked_purchase.pk)
+                        messages.success(request, f'Payment recorded. Receipt: {new_payment.receipt_number}')
+                        return redirect('supplier_purchase_detail', pk=supplier.pk, purchase_pk=locked_purchase.pk)
+        elif _is_modal_source():
+            return _redirect_modal_with_error(form)
     else:
         form = SupplierPurchasePaymentForm()
 

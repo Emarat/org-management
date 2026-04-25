@@ -52,7 +52,20 @@
 <div class="card mt-3">
   <div class="card-header d-flex justify-content-between align-items-center">
     <h5 class="mb-0">Purchase List</h5>
-    <span class="badge bg-primary">{{ purchase_count }}</span>
+    <div class="d-flex align-items-center gap-2">
+      {% if perms.core.add_supplierpurchasepayment and due_purchases %}
+      <button
+        id="openSupplierRecordPaymentBtn"
+        type="button"
+        class="btn btn-sm btn-primary"
+        data-bs-toggle="modal"
+        data-bs-target="#recordPaymentModal"
+      >
+        <i class="fas fa-money-bill-wave"></i> Record Payment
+      </button>
+      {% endif %}
+      <span class="badge bg-primary">{{ purchase_count }}</span>
+    </div>
   </div>
   <div class="card-body">
     {% if purchases %}
@@ -99,6 +112,7 @@
       </table>
     </div>
     {% include 'partials/pagination.html' %}
+
     {% else %}
     <div class="text-center py-4">
       <p class="text-muted mb-0">No purchases found for this supplier.</p>
@@ -106,4 +120,174 @@
     {% endif %}
   </div>
 </div>
+
+{% if perms.core.add_supplierpurchasepayment and due_purchases %}
+<div class="modal fade" id="recordPaymentModal" tabindex="-1" aria-labelledby="recordPaymentModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" id="recordPaymentForm" action="{% url 'supplier_add_payment' supplier.pk due_purchases.0.pk %}">
+        {% csrf_token %}
+        <input type="hidden" name="source" value="supplier_detail">
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="recordPaymentModalLabel">Record Supplier Payment</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          {% if supplier_payment_error %}
+          <div class="alert alert-danger" role="alert" id="supplierPaymentErrorAlert" style="display:none;">
+            {{ supplier_payment_error }}
+          </div>
+          {% endif %}
+
+          <!-- Supplier Info Section -->
+          <div class="border-bottom pb-3 mb-3">
+            <p class="mb-1"><strong>Supplier:</strong> {{ supplier.name }}</p>
+            <p class="mb-0"><strong>Total Due:</strong> <span class="text-danger h6">৳ {{ total_due|floatformat:2 }}</span></p>
+          </div>
+
+          <!-- Purchase ID for form routing (FIFO handled in backend) -->
+          <input type="hidden" id="payment-purchase-select" value="{{ due_purchases.0.pk }}" required>
+
+          <!-- Amount and Payment Date Row -->
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label" for="payment-amount">Amount:</label>
+              <input
+                id="payment-amount"
+                type="number"
+                name="amount"
+                class="form-control"
+                min="0"
+                step="0.01"
+                required
+                value="{{ supplier_payment_form_data.amount|default:'' }}"
+              >
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="payment-date">Payment date:</label>
+              <input
+                id="payment-date"
+                type="date"
+                name="payment_date"
+                class="form-control"
+                required
+                value="{% if supplier_payment_form_data.payment_date %}{{ supplier_payment_form_data.payment_date }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}"
+              >
+            </div>
+          </div>
+
+          <!-- Method -->
+          <div class="mb-3">
+            <label class="form-label" for="supplier-payment-method">Method:</label>
+            <select id="supplier-payment-method" name="method" class="form-control" required>
+              <option value="">Select payment method</option>
+              {% for method_value, method_label in payment_method_choices %}
+              <option value="{{ method_value }}" {% if supplier_payment_form_data.method == method_value %}selected{% endif %}>{{ method_label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Reference Field -->
+          <div class="mb-3">
+            <label class="form-label" id="reference-label" for="supplier-reference-number">Reference Number</label>
+            <input
+              id="supplier-reference-number"
+              type="text"
+              name="reference_number"
+              class="form-control"
+              value="{{ supplier_payment_form_data.reference_number|default:'' }}"
+            >
+            <small class="text-muted" id="reference-help">Required for LC, Cheque, TT, and Bank payments.</small>
+          </div>
+
+          <!-- Details/Notes -->
+          <div class="mb-3">
+            <label class="form-label" for="payment-notes">Details <span class="text-muted">(optional)</span></label>
+            <textarea
+              id="payment-notes"
+              name="notes"
+              class="form-control"
+              rows="3"
+              placeholder="Payment details (optional)"
+            >{{ supplier_payment_form_data.notes|default:'' }}</textarea>
+            <small class="text-muted d-block mt-2">System note prefix is added automatically for allocation traceability.</small>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Save Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const modalEl = document.getElementById('recordPaymentModal');
+    const errorAlertEl = document.getElementById('supplierPaymentErrorAlert');
+    const methodEl = document.getElementById('supplier-payment-method');
+    const referenceEl = document.getElementById('supplier-reference-number');
+    const referenceLabel = document.getElementById('reference-label');
+    const referenceHelp = document.getElementById('reference-help');
+
+    function updateReferenceField() {
+      if (!methodEl || !referenceEl || !referenceLabel || !referenceHelp) {
+        return;
+      }
+
+      const method = methodEl.value;
+      const labels = {
+        lc: 'LC Number',
+        check: 'Cheque Number',
+        tt: 'TT Number',
+        bank: 'Bank Number',
+        cash: 'Reference Number (optional)'
+      };
+
+      referenceLabel.textContent = labels[method] || 'Reference Number';
+      if (method === 'cash' || !method) {
+        referenceEl.required = false;
+        referenceHelp.textContent = 'Optional for cash payments.';
+      } else {
+        referenceEl.required = true;
+        referenceHelp.textContent = 'Required for LC, Cheque, TT, and Bank payments.';
+      }
+    }
+
+    let preserveErrorAlert = false;
+
+    if (modalEl) {
+      modalEl.addEventListener('show.bs.modal', function(event) {
+        if (errorAlertEl) {
+          errorAlertEl.style.display = preserveErrorAlert ? 'block' : 'none';
+        }
+        preserveErrorAlert = false;
+      });
+    }
+
+    if (methodEl) {
+      methodEl.addEventListener('change', updateReferenceField);
+      updateReferenceField();
+    }
+
+    // Show error alert if there was an error in session
+    if (errorAlertEl && errorAlertEl.textContent.trim()) {
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('open_payment_purchase_id')) {
+        preserveErrorAlert = true;
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+          const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+          modal.show();
+        }
+        url.searchParams.delete('open_payment_purchase_id');
+        window.history.replaceState({}, '', url.pathname + (url.searchParams.toString() ? '?' + url.searchParams.toString() : '') + url.hash);
+      }
+    }
+  });
+</script>
 {% endblock %}
