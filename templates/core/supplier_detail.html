@@ -200,19 +200,6 @@
             >
             <small class="text-muted" id="reference-help">Required for LC, Cheque, TT, and Bank payments.</small>
           </div>
-
-          <!-- Details/Notes -->
-          <div class="mb-3">
-            <label class="form-label" for="payment-notes">Details <span class="text-muted">(optional)</span></label>
-            <textarea
-              id="payment-notes"
-              name="notes"
-              class="form-control"
-              rows="3"
-              placeholder="Payment details (optional)"
-            >{{ supplier_payment_form_data.notes|default:'' }}</textarea>
-            <small class="text-muted d-block mt-2">System note prefix is added automatically for allocation traceability.</small>
-          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
