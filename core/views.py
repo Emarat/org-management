@@ -1244,10 +1244,11 @@ def sale_list(request):
             qs = qs.filter(created_at__date__lte=end_date_obj)
         except ValueError:
             end_date = ''
+    mapped = None
     if item_type in ['inventory', 'machine']:
         # Map 'machine' to non_inventory sale items
         mapped = 'non_inventory' if item_type == 'machine' else 'inventory'
-        qs = qs.filter(items__item_type=mapped).distinct()
+        qs = qs.filter(items__item_type=mapped).distinct().prefetch_related('items', 'payments')
     if can_filter_by_user and selected_user_id:
         try:
             qs = qs.filter(created_by_id=int(selected_user_id))
@@ -1258,11 +1259,31 @@ def sale_list(request):
     # Sales overview metrics
     # Business rule: exclude Draft & Quotation from aggregate totals and dues
     totals_qs = qs.exclude(status__in=['draft', 'quote'])  # after filters
-    total_sales_amount = totals_qs.aggregate(total=Sum('total_amount'))['total'] or 0
-    total_paid_amount = (
-        totals_qs.annotate(paid=Sum('payments__amount')).aggregate(total=Sum('paid'))['total'] or 0
-    )
-    total_due_amount = (total_sales_amount or 0) - (total_paid_amount or 0)
+    if mapped:
+        total_sales_amount = Decimal('0')
+        total_paid_amount = Decimal('0')
+        for sale in totals_qs:
+            filtered_total = sum(
+                (item.line_total for item in sale.items.all() if item.item_type == mapped),
+                start=Decimal('0'),
+            )
+            if not filtered_total:
+                continue
+            total_sales_amount += filtered_total
+            sale_total = sale.total_amount or Decimal('0')
+            if sale_total:
+                paid_total = sum(
+                    (payment.amount for payment in sale.payments.all()),
+                    start=Decimal('0'),
+                )
+                total_paid_amount += (filtered_total / sale_total) * paid_total
+        total_due_amount = total_sales_amount - total_paid_amount
+    else:
+        total_sales_amount = totals_qs.aggregate(total=Sum('total_amount'))['total'] or 0
+        total_paid_amount = (
+            totals_qs.annotate(paid=Sum('payments__amount')).aggregate(total=Sum('paid'))['total'] or 0
+        )
+        total_due_amount = (total_sales_amount or 0) - (total_paid_amount or 0)
     sales_users = []
     if can_filter_by_user:
         sales_users = CustomUser.objects.filter(status='active').order_by('first_name', 'username')
