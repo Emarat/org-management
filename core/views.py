@@ -483,6 +483,19 @@ def inventory_list(request):
         qs = qs.filter(category__icontains=category_filter)
     if low_stock:
         qs = qs.filter(quantity__lte=F('minimum_stock'))
+
+    inventory_summary = qs.aggregate(
+        matching_items=Count('pk'),
+        total_quantity=Sum('quantity'),
+        total_boxes=Sum('box_count'),
+        total_stock_value=Sum(
+            ExpressionWrapper(
+                F('quantity') * F('unit_price'),
+                output_field=DecimalField(max_digits=20, decimal_places=2),
+            )
+        ),
+    )
+
     paginator = Paginator(qs, 10)
     page_obj = paginator.get_page(request.GET.get('page'))
     return render(request, 'core/inventory_list.html', {
@@ -491,6 +504,12 @@ def inventory_list(request):
         'query': query,
         'category_filter': category_filter,
         'low_stock': low_stock,
+        'inventory_summary': {
+            'matching_items': inventory_summary['matching_items'] or 0,
+            'total_quantity': inventory_summary['total_quantity'] or Decimal('0'),
+            'total_boxes': inventory_summary['total_boxes'] or 0,
+            'total_stock_value': inventory_summary['total_stock_value'] or Decimal('0'),
+        },
     })
 
 

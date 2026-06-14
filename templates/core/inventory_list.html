@@ -49,6 +49,34 @@
 
 <div class="card">
   <div class="card-body">
+    {% if query or category_filter or low_stock %}
+    <div class="row g-3 mb-3">
+      <div class="col-md-3 col-sm-6">
+        <div class="border rounded-3 bg-light p-3 h-100">
+          <div class="text-muted small">Matching Items</div>
+          <div class="fs-4 fw-bold">{{ inventory_summary.matching_items }}</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="border rounded-3 bg-light p-3 h-100">
+          <div class="text-muted small">Total Quantity</div>
+          <div class="fs-4 fw-bold">{{ inventory_summary.total_quantity|floatformat:3 }}</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="border rounded-3 bg-light p-3 h-100">
+          <div class="text-muted small">Total Boxes</div>
+          <div class="fs-4 fw-bold">{{ inventory_summary.total_boxes }}</div>
+        </div>
+      </div>
+      <div class="col-md-3 col-sm-6">
+        <div class="border rounded-3 bg-light p-3 h-100">
+          <div class="text-muted small">Total Stock Value</div>
+          <div class="fs-4 fw-bold">৳&nbsp;{{ inventory_summary.total_stock_value|floatformat:2 }}</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
     {% if items %}
     <div class="table-responsive">
       <table class="table table-hover">
