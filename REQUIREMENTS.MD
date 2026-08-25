@@ -12,8 +12,8 @@
 > them (BR-47 … BR-55). Two items need a business decision first, marked **OPEN** in §10.
 > **FR-12 Reference data (2026-08-25)** — replaces free-text and hard-coded lists with managed
 > lookup tables: user types, job positions, departments, statuses (staff, customer, and sale),
-> product categories, units, stock transaction types, sale item types, and customer payment
-> methods (BR-56 … BR-63). Closes deviation D-05.
+> product categories, expense categories, units, stock transaction types, sale item types, and
+> payment methods for customers, suppliers, and expenses (BR-56 … BR-64). Closes deviation D-05.
 > **Platform (2026-08-25)** — the backend is being rebuilt on **NestJS**. This document describes
 > required *behaviour*, which is unchanged by that; but the permission model in §3.2 was inherited
 > from Django and does not survive the move. It needs redesigning — see §10.3.
@@ -243,7 +243,7 @@ form and defaults sensibly. *(OPEN — see §10.1.)*
 
 ### FR-12 — Reference data · *not yet implemented*
 
-Six vocabularies the business should own and maintain, instead of them being free text typed
+Ten vocabularies the business should own and maintain, instead of them being free text typed
 into every record or a fixed list buried in the source code.
 
 | List | Replaces | Applies to |
@@ -251,13 +251,13 @@ into every record or a fixed list buried in the source code.
 | **User types** | `is_superuser`, `is_staff`, `is_manager` booleans | Staff accounts |
 | **Job positions** | free-text `position` | Staff accounts |
 | **Departments** | free-text `department` | Staff accounts |
-| **Statuses** | hard-coded `status` values | Staff accounts, customers |
+| **Statuses** | hard-coded `status` values | Staff accounts, customers, sales |
 | **Categories** | free-text `category` | Inventory |
+| **Expense categories** | hard-coded `category` values | Expenses |
 | **Units** | hard-coded `unit` values | Inventory |
 | **Transaction types** | hard-coded `transaction_type` values | Stock movements |
-| **Sale statuses** | hard-coded `status` values | Sales |
 | **Item types** | hard-coded `item_type` values | Sale line items |
-| **Payment methods** | hard-coded `method` values | Sale payments, customer payment batches |
+| **Payment methods** | hard-coded `method` values and free-text `payment_method` | Sale payments, customer payment batches, supplier payments, expenses |
 
 Plus one more that is not a new list at all: an inventory item's **supplier** stops being typed
 text and becomes a reference to the supplier record that already exists (FR-04.1.1).
@@ -391,14 +391,53 @@ built, not listed.
 sale payments and customer payment batches. The two must always agree: a batch and the payments
 it generates record the same method (BR-19).
 
-**BR-62** — Payment methods are **scoped**. A customer payment can only use a customer method and
-a supplier payment a supplier method. LC, TT, and bank exist for suppliers and must never appear
-on a customer receipt.
+**BR-62** — Payment methods are **scoped**, and there are three scopes: **customer**,
+**supplier**, and **expense**. A customer payment may only use a customer method, a supplier
+payment a supplier method, and an expense an expense method. LC, TT, and bank exist for suppliers
+and must never appear on a customer receipt.
 
-**FR-12.9.2** — **Supplier payment methods (RD-06) are not converted.** They stay a fixed list,
-because BR-29 — the rule requiring a reference number for LC, cheque, TT, and bank — depends on
-reading the method directly. Converting them needs the same treatment FR-12.8 describes, and is a
-small follow-on change rather than part of this one.
+**FR-12.9.2** — **Supplier payment methods (RD-06) are converted too**, under the `supplier`
+scope. This reverses the earlier decision to leave them as a fixed list.
+
+**BR-64** — A supplier payment records its method **together with the method's code**, and the two
+can never disagree. This is the same device FR-12.8 uses for sale statuses and item types, and it
+is here for the same reason: BR-29 has to read the method from the payment row itself.
+
+> **BR-29 is what made this need care rather than a rename.** The rule that LC, cheque, TT, and
+> bank payments must carry a reference number, and cash need not, is a check on a single payment
+> row — it cannot look the method up in another table. Keeping the code on the row is what lets it
+> go on working untouched. The practical consequence matches FR-12.8's: the codes `lc`, `check`,
+> `tt`, `cash`, and `bank` are load-bearing and fixed (BR-59); the labels are free.
+>
+> **Adding a new supplier method is permitted, and it fails safe.** A payment using an unfamiliar
+> code is accepted, and BR-29 then requires a reference number for it, because the rule exempts
+> `cash` alone. A new instrument therefore errs toward demanding a trace, which is the right
+> default for a method nobody has written code for yet. Contrast FR-12.8.4, where a new item type
+> is refused outright — an item type describes a differently *shaped* record, a payment method
+> only a differently *named* one.
+
+#### FR-12.10 — Expense categories and expense payment methods
+
+**FR-12.10.1** — The eight expense categories (RD-05) become a managed list. Nothing in the
+application branches on which category an expense carries — it is pure classification — so the
+business can own it outright, and a ninth category needs no deployment.
+
+**FR-12.10.2** — Each entry keeps a stable code alongside its label, even though no logic reads
+it, because every expense already on file records one and saved report filters are written in
+terms of them. Renaming *Supplies* to *Consumables* must not silently re-file years of history.
+
+**FR-12.10.3** — An expense's **payment method** stops being free text and becomes a reference to
+the payment methods list (FR-12.9) under the `expense` scope. It stays **optional**: an expense
+may be recorded without stating how it was settled, exactly as today.
+
+**FR-12.10.4** — The expense list's category filter (FR-06.4) and the expenses-by-category report
+(FR-09.1) both read the list rather than a fixed set, so a new category appears in both with no
+code change.
+
+**FR-12.10.5** — Because the column being replaced was never validated, the migration harvests
+whatever distinct values it already holds into the list, the same way job positions and
+departments are harvested (FR-12.2). Someone has to look at the result and merge the
+near-duplicates before it becomes permanent.
 
 #### FR-12.6 — Lists that deliberately stay fixed
 
@@ -406,18 +445,22 @@ Not every enumerated value should become editable data. These stay hard-coded, o
 
 | Stays fixed | Why |
 |-------------|-----|
-| Supplier payment methods (RD-06) | BR-29 keys off `cash` specifically; the rule requiring reference numbers reads the value directly. See FR-12.9.2. |
 | Claim states (RD-08) | Drive the approval workflow and BR-35. |
 | Ledger types and sources (RD-11) | The balance calculation depends on `credit` / `debit`. |
-| Expense categories (RD-05) | Not requested. A reasonable future candidate — it is pure classification with no logic attached. |
 
 **The dividing line:** a value that **code branches on** must not be user-editable. A value that
 is **purely descriptive** should be.
 
-Stock movement types, sale statuses, item types, and customer payment methods all sat in the
-table above before FR-12.7 through FR-12.9 moved them out. They show that the line is about
-*editability*, not about living in a table: their codes stay fixed and only labels change, so the
-code branching on them is unaffected. Any list can move into a table on those terms.
+Stock movement types, sale statuses, item types, expense categories, and every payment method —
+customer, supplier, and expense — all sat in the table above before FR-12.7 through FR-12.10
+moved them out. They show that the line is about *editability*, not about living in a table:
+their codes stay fixed and only labels change, so the code branching on them is unaffected. Any
+list can move into a table on those terms.
+
+Two rules is all that is left, and both are there because the balance sheet and the approval
+workflow read their values directly. That is the shape of the remaining list: not "things we
+never got round to", but the handful of values where inventing a new one would mean inventing a
+behaviour to go with it.
 
 What must not happen is a list whose **values** the business can invent while code elsewhere
 assumes it knows them all. Two safeguards keep that from happening here — codes are immutable
@@ -726,9 +769,11 @@ the purchase price, and both are saved atomically or not at all.
 ### FR-06 — Expenses
 
 **FR-06.1** — An expense records date, category, description, amount, payee, receipt
-number, payment method, and notes.
+number, payment method, and notes. **Category** and **payment method** are chosen from managed
+lists (FR-12.10), not typed as free text. Category is required; payment method is optional.
 
-**FR-06.2** — Eight fixed categories apply (see RD-05).
+**FR-06.2** — Categories come from the expense categories list, seeded with the eight in RD-05
+and extensible without a code change (FR-12.10.1).
 
 **FR-06.3** — Search across description, payee, and receipt number.
 
@@ -885,10 +930,14 @@ Cash · Bank transfer · Card · Cheque · Other
 
 ### RD-05 — Expense categories
 Salary · Utilities · Maintenance · Transport · Supplies · Rent · Marketing · Other
+*Under FR-12.10 this is seed content for the `expense_categories` list, not a fixed set. Codes
+`salary` … `other` remain stable (BR-59); labels are editable and the list is extensible.*
 
 ### RD-06 — Supplier payment methods
 LC · Cheque · TT · Cash · Bank
-*Not converted — see FR-12.9.2. BR-29 reads these values directly.*
+*Under FR-12.9.2 this is seed content for the `payment_methods` list, scope `supplier`. The codes
+`lc`, `check`, `tt`, `cash`, and `bank` are load-bearing — BR-29 reads them from the payment row
+itself (BR-64) — and are immutable; labels are editable.*
 
 ### RD-07 — Stock movement types
 
@@ -926,7 +975,7 @@ Sources: Sale payment · Expense · Supplier payment · Other
 | Customers, inventory, expenses, sales, suppliers, ledger | 10 |
 | Stock movement history | 20 |
 | Shops | 10 |
-| Reference lists (user types, positions, departments, statuses, categories, units) | 25 |
+| Reference lists (user types, positions, departments, statuses, categories, expense categories, units, payment methods) | 25 |
 
 ### RD-13 — Shop status
 Active · Inactive
@@ -945,6 +994,12 @@ Owner · Manager · Finance · Employee
 confers, and are read from the type — never copied onto the account (BR-56). Finance currently
 confers no elevated privilege; it exists to classify staff and to hold permissions once §10.3 is
 settled.*
+
+### RD-15 — Expense payment methods
+Cash · Bank transfer · Cheque · Card · Other
+*Seed content for the `payment_methods` list, scope `expense` (FR-12.10.3). The column this
+replaces was free text and was never validated, so the migration also harvests whatever distinct
+values it already holds (FR-12.10.5) — see [DB_DESIGN.MD](DB_DESIGN.MD) §23.5.*
 
 ---
 

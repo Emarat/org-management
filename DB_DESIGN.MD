@@ -117,12 +117,15 @@ erDiagram
     STATUS       ||--o{ CUSTOMUSER                : "state of"
     STATUS       ||--o{ CUSTOMER                  : "state of"
     CATEGORY     ||--o{ INVENTORYITEM             : classifies
+    EXPENSECATEGORY ||--o{ EXPENSE                 : classifies
     UNIT         ||--o{ INVENTORYITEM             : measures
     TRANSACTIONTYPE ||--o{ STOCKHISTORY           : classifies
     STATUS       ||--o{ SALE                      : "state of"
     ITEMTYPE     ||--o{ SALEITEM                  : classifies
     PAYMENTMETHOD ||--o{ SALEPAYMENT              : "paid by"
     PAYMENTMETHOD ||--o{ CUSTOMERPAYMENTBATCH     : "paid by"
+    PAYMENTMETHOD ||--o{ SUPPLIERPURCHASEPAYMENT  : "paid by"
+    PAYMENTMETHOD ||--o{ EXPENSE                  : "paid by"
     SUPPLIER     ||--o{ INVENTORYITEM             : "supplies stock"
 
     SHOP         ||--o{ CUSTOMER                  : registers
@@ -159,10 +162,11 @@ erDiagram
 The dotted lines from `LEDGERENTRY` are deliberate: the ledger links to its sources by a **text
 reference**, not a foreign key. §7 explains why that is a weakness and what to do about it.
 
-The thirteen lookup relations at the top are FR-12 reference data — §23 defines them. `STATUS`
+The sixteen lookup relations at the top are FR-12 reference data — §23 defines them. `STATUS`
 reaches three tables but is *scoped*, so a customer can never take a staff status nor a sale a
-customer one; §23.2 shows how that is enforced. `PAYMENTMETHOD` is scoped the same way, which is
-what keeps a supplier-only method such as LC off a customer receipt. `SUPPLIER` now appears twice: as the seller in `SUPPLIERPURCHASE`, and as the
+customer one; §23.2 shows how that is enforced. `PAYMENTMETHOD` reaches four tables and is scoped
+the same way, across three scopes — customer, supplier, and expense — which is what keeps a
+supplier-only method such as LC off a customer receipt. `SUPPLIER` now appears twice: as the seller in `SUPPLIERPURCHASE`, and as the
 source of an `INVENTORYITEM` — the join that deviation D-05 made impossible.
 
 `SHOP` sits above three branches of the graph and nothing else. Suppliers, expenses, bill claims,
@@ -175,7 +179,7 @@ stock (BR-50) is not a line on this diagram — it is a constraint across three 
 | Parent → Child | Rule | Why |
 |----------------|------|-----|
 | **Shop → Customer, InventoryItem, Sale** | **`RESTRICT`** | BR-48: a shop holding any trading record cannot be deleted. Retire it by deactivating instead. |
-| **Any reference list → the records using it** | **`RESTRICT`** | BR-60: a user type, status, position, department, category, or unit in use cannot be deleted. Deactivate instead. |
+| **Any reference list → the records using it** | **`RESTRICT`** | BR-60: a user type, status, position, department, category, expense category, unit, or payment method in use cannot be deleted. Deactivate instead. |
 | Customer → Sale | `CASCADE` | BR-21: no financial record outlives its customer. |
 | Sale → SaleItem, SalePayment | `CASCADE` | Line items and payments have no meaning without the sale. |
 | Sale → CustomerPaymentAllocation | `CASCADE` | Allocation is a link row. |
@@ -1022,24 +1026,31 @@ CREATE TABLE supplier_purchase_payments (
     receipt_number   varchar(100)  NOT NULL UNIQUE,   -- RD-01 'SPAY-20260819-A1B2C3'
     amount           numeric(14,2) NOT NULL,
     payment_date     date          NOT NULL,
-    method           varchar(20)   NOT NULL DEFAULT 'cash',
+    payment_method_id bigint       NOT NULL,          -- FR-12.9.2, RD-06
+    payment_scope    varchar(20)   NOT NULL DEFAULT 'supplier',
+    method_code      varchar(30)   NOT NULL,          -- denormalised, pinned by the composite FK
     reference_number varchar(100)  NOT NULL DEFAULT '',
     notes            text          NOT NULL DEFAULT '',
     created_at       timestamptz   NOT NULL,
     updated_at       timestamptz   NOT NULL,
 
-    CONSTRAINT supplierpayment_method_valid                   -- [H] RD-06
-        CHECK (method IN ('lc','check','tt','cash','bank')),
+    CONSTRAINT supplierpayment_scope_pinned                   -- BR-62
+        CHECK (payment_scope = 'supplier'),
+    CONSTRAINT fk_supplierpayment_method                      -- BR-64
+        FOREIGN KEY (payment_method_id, payment_scope, method_code)
+        REFERENCES payment_methods(id, scope, code)
+        ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED,
     CONSTRAINT supplierpayment_amount_positive                -- [H]
         CHECK (amount > 0),
 
     -- [H] BR-29 — the rule that distinguishes traceable payment methods from cash
     CONSTRAINT supplierpayment_reference_required CHECK (
-        method = 'cash' OR btrim(reference_number) <> ''
+        method_code = 'cash' OR btrim(reference_number) <> ''
     )
 );
 
 CREATE INDEX idx_supplierpayment_purchase ON supplier_purchase_payments (purchase_id);
+CREATE INDEX idx_supplierpayment_method   ON supplier_purchase_payments (payment_method_id);
 ```
 
 **`supplierpayment_reference_required` encodes BR-29 exactly.** LC, cheque, TT, and bank payments
@@ -1048,6 +1059,26 @@ one cannot be reconciled against a bank statement. Cash has no instrument, so it
 rule is currently enforced twice in Python (in the form's `clean()` and again in the model's
 `clean()`), and `Model.clean()` does not run on `save()` — so a payment created programmatically
 bypasses both. This constraint does not.
+
+**`method_code` is why BR-29 survives the move to a lookup table** (FR-12.9.2, BR-64). The method
+used to be an enumerated `varchar` the constraint could read directly. Replacing it with
+`payment_method_id` alone would have made the rule inexpressible — a `CHECK` sees one row of one
+table and cannot join to find out whether that id means `cash`. So the row carries the code as
+well, and the three columns are held together by one composite foreign key onto
+`payment_methods(id, scope, code)`, exactly as `sales` does for its status (§6). Setting
+`method_code` to a value that does not belong to `payment_method_id` is rejected. The application
+sets the pair together, or better, from one helper.
+
+`supplierpayment_method_valid` is gone with it: the foreign key does the same job strictly better,
+admitting whatever the business has configured under the `supplier` scope and nothing else, where
+the `CHECK` admitted a set frozen at migration time.
+
+**Adding a new supplier method is allowed here, and it fails closed.** Unlike `item_types`, where
+a third code is rejected outright (§6), a new payment method simply works: BR-29 exempts `cash`
+alone, so any unfamiliar code lands on the branch that *requires* a reference number. A new
+instrument therefore errs toward demanding a trace rather than skipping one — the right default
+for a method no code has been written for. The one code that must never be added under another
+name is `cash` itself, since it is the only value that switches the rule off.
 
 ---
 
@@ -1059,29 +1090,51 @@ bypasses both. This constraint does not.
 CREATE TABLE expenses (
     id             bigint        NOT NULL PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
     date           date          NOT NULL,
-    category       varchar(50)   NOT NULL,
+    expense_category_id bigint    NOT NULL          -- FR-12.10.1, RD-05
+        REFERENCES expense_categories(id) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED,
     description    text          NOT NULL,
     amount         numeric(14,2) NOT NULL,       -- [H] widened from numeric(10,2)
     paid_to        varchar(200)  NOT NULL DEFAULT '',
     receipt_number varchar(100)  NOT NULL DEFAULT '',
-    payment_method varchar(50)   NOT NULL DEFAULT '',
+    payment_method_id bigint     NULL,           -- FR-12.10.3, optional
+    payment_scope  varchar(20)   NOT NULL DEFAULT 'expense',
     notes          text          NOT NULL DEFAULT '',
     created_at     timestamptz   NOT NULL,
     updated_at     timestamptz   NOT NULL,
 
-    CONSTRAINT expense_category_valid CHECK (category IN (    -- [H] RD-05
-        'salary','utilities','maintenance','transport',
-        'supplies','rent','marketing','other')),
+    CONSTRAINT expenses_scope_pinned                          -- BR-62
+        CHECK (payment_scope = 'expense'),
+    CONSTRAINT fk_expenses_method
+        FOREIGN KEY (payment_method_id, payment_scope) REFERENCES payment_methods(id, scope)
+        ON UPDATE CASCADE DEFERRABLE INITIALLY DEFERRED,
     CONSTRAINT expense_amount_non_negative CHECK (amount >= 0) -- [H]
 );
 
 CREATE INDEX idx_expense_date     ON expenses (date DESC, created_at DESC); -- [H] list order
-CREATE INDEX idx_expense_category ON expenses (category);                   -- [H] FR-06.4
+CREATE INDEX idx_expense_category ON expenses (expense_category_id);        -- [H] FR-06.4
+CREATE INDEX idx_expense_method   ON expenses (payment_method_id);
 ```
 
-`payment_method` is free text here, unlike everywhere else in the schema. That is intentional and
-matches the requirement: an expense may be settled by any means the business happens to use, and
-FR-06 defines no fixed list for it (RD-04 and RD-06 govern customer and supplier payments only).
+**Both classifications are now references** (FR-12.10). `category` was an enumerated `varchar`
+guarded by `expense_category_valid`; `payment_method` was free text, the one uncontrolled
+vocabulary left in the schema. The `CHECK` is gone because the foreign key subsumes it, and the
+free text is gone because "Bank", "bank transfer", and "BANK TRF" were three categories as far as
+any report was concerned.
+
+**The category is `NOT NULL`; the payment method is not.** That matches FR-06.1 — every expense is
+classified, but not every expense records an instrument. `ON DELETE RESTRICT` on both is BR-60: a
+category or method in use is deactivated, never deleted.
+
+**A nullable composite foreign key needs no special case.** Under the default `MATCH SIMPLE` a
+composite FK is not checked when any of its columns is `NULL`, so `payment_scope` stays pinned to
+`'expense'` on every row while the reference itself remains optional. This is the same mechanism
+that exempts machine lines from the stock-shop rule in §6, and it is worth recognising as a
+pattern rather than rediscovering per table.
+
+**No denormalised `method_code` here, unlike supplier payments.** Nothing reads an expense's
+payment method: there is no BR-29 equivalent on this table, no `CHECK` that branches on it, and no
+partial index built over it. The copy would be pure cost. Add one only if a rule ever needs to
+read the value from the expense row itself — the pattern is in §8.
 
 ### `bill_claims`
 
@@ -1396,7 +1449,7 @@ cannot express — they are not weaker, but they carry no second line of defence
 | BR-26 unit/box movements separate | Two rows per mixed movement | App only |
 | BR-27 sold product not deletable | `ON DELETE RESTRICT` | **DB** |
 | BR-28 purchase due derived | `paid_amount` + rollup trigger | **DB** |
-| **BR-29 reference required** | **`supplierpayment_reference_required`** | **DB** |
+| **BR-29 reference required** | **`supplierpayment_reference_required`**, rebuilt on `method_code` | **DB** |
 | **BR-30 purchase not overpaid** | **`purchase_not_overpaid` + rollup trigger** | **DB** |
 | BR-31 supplier FIFO order | `ORDER BY purchase_date, id`; `idx_purchase_fifo` | App + **DB** (index) |
 | BR-32 initial payment ≤ price | `purchase_not_overpaid` | **DB** |
@@ -1424,10 +1477,11 @@ cannot express — they are not weaker, but they carry no second line of defence
 | **BR-57 every account has one user type** | `user_type_id NOT NULL` | **DB** |
 | **BR-58 statuses confined to their scope** | `*_status_scope_pinned` + `fk_*_status` on users, customers, sales | **DB** |
 | BR-59 lookup codes immutable | No UI path to edit `code` | App only |
-| **BR-60 lookup in use not deletable** | `ON DELETE RESTRICT` on all seven lists | **DB** |
+| **BR-60 lookup in use not deletable** | `ON DELETE RESTRICT` on all ten lists | **DB** |
 | BR-61 transaction types structural | Label-only editing in the UI; `code` immutable | App only |
-| **BR-62 payment methods confined to their scope** | `*_scope_pinned` + `fk_*_method` | **DB** |
+| **BR-62 payment methods confined to their scope** | `*_scope_pinned` + `fk_*_method` on sale payments, batches, supplier payments, expenses | **DB** |
 | **BR-63 sale status / item type codes cannot drift** | Composite FKs onto `statuses(id,scope,code)` and `item_types(id,code)` | **DB** |
+| **BR-64 supplier payment method code cannot drift** | `fk_supplierpayment_method` onto `payment_methods(id,scope,code)` | **DB** |
 
 **Reading the table:** the rules that moved from "App only" to "**DB**" are exactly the ones where
 a bug, a race, or a manual query would otherwise produce silently wrong money. That is the whole
@@ -1552,6 +1606,17 @@ SELECT s.id, s.sale_number, s.status_code, st.code AS referenced_code
 SELECT i.id, i.item_type_code, t.code AS referenced_code
   FROM sale_items i JOIN item_types t ON t.id = i.item_type_id
  WHERE t.code <> i.item_type_code;
+
+-- FR-12.9.2 / BR-64: the same check for supplier payments. If this ever returns a row, BR-29
+-- has been reading a method the payment does not actually use.
+SELECT p.id, p.receipt_number, p.method_code, m.code AS referenced_code
+  FROM supplier_purchase_payments p JOIN payment_methods m ON m.id = p.payment_method_id
+ WHERE m.code <> p.method_code OR m.scope <> 'supplier';
+
+-- FR-12.9.2: traceable supplier payments missing a reference, restated on the new column.
+-- Equivalent to the H-04 query above; use this one after the §23.5 migration.
+SELECT id, receipt_number, method_code FROM supplier_purchase_payments
+ WHERE method_code <> 'cash' AND btrim(reference_number) = '';
 
 -- FR-12.7: movements whose recorded direction contradicts the numbers they record.
 -- A row typed 'out' whose stock went UP is silent corruption of the audit trail.
@@ -1705,19 +1770,27 @@ deliberately rather than rediscovered:
    often a list changes, but **whether code branches on its values**:
 
    - **Business vocabularies become tables** — user types, job positions, departments, statuses,
-     categories, units. Nothing in the application branches on *which* category a product has, so
-     the business can own the list. Each keeps a stable `code` for the few places logic does care
-     (`status = 'active'`), while the label stays freely editable.
+     categories, expense categories, units. Nothing in the application branches on *which*
+     category an item or an expense has, so the business can own the list. Each keeps a stable
+     `code` for the few places logic does care (`status = 'active'`), while the label stays
+     freely editable.
    - **Behavioural enumerations become tables only with a denormalised code** — sale states,
-     item types, stock movement types, customer payment methods. These were converted at the
-     business's request, and each keeps working only because the row carries a local copy of the
-     referenced `code`, pinned by a composite foreign key, so the constraints and partial indexes
-     that read it still can (§6, §23.2). The codes stay immutable under BR-59; only labels move.
-   - **What stays a plain `CHECK`** — claim states, ledger types and sources, supplier payment
-     methods. BR-29 keys off `method = 'cash'`; converting it needs the same denormalised-code
-     treatment, and it was not requested. A `CHECK` here means the list changes only when someone
-     edits the code that depends on it, which is the right friction for a value that drives a
-     safety rule.
+     item types, stock movement types, and payment methods for customers, suppliers, and
+     expenses. These were converted at the business's request, and each keeps working only
+     because the row carries a local copy of the referenced `code` where something reads it,
+     pinned by a composite foreign key, so the constraints and partial indexes still can (§6, §8,
+     §23.2). The codes stay immutable under BR-59; only labels move.
+   - **What stays a plain `CHECK`** — claim states, and ledger types and sources. Both drive
+     logic that would have to be written before a new value could mean anything: the approval
+     workflow in one case, the balance calculation in the other. A `CHECK` here means the list
+     changes only when someone edits the code that depends on it, which is the right friction for
+     a value that drives a safety rule.
+
+   Supplier payment methods were in that third group until FR-12.9.2 and are the clearest
+   illustration of why the group is small. BR-29 keys off `method = 'cash'`, so the conversion
+   was only safe once the row carried its own `method_code` (BR-64) — the same device sale
+   statuses needed. What decides the group is not whether a list *can* be converted, but whether
+   converting it leaves the rule that reads it still able to read it.
 
    The cost of the tables is a join on every list view, paid for by dropdowns that no longer need
    a deployment to change. REQUIREMENTS.MD FR-12.6 records which lists stayed fixed and why.
@@ -1913,6 +1986,32 @@ anything.
 parent rows before the cascade reaches the children, so the rollup triggers fire against sales
 that no longer exist. The `UPDATE` matches zero rows and the delete completes cleanly — no error,
 no special handling required.
+
+### Not yet verified
+
+The verification above predates two conversions and does **not** cover them: supplier payment
+methods moving to `payment_methods` under the `supplier` scope (FR-12.9.2, BR-64), and expenses
+gaining `expense_category_id` and `payment_method_id` (FR-12.10). The DDL for both follows
+patterns already proven here — the denormalised-code composite FK from Z4, the scope pinning from
+Z10, the nullable-composite-FK exemption from S7 — but *follows a proven pattern* is not the same
+claim as *was executed and tested*, and this document is careful about the difference.
+
+Before treating either as done, run at least:
+
+| # | Test | Expected |
+|---|------|----------|
+| Z13 | Supplier bank payment with no reference number | Rejected — `supplierpayment_reference_required`, rebuilt on `method_code` |
+| Z14 | Supplier cash payment with no reference number | Accepted (BR-29 exempts cash) |
+| Z15 | Set `method_code` to a value not belonging to `payment_method_id` | Rejected — `fk_supplierpayment_method` (BR-64) |
+| Z16 | Supplier payment using a **customer-scoped** method | Rejected — `fk_supplierpayment_method` (BR-62) |
+| Z17 | Add a sixth supplier method, then pay with it and no reference | **Rejected** — the fails-closed property in §8 |
+| Z18 | Expense with a category and no payment method | Accepted — nullable composite FK, `MATCH SIMPLE` |
+| Z19 | Expense using a **supplier-scoped** method | Rejected — `fk_expenses_method` (BR-62) |
+| Z20 | Delete an expense category that expenses reference | Rejected — `RESTRICT` (BR-60) |
+| Z21 | Expense with no category | Rejected — `expense_category_id` not-null |
+
+Z17 is the one worth running deliberately rather than assuming: it is the difference between a new
+payment method being *safe* and merely being *accepted*, and it is the opposite outcome from Z8.
 
 ### One operational detail the testing surfaced
 
@@ -2274,13 +2373,15 @@ migration — as the commitment point.
 
 ## 23. Reference data tables (FR-12)
 
-Six business-managed vocabularies, plus one column that stops being text and becomes a real
-foreign key. Verified against PostgreSQL 18 — see §20, tests N1–N12.
+Ten business-managed vocabularies, plus one column that stops being text and becomes a real
+foreign key. Verified against PostgreSQL 18 — see §20, tests N5–N12.
 
 > **Creation order.** These tables are defined here for readability, but they must exist
-> **before** `users`, `customers`, and `inventory_items`, which reference them. Building a
-> database from this document means: reference lists (§23.1–23.2) → `shops` (§4) → everything
-> else. Migrating an existing one follows §23.5 instead, where order is handled step by step.
+> **before** `users`, `customers`, `inventory_items`, `sales`, `sale_items`, `sale_payments`,
+> `customer_payment_batches`, `supplier_purchase_payments`, and `expenses`, all of which
+> reference them. Building a database from this document means: reference lists (§23.1–23.2) →
+> `shops` (§4) → everything else. Migrating an existing one follows §23.5 instead, where order is
+> handled step by step.
 
 ### 23.1 The shared shape
 
@@ -2344,6 +2445,19 @@ CREATE TABLE categories (
 );
 CREATE UNIQUE INDEX uq_categories_name_ci ON categories (lower(name));
 
+CREATE TABLE expense_categories (
+    id         bigint      NOT NULL PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
+    code       varchar(30) NOT NULL,      -- 'salary' | 'utilities' | … (RD-05)
+    label      varchar(60) NOT NULL,
+    sort_order integer     NOT NULL DEFAULT 0,
+    is_active  boolean     NOT NULL DEFAULT true,
+    created_at timestamptz NOT NULL,
+    updated_at timestamptz NOT NULL,
+    CONSTRAINT expense_categories_code_shape CHECK (code ~ '^[a-z][a-z0-9_]*$')
+);
+CREATE UNIQUE INDEX uq_expense_categories_code     ON expense_categories (code);
+CREATE UNIQUE INDEX uq_expense_categories_label_ci ON expense_categories (lower(label));
+
 CREATE TABLE units (
     id         bigint      NOT NULL PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
     code       varchar(20) NOT NULL,      -- 'pcs' | 'box' | 'kg' | 'ltr' | 'mtr'
@@ -2381,23 +2495,42 @@ CREATE UNIQUE INDEX uq_item_types_code ON item_types (code);
 
 CREATE TABLE payment_methods (
     id         bigint      NOT NULL PRIMARY KEY GENERATED BY DEFAULT AS IDENTITY,
-    scope      varchar(20) NOT NULL,      -- 'customer' | 'supplier'
+    scope      varchar(20) NOT NULL,      -- 'customer' | 'supplier' | 'expense'
     code       varchar(30) NOT NULL,
     label      varchar(60) NOT NULL,
     sort_order integer     NOT NULL DEFAULT 0,
     is_active  boolean     NOT NULL DEFAULT true,
-    CONSTRAINT payment_methods_scope_valid CHECK (scope IN ('customer','supplier')),
+    CONSTRAINT payment_methods_scope_valid
+        CHECK (scope IN ('customer','supplier','expense')),
     CONSTRAINT payment_methods_code_shape  CHECK (code ~ '^[a-z][a-z0-9_]*$'),
     CONSTRAINT uq_payment_methods_scope_code UNIQUE (scope, code),
-    CONSTRAINT uq_payment_methods_id_scope   UNIQUE (id, scope)   -- composite target
+    CONSTRAINT uq_payment_methods_id_scope   UNIQUE (id, scope),        -- 2-col target
+    CONSTRAINT uq_payment_methods_id_scope_code
+        UNIQUE (id, scope, code)                                        -- 3-col target, BR-64
 );
 ```
 
-**`payment_methods` is scoped from the start, even though only one scope is used today.**
-Customers pay by cash, bank transfer, card, cheque, or other (RD-04); suppliers by LC, cheque,
-TT, cash, or bank (RD-06). Those are different lists, and an unscoped table would let a customer
-receipt record `lc`. Only the `customer` scope is currently referenced — see the note on supplier
-payments at the end of §23.2.
+**`payment_methods` carries three scopes, and all three are now in use.** Customers pay by cash,
+bank transfer, card, cheque, or other (RD-04); suppliers by LC, cheque, TT, cash, or bank (RD-06);
+expenses by whatever the business settles them with (RD-15). Those are three different lists that
+happen to share a shape, and an unscoped table would let a customer receipt record `lc`.
+
+**Two composite targets, because the consumers need different things.** Sale payments, customer
+payment batches, and expenses reference `(id, scope)` — they have no constraint or index that
+reads the code, so they do not pay for a copy of it. Supplier payments reference
+`(id, scope, code)`, because BR-29 has to read the method from the payment row itself (§8, BR-64).
+The same split appears on `statuses` in §23.2 for the same reason, and the rule behind it is
+worth stating plainly: **carry the denormalised code only where a `CHECK` or a partial index
+needs it locally.** Everywhere else it is a copy to keep honest for no benefit.
+
+**`expense_categories` keeps a code, where product `categories` does not.** The rule stated
+above — names-only for lists with no logic keyed on them — would put expense categories in the
+name-only camp, since nothing branches on them either. They get a code anyway for a historical
+reason: the column being replaced already holds codes (`salary`, `utilities`, …), every expense
+on file records one, and report filters and saved URLs are written in terms of them. Keeping the
+code makes the backfill a join on equality instead of a fuzzy name match, and means relabelling
+*Supplies* to *Consumables* re-files nothing (FR-12.10.2). Product categories have no such
+history — they were free text from the start — so there is nothing to preserve.
 
 **Case-insensitive uniqueness on every name.** Without it, "Sales" and "sales" become two
 departments and every report splits in half. The `code ~ '^[a-z][a-z0-9_]*$'` check keeps codes
@@ -2489,22 +2622,25 @@ FR-12.3 asks for one statuses list. Both are defensible. What is **not** defensi
 table with a plain `status_id` and no guard, which is the version that lets a customer go on
 leave.
 
-**Supplier payment methods deliberately stay a `CHECK`.** `supplier_purchase_payments.method`
-was not part of the request and has not been converted, which leaves the schema momentarily
-asymmetric: customer-side payments reference `payment_methods`, supplier-side ones keep an
-enumerated column. The reason to be careful there is BR-29:
+**Supplier payment methods are converted too, and BR-29 is why they took the long route.**
+An earlier version of this document left `supplier_purchase_payments.method` as an enumerated
+column, because the rule forcing a reference number on LC, cheque, TT, and bank payments reads
+the method directly:
 
 ```sql
 CONSTRAINT supplierpayment_reference_required
-    CHECK (method = 'cash' OR btrim(reference_number) <> '')
+    CHECK (method_code = 'cash' OR btrim(reference_number) <> '')
 ```
 
-That is the rule forcing a reference number on LC, cheque, TT, and bank payments — the only trace
-linking a payment to a bank statement. Converting the column means the same treatment `sales`
-received: a denormalised `method_code` pinned by a composite foreign key, so the check can still
-read the value locally. It is a small, well-understood change, and the pattern is already proven
-here twice; it simply was not asked for. Until it happens, seed only the `customer` scope of
-`payment_methods` — a `supplier` scope with nothing pointing at it is dead data.
+FR-12.9.2 converts it anyway, using the treatment `sales` already receives: a denormalised
+`method_code` pinned by a composite foreign key onto `payment_methods(id, scope, code)`, so the
+check goes on reading the value from the row it is checking. The full DDL is in §8. All three
+scopes of `payment_methods` are therefore seeded and referenced — none is dead data.
+
+**Expenses reference the same table under an `expense` scope** (FR-12.10.3), and are the one
+consumer whose reference is *optional*; §9 covers how a nullable composite foreign key behaves.
+The column they replace was free text rather than an enumeration, so unlike every other conversion
+here the migration has to harvest its existing values before it can match them — §23.5, Step 2.
 
 > PostgreSQL 12+ would also accept `status_scope varchar(20) GENERATED ALWAYS AS ('user') STORED`,
 > which removes any chance of the application writing the wrong value. It is not used here
@@ -2603,17 +2739,28 @@ ALTER TABLE sale_payments DROP CONSTRAINT salepayment_method_valid;
 
 ALTER TABLE customer_payment_batches DROP COLUMN method;
 ALTER TABLE customer_payment_batches DROP CONSTRAINT batch_method_valid;
+
+ALTER TABLE supplier_purchase_payments DROP COLUMN method;
+ALTER TABLE supplier_purchase_payments DROP CONSTRAINT supplierpayment_method_valid;
+
+ALTER TABLE expenses DROP COLUMN category, DROP COLUMN payment_method;
+ALTER TABLE expenses DROP CONSTRAINT expense_category_valid;
 ```
 
-Two constraints are **rebuilt rather than dropped** — `sale_finalized_has_timestamp` and
-`saleitem_kind_consistent` — because they carry real guarantees. Each is recreated against the
-denormalised `*_code` column so it keeps working; the sequence is in §23.5. Dropping them and
-relying on application checks instead would give up the two invariants this document argues
-hardest for.
+Three constraints are **rebuilt rather than dropped** — `sale_finalized_has_timestamp`,
+`saleitem_kind_consistent`, and `supplierpayment_reference_required` — because they carry real
+guarantees. Each is recreated against the denormalised `*_code` column so it keeps working; the
+sequence is in §23.5. Dropping them and relying on application checks instead would give up the
+three invariants this document argues hardest for.
 
-The three `CHECK` constraints go because the foreign keys now do the same job better: a `CHECK`
-admits a fixed set decided at migration time, a foreign key admits whatever the business has
-configured — and still admits nothing else.
+The remaining `CHECK` constraints go because the foreign keys now do the same job better: a
+`CHECK` admits a fixed set decided at migration time, a foreign key admits whatever the business
+has configured — and still admits nothing else.
+
+**`expenses.payment_method` is the only column here that was not an enumeration**, so it is the
+only one whose dropped values were never constrained to anything. Everything it held is preserved
+as `payment_methods` rows by the harvest in §23.5, Step 2 — but that harvest is the *only* record
+of them, so run it before this drop and look at what it produced.
 
 **H-11 is now closed.** The hardening item proposing `inventory_items.supplier` become a foreign
 key is superseded by FR-12; deviation D-05 goes with it.
@@ -2622,9 +2769,11 @@ key is superseded by FR-12; deviation D-05 goes with it.
 
 Steps 1–2 are additive and safe. Step 3 is the one that needs a person.
 
-**Step 1 — create and seed.** Seven tables, then their starting content: user types per RD-14,
-statuses per RD-09 and RD-10, units per RD-02, transaction types per RD-07. Positions,
-departments, and categories start empty and are filled from existing data in the next step.
+**Step 1 — create and seed.** Ten tables, then their starting content: user types per RD-14,
+statuses per RD-09, RD-10, and RD-03, units per RD-02, transaction types per RD-07, item types,
+expense categories per RD-05, and payment methods per RD-04, RD-06, and RD-15. Positions,
+departments, and product categories start empty and are filled from existing data in the next
+step.
 
 ```sql
 INSERT INTO transaction_types (code, label, direction, sort_order) VALUES
@@ -2637,11 +2786,33 @@ INSERT INTO statuses (scope, code, label, sort_order) VALUES
  ('sale','quote','Quotation',1), ('sale','draft','Draft',2),
  ('sale','finalized','Finalized',3), ('sale','cancelled','Cancelled',4);
 
+INSERT INTO expense_categories (code, label, sort_order, created_at, updated_at) VALUES
+ ('salary','Salary',1,now(),now()),           ('utilities','Utilities',2,now(),now()),
+ ('maintenance','Maintenance',3,now(),now()), ('transport','Transport',4,now(),now()),
+ ('supplies','Supplies',5,now(),now()),       ('rent','Rent',6,now(),now()),
+ ('marketing','Marketing',7,now(),now()),     ('other','Other',8,now(),now());
+
 INSERT INTO payment_methods (scope, code, label, sort_order) VALUES
  ('customer','cash','Cash',1), ('customer','bank_transfer','Bank Transfer',2),
  ('customer','card','Card',3), ('customer','cheque','Cheque',4),
- ('customer','other','Other',5);
+ ('customer','other','Other',5),
+ -- RD-06: codes are load-bearing (BR-29 / BR-64). Note 'check', not 'cheque' —
+ -- it is the value the existing column holds, and changing it would break the backfill.
+ ('supplier','lc','LC',1),     ('supplier','check','Cheque',2),
+ ('supplier','tt','TT',3),     ('supplier','cash','Cash',4),
+ ('supplier','bank','Bank',5),
+ -- RD-15: expenses. Step 2 adds whatever else the free-text column already holds.
+ ('expense','cash','Cash',1),  ('expense','bank_transfer','Bank Transfer',2),
+ ('expense','cheque','Cheque',3), ('expense','card','Card',4),
+ ('expense','other','Other',5);
 ```
+
+**The two `cheque` spellings are not a mistake.** The customer and expense scopes use `cheque`;
+the supplier scope uses `check`, because that is the value five years of
+`supplier_purchase_payments` rows already carry and BR-29 reads it. Scopes are independent
+namespaces — `uq_payment_methods_scope_code` is on `(scope, code)` — so the two coexist without
+colliding. Normalising them would mean an `UPDATE` over historical payment rows to gain nothing a
+label cannot give.
 
 **Step 2 — harvest the free text.** The existing columns become the seed for three of the lists:
 
@@ -2660,11 +2831,37 @@ INSERT INTO categories (name, created_at, updated_at)
 SELECT DISTINCT btrim(category), now(), now() FROM inventory_items
  WHERE btrim(category) <> ''
 ON CONFLICT DO NOTHING;
+
+-- FR-12.10.5: expense payment methods. Unlike the three above this list is seeded (RD-15),
+-- so harvest only what the seed does not already cover, matched case-insensitively on label.
+INSERT INTO payment_methods (scope, code, label, sort_order)
+SELECT 'expense',
+       regexp_replace(lower(btrim(e.payment_method)), '[^a-z0-9]+', '_', 'g'),
+       btrim(e.payment_method),
+       100
+  FROM (SELECT DISTINCT btrim(payment_method) AS payment_method
+          FROM expenses WHERE btrim(payment_method) <> '') e
+ WHERE NOT EXISTS (SELECT 1 FROM payment_methods m
+                    WHERE m.scope = 'expense'
+                      AND lower(m.label) = lower(btrim(e.payment_method)))
+ON CONFLICT DO NOTHING;
 ```
 
 Look at the result before continuing. Free text accumulates near-duplicates — "Sales",
 "sales ", "Sales Dept" — and this is the one moment when merging them is cheap. Every row created
 here becomes a permanent entry someone has to live with.
+
+**The expense harvest needs the closest look of the four**, because it is the only column that was
+never validated at all, and because a generated code is permanent under BR-59. `regexp_replace`
+turns "Bank Transfer" into `bank_transfer` — which then collides with the seeded row and is
+skipped, correctly — but it turns "b/kash" into `b_kash` and "N/A" into `n_a`. Review the
+generated codes, fix them here while nothing references them, and delete the rows that are noise
+rather than methods before running Step 3:
+
+```sql
+SELECT code, label FROM payment_methods
+ WHERE scope = 'expense' AND sort_order = 100 ORDER BY label;
+```
 
 **Step 3 — match back, and accept that supplier will not fully match.**
 
@@ -2707,6 +2904,19 @@ UPDATE sale_payments p SET payment_method_id = m.id
 UPDATE customer_payment_batches b SET payment_method_id = m.id
   FROM payment_methods m WHERE m.scope = 'customer' AND m.code = b.method;
 
+-- supplier payments: id AND the denormalised code together (BR-64)
+UPDATE supplier_purchase_payments p SET payment_method_id = m.id, method_code = m.code
+  FROM payment_methods m WHERE m.scope = 'supplier' AND m.code = p.method;
+
+UPDATE expenses e SET expense_category_id = c.id
+  FROM expense_categories c WHERE c.code = e.category;
+
+-- optional column: rows with a blank payment_method are left NULL, which is correct
+UPDATE expenses e SET payment_method_id = m.id
+  FROM payment_methods m
+ WHERE m.scope = 'expense' AND lower(m.label) = lower(btrim(e.payment_method))
+   AND btrim(e.payment_method) <> '';
+
 -- best-effort only: this column was never validated against the supplier list
 UPDATE inventory_items i SET supplier_id = sp.id
   FROM suppliers sp WHERE lower(btrim(i.supplier)) = lower(sp.name);
@@ -2742,11 +2952,26 @@ SELECT count(*) FROM sales            WHERE status_id IS NULL OR status_code IS 
 SELECT count(*) FROM sale_items       WHERE item_type_id IS NULL OR item_type_code IS NULL;
 SELECT count(*) FROM sale_payments    WHERE payment_method_id IS NULL;
 SELECT count(*) FROM customer_payment_batches WHERE payment_method_id IS NULL;
+SELECT count(*) FROM supplier_purchase_payments
+ WHERE payment_method_id IS NULL OR method_code IS NULL;
+SELECT count(*) FROM expenses         WHERE expense_category_id IS NULL;
+
+-- expenses only: this one is ALLOWED to be non-zero — the reference is optional (FR-12.10.3).
+-- What must be zero is rows that HAD a payment method and failed to match one.
+SELECT count(*) FROM expenses
+ WHERE btrim(payment_method) <> '' AND payment_method_id IS NULL;
 ```
 
-All must be zero. `unit_id` is the one likeliest to fail, on rows whose `unit` was never one
-of the five valid codes. `transaction_type_id` should match completely — that column has always
-been constrained to the three codes.
+All must be zero, with the one flagged exception. `unit_id` is the one likeliest to fail, on rows
+whose `unit` was never one of the five valid codes. `transaction_type_id` should match
+completely — that column has always been constrained to the three codes.
+`supplier_purchase_payments.method` likewise: it has always been held to the five RD-06 codes, so
+a non-zero count there means the `CHECK` was added later than the data.
+
+The last query is the one that can legitimately surprise you. Any row it returns is an expense
+whose free-text method survived Step 2's harvest but did not match in Step 3 — normally a
+whitespace or casing difference the harvest folded away. Fix the label mapping and re-run Step 3
+rather than letting the value disappear at the drop.
 
 **Rebuilding the two behavioural constraints.** Do this after the backfill and before dropping
 the old columns, so nothing is unprotected in between:
@@ -2761,6 +2986,12 @@ ALTER TABLE sale_items ADD  CONSTRAINT saleitem_kind_consistent CHECK (
     (item_type_code = 'inventory'     AND inventory_item_id IS NOT NULL)
  OR (item_type_code = 'non_inventory' AND inventory_item_id IS NULL
                                       AND btrim(description) <> ''));
+
+-- BR-29, rebuilt against method_code (§8). Drop and recreate in one transaction: between the
+-- two statements a supplier payment could be written without a reference number.
+ALTER TABLE supplier_purchase_payments DROP CONSTRAINT supplierpayment_reference_required;
+ALTER TABLE supplier_purchase_payments ADD  CONSTRAINT supplierpayment_reference_required
+    CHECK (method_code = 'cash' OR btrim(reference_number) <> '');
 
 -- the two partial indexes have to be rebuilt against the new predicate column
 DROP INDEX idx_sale_fifo;
@@ -2789,6 +3020,20 @@ one release if you want a fallback; drop them in the next once the lists are cle
   is it active".
 - **Search by category** (FR-04.3) becomes a join — `category: { name: ILike(\`%${q}%\`) }` in
   TypeORM, `category: { name: { contains: q, mode: 'insensitive' } }` in Prisma.
+- **Expense filters and the by-category report** (FR-06.4, FR-09.1) group by
+  `expense_category_id` and display the label. Grouping by the label instead would re-bucket every
+  historical expense the moment someone renames a category — which is exactly what the retained
+  code exists to prevent.
+- **Supplier payment forms write the method as a pair.** `payment_method_id` and `method_code`
+  are set together, from the selected `payment_methods` row, never independently. One helper that
+  takes an id and returns both is the shape that cannot go wrong; the composite foreign key
+  rejects the row if it does.
+- **Payment method pickers must filter by scope.** A customer receipt offers `scope = 'customer'`,
+  a supplier payment `'supplier'`, an expense `'expense'`. An unfiltered picker will happily show
+  LC on a customer receipt and the database will then reject the save (BR-62) — a confusing error
+  for something the UI should never have offered.
+- **The expense payment method is nullable**, so its picker needs a blank option and its display
+  needs a fallback. It is the only reference in this set that may legitimately be absent.
 - **The Excel export** (FR-09.3) must select the label, not the id, or every report fills with
   integers. Load the relation.
 - **Every authorisation check** reads `user.userType.isSuperuser` / `.isManager` instead of a
