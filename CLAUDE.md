@@ -46,7 +46,9 @@ There is no linter/formatter configured for Python. Prettier is used only for no
 
 ### Python version
 
-Django 4.2 supports Python 3.8–3.12. On 3.13+ the app itself runs fine, but every test using the Django test client errors with `AttributeError: 'super' object has no attribute 'dicts'` (`django/template/context.py:__copy__`) — an upstream incompatibility, not a bug in this codebase. `psycopg2-binary==2.9.9` also has no wheel past 3.12 and fails to build, so a 3.13+ local env is SQLite-only. Use Python 3.12 or the Docker image (`python:3.11-slim`) when running tests or Postgres.
+Django 4.2 supports Python 3.8–3.12. On 3.13+ `copy.copy(super())` stopped returning an instance of the underlying class, which breaks `django/template/context.py:BaseContext.__copy__` with `AttributeError: 'super' object has no attribute 'dicts'` — an upstream incompatibility, not a bug in this codebase. It hit every template that pushes a context scope (the Django admin, `{% include %}`, inclusion tags) and every test using the Django test client.
+
+`org_management/compat.py:patch_template_context_copy()` restores the pre-3.13 semantics; `CoreConfig.ready()` calls it. The shim feature-detects the breakage, so it is a no-op on 3.12 and can stay in place after an upgrade. Postgres is still the remaining 3.13+ constraint — `psycopg2-binary` has no wheel past 3.12 there, so such a local env is SQLite-only. Use Python 3.12 or the Docker image (`python:3.11-slim`) for Postgres.
 
 ### DEBUG gotcha
 
