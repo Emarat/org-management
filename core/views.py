@@ -2189,6 +2189,19 @@ def sale_payments_export_pdf(request, pk):
         """Format currency without symbol"""
         return f"{float(val):,.2f}"
 
+    def hex_of(color):
+        """'#rrggbb' string for inline <font color="..."> markup.
+
+        Interpolating a reportlab Color object into markup emits
+        'Color(.06,.72,...)', which paraparser re-parses through
+        rl_extended_literal_eval -> ast.Str (removed in Python 3.12+).
+        """
+        return '#%02X%02X%02X' % (
+            int(round(color.red * 255)),
+            int(round(color.green * 255)),
+            int(round(color.blue * 255)),
+        )
+
     # ============== HEADER SECTION ==============
     # Two-column header: Brand on left, Document info on right
     header_left = []
@@ -2350,7 +2363,7 @@ def sale_payments_export_pdf(request, pk):
         ],
         [
             Paragraph("Total Paid", styles['TotalLabel']),
-            Paragraph(f'<font color="{success_color}">{fmt_currency(sale.total_paid)}</font>', styles['TotalValue']),
+            Paragraph(f'<font color="{hex_of(success_color)}">{fmt_currency(sale.total_paid)}</font>', styles['TotalValue']),
         ],
     ]
     
@@ -2358,7 +2371,7 @@ def sale_payments_export_pdf(request, pk):
     balance_color = danger_color if sale.balance_due > 0 else success_color
     totals_data.append([
         Paragraph("<b>Balance Due</b>", styles['TotalLabel']),
-        Paragraph(f'<font color="{balance_color}"><b>{fmt_currency(sale.balance_due)}</b></font>', styles['TotalValue']),
+        Paragraph(f'<font color="{hex_of(balance_color)}"><b>{fmt_currency(sale.balance_due)}</b></font>', styles['TotalValue']),
     ])
     
     totals_table = Table(totals_data, colWidths=[page_width * 0.50, page_width * 0.50])
